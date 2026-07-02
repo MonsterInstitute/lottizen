@@ -1,0 +1,5 @@
+# Live scraping dependencies (the scraper degrades gracefully without them:
+# it falls back to seeded sample data). CI installs these before scraping.
+playwright>=1.47      # headless Chromium render + XHR sniff (Akamai/Vue)
+beautifulsoup4>=4.12  # DOM fallback parser
+# After install, run once: playwright install chromium
