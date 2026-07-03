@@ -116,18 +116,37 @@ export default function GamePage({ params }: { params: { country: string; game: 
             How <em>{g.name}</em> works
           </h2>
           <div className="prose" style={{ marginTop: 8 }}>
-            <p>
-              Each {g.name} play costs <strong>${g.price.toFixed(2)} {g.currency}</strong> and asks you to
-              select <strong>{g.pick} numbers from 1 to {g.max}</strong>
-              {g.hasBonus ? `, plus a ${g.bonusLabel ?? "bonus"}${g.bonusMax ? ` from 1 to ${g.bonusMax}` : ""}` : ""}.
-              Draws take place <strong>{g.drawDays.join(" and ")}</strong>.
-            </p>
-            <h3>Match &amp; prize tiers</h3>
-            <p>
-              Match all {g.pick} main numbers{g.hasBonus ? ` (and the ${g.bonusLabel ?? "bonus"} where it applies)` : ""} to
-              win the jackpot; lower tiers pay for partial matches. Exact tiers and odds are set by {g.agency}.
-              Lottizen tracks the numbers and the math, not the ticket sale.
-            </p>
+            {g.format === "digit" ? (
+              <>
+                <p>
+                  Each {g.name} play asks you to pick a <strong>{g.pick}-digit number</strong>{" "}
+                  (each position 0–9, repeats allowed). Draws take place{" "}
+                  <strong>{g.drawDays.join(" and ")}</strong>.
+                </p>
+                <h3>Straight &amp; boxed</h3>
+                <p>
+                  Bet <strong>straight</strong> to win on an exact-order match, or{" "}
+                  <strong>boxed</strong> to win on any order (better odds, smaller payout).
+                  Exact prizes are set by {g.agency}. Lottizen tracks the numbers and the math,
+                  not the ticket sale.
+                </p>
+              </>
+            ) : (
+              <>
+                <p>
+                  Each {g.name} play costs <strong>${g.price.toFixed(2)} {g.currency}</strong> and asks you to
+                  select <strong>{g.pick} numbers from 1 to {g.max}</strong>
+                  {g.hasBonus ? `, plus a ${g.bonusLabel ?? "bonus"}${g.bonusMax ? ` from 1 to ${g.bonusMax}` : ""}` : ""}.
+                  Draws take place <strong>{g.drawDays.join(" and ")}</strong>.
+                </p>
+                <h3>Match &amp; prize tiers</h3>
+                <p>
+                  Match all {g.pick} main numbers{g.hasBonus ? ` (and the ${g.bonusLabel ?? "bonus"} where it applies)` : ""} to
+                  win the jackpot; lower tiers pay for partial matches. Exact tiers and odds are set by {g.agency}.
+                  Lottizen tracks the numbers and the math, not the ticket sale.
+                </p>
+              </>
+            )}
           </div>
 
           <div style={{ marginTop: 40 }}>
@@ -143,12 +162,14 @@ export default function GamePage({ params }: { params: { country: string; game: 
                 Frequency, gaps, hot &amp; cold across {stats.drawCount.toLocaleString("en-CA")} draws.
               </div>
             </Link>
-            <Link href={`${base}/generator`} className="game-card">
-              <span className="game-card-name">Number generator</span>
-              <div className="game-card-meta" style={{ marginTop: 8 }}>
-                Quick Pick, statistics-weighted, or birthday picks.
-              </div>
-            </Link>
+            {g.format !== "digit" && (
+              <Link href={`${base}/generator`} className="game-card">
+                <span className="game-card-name">Number generator</span>
+                <div className="game-card-meta" style={{ marginTop: 8 }}>
+                  Quick Pick, statistics-weighted, or birthday picks.
+                </div>
+              </Link>
+            )}
             <Link href={`${base}/faq`} className="game-card">
               <span className="game-card-name">FAQ</span>
               <div className="game-card-meta" style={{ marginTop: 8 }}>

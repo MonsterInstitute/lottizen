@@ -57,7 +57,7 @@ export const GAMES: GameConfig[] = [
   CA({ slug: "pick-4", name: "Pick 4", agency: "OLG", region: "Ontario", pick: 4, max: 9, drawDays: ["Daily"], price: 1, hasBonus: false, format: "digit", blurb: "Daily 4-digit game." }),
   CA({ slug: "daily-keno", name: "Daily Keno", agency: "OLG", region: "Ontario", pick: 20, max: 70, drawDays: ["Daily"], price: 1, hasBonus: false, format: "keno", blurb: "Pick up to 10; 20 of 70 drawn." }),
   CA({ slug: "poker-lotto", name: "Poker Lotto", agency: "OLG", region: "Ontario", pick: 5, max: 52, drawDays: ["Daily"], price: 2, hasBonus: false, format: "special", blurb: "A 5-card poker draw." }),
-  CA({ slug: "bc-49", name: "BC/49", agency: "BCLC", region: "British Columbia", pick: 6, max: 49, bonusLabel: "Bonus", bonusMax: 49, drawDays: ["Wednesday", "Saturday"], price: 1, blurb: "British Columbia's 6-of-49." }),
+  CA({ slug: "bc-49", name: "BC/49", agency: "BCLC", region: "British Columbia", pick: 6, max: 49, bonusLabel: "Bonus", bonusMax: 49, drawDays: ["Wednesday", "Saturday"], price: 1, blurb: "British Columbia's 6-of-49.", live: true }),
   CA({ slug: "quebec-max", name: "Québec Max", agency: "Loto-Québec", region: "Québec", pick: 7, max: 50, drawDays: ["Tuesday", "Friday"], price: 5, blurb: "Québec's 7-of-50 lotto." }),
   CA({ slug: "quebec-49", name: "Québec 49", agency: "Loto-Québec", region: "Québec", pick: 6, max: 49, bonusLabel: "Bonus", bonusMax: 49, drawDays: ["Wednesday", "Saturday"], price: 1, blurb: "Québec's 6-of-49." }),
   CA({ slug: "grande-vie", name: "La Grande Vie", agency: "Loto-Québec", region: "Québec", pick: 5, max: 49, bonusLabel: "Grand Number", bonusMax: 7, drawDays: ["Monday", "Thursday"], price: 3, blurb: "$1,000 a day for life, Québec edition." }),
@@ -71,8 +71,8 @@ export const GAMES: GameConfig[] = [
   US({ slug: "new-york-lotto", name: "New York Lotto", agency: "NY Lottery", region: "New York", pick: 6, max: 59, bonusLabel: "Bonus", bonusMax: 59, drawDays: ["Wednesday", "Saturday"], price: 1, blurb: "New York's flagship 6-of-59 lotto.", sources: { nyDataset: "6nbc-h7bj" }, live: true }),
   US({ slug: "take-5", name: "Take 5", agency: "NY Lottery", region: "New York", pick: 5, max: 39, hasBonus: false, drawDays: ["Daily"], price: 1, blurb: "New York's daily 5-of-39 — evening draw.", sources: { nyDataset: "dg63-4siq" }, live: true }),
   US({ slug: "pick-10", name: "Pick 10", agency: "NY Lottery", region: "New York", pick: 20, max: 80, hasBonus: false, drawDays: ["Daily"], price: 1, format: "keno", blurb: "New York's daily keno — 20 of 80 drawn, match 10.", sources: { nyDataset: "bycu-cw7c" }, live: true }),
-  US({ slug: "numbers", name: "Numbers", agency: "NY Lottery", region: "New York", pick: 3, max: 9, hasBonus: false, drawDays: ["Daily"], price: 0.5, format: "digit", blurb: "New York's daily 3-digit game." }),
-  US({ slug: "win-4", name: "Win 4", agency: "NY Lottery", region: "New York", pick: 4, max: 9, hasBonus: false, drawDays: ["Daily"], price: 0.5, format: "digit", blurb: "New York's daily 4-digit game." }),
+  US({ slug: "numbers", name: "Numbers", agency: "NY Lottery", region: "New York", pick: 3, max: 9, hasBonus: false, drawDays: ["Daily"], price: 0.5, format: "digit", blurb: "New York's daily 3-digit game — pick a 3-digit number, straight or boxed.", sources: { nyDataset: "hsys-3def" }, live: true }),
+  US({ slug: "win-4", name: "Win 4", agency: "NY Lottery", region: "New York", pick: 4, max: 9, hasBonus: false, drawDays: ["Daily"], price: 0.5, format: "digit", blurb: "New York's daily 4-digit game — pick a 4-digit number, straight or boxed.", sources: { nyDataset: "hsys-3def" }, live: true }),
 ];
 
 export const COUNTRIES: { code: Country; slug: string; name: string }[] = [

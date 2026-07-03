@@ -2,14 +2,14 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { countryName } from "@/config/games";
-import { resolveGame, countryGameParams, getStats } from "@/lib/draws";
+import { resolveGame, countryGamePoolParams, getStats } from "@/lib/draws";
 import { absUrl } from "@/lib/site";
 import { GameTabs } from "@/components/draws/GameTabs";
 import { Generator } from "@/components/draws/Generator";
 
 export const dynamicParams = false;
 export function generateStaticParams() {
-  return countryGameParams();
+  return countryGamePoolParams();
 }
 
 export function generateMetadata({ params }: { params: { country: string; game: string } }): Metadata {
@@ -27,7 +27,7 @@ export function generateMetadata({ params }: { params: { country: string; game: 
 
 export default function GeneratorPage({ params }: { params: { country: string; game: string } }) {
   const g = resolveGame(params.country, params.game);
-  if (!g) notFound();
+  if (!g || g.format === "digit") notFound();
   const base = `/${params.country}/${g.slug}`;
   const stats = getStats(g.slug);
   if (!stats) notFound();

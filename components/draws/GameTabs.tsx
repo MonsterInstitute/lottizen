@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getGame } from "@/config/games";
 
 const TABS = [
   { key: "", label: "Overview" },
@@ -8,21 +9,21 @@ const TABS = [
   { key: "faq", label: "FAQ" },
 ];
 
-/** Chip sub-nav shared across a game's pages. `digit` games hide the stat/tool tabs. */
+/** Chip sub-nav shared across a game's pages. Positional-digit games have no
+ *  number generator, so that tab is hidden for them. */
 export function GameTabs({
   country,
   slug,
   active,
-  hideStats = false,
+  format,
 }: {
   country: string;
   slug: string;
   active: string;
-  hideStats?: boolean;
+  format?: string;
 }) {
-  const tabs = hideStats
-    ? TABS.filter((t) => t.key !== "statistics" && t.key !== "generator")
-    : TABS;
+  const fmt = format ?? getGame(slug)?.format;
+  const tabs = fmt === "digit" ? TABS.filter((t) => t.key !== "generator") : TABS;
   return (
     <div className="chip-row" style={{ marginTop: 24 }}>
       {tabs.map((t) => (

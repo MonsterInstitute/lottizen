@@ -84,6 +84,21 @@ export interface LatestGame {
   dataSince: string | null;
 }
 
+export interface DigitStatsFile {
+  game: string;
+  format: "digit";
+  positions: number;
+  dataSince: string | null;
+  drawCount: number;
+  allTimeDrawCount: number;
+  generatedAt: string;
+  positional: { pos: number; digits: { d: number; count: number }[] }[];
+  overall: { d: number; count: number }[];
+  hotDigits: number[];
+  topCombos: { combo: string; count: number }[];
+  sum: { avg: number; min: number; max: number };
+}
+
 const DRAWS = RAW_DRAWS as Record<string, DrawsFile>;
 const STATS = RAW_STATS as Record<string, StatsFile>;
 
@@ -92,6 +107,10 @@ export function getDraws(slug: string): DrawsFile | undefined {
 }
 export function getStats(slug: string): StatsFile | undefined {
   return STATS[slug];
+}
+export function getDigitStats(slug: string): DigitStatsFile | undefined {
+  const s = RAW_STATS[slug];
+  return s && s.format === "digit" ? (s as DigitStatsFile) : undefined;
 }
 export function getNumberStat(slug: string, n: number): NumberStat | undefined {
   return STATS[slug]?.numbers.find((x) => x.n === n);
@@ -133,11 +152,15 @@ export function countryGameYearParams(): { country: string; game: string; year: 
     for (const y of getResultYears(game)) out.push({ country, game, year: String(y) });
   return out;
 }
+/** Playable games that use the number-pool template (excludes positional-digit games). */
+export function countryGamePoolParams(): { country: string; game: string }[] {
+  return countryGameParams().filter(({ game }) => getGame(game)?.format !== "digit");
+}
 export function countryGameNumberParams(): { country: string; game: string; n: string }[] {
   const out: { country: string; game: string; n: string }[] = [];
-  for (const { country, game } of countryGameParams()) {
+  for (const { country, game } of countryGamePoolParams()) {
     const s = getStats(game);
-    if (!s) continue;
+    if (!s || typeof s.max !== "number") continue;
     for (let n = 1; n <= s.max; n++) out.push({ country, game, n: String(n) });
   }
   return out;

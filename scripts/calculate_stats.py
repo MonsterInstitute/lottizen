@@ -53,8 +53,44 @@ GAMES = {
 }
 
 
+# Positional digit games: slug -> number of digit positions.
+DIGIT_GAMES = {"numbers": 3, "win-4": 4}
+
+
 def now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
+def compute_digit_stats(slug, positions, draws):
+    n = len(draws)
+    per_pos = [Counter() for _ in range(positions)]
+    overall = Counter()
+    combos = Counter()
+    sums = []
+    for d in draws:
+        digs = d["numbers"][:positions]
+        if len(digs) != positions:
+            continue
+        for i, dv in enumerate(digs):
+            per_pos[i][dv] += 1
+            overall[dv] += 1
+        combos["".join(str(x) for x in digs)] += 1
+        sums.append(sum(digs))
+    positional = [
+        {"pos": i + 1, "digits": [{"d": dv, "count": per_pos[i].get(dv, 0)} for dv in range(10)]}
+        for i in range(positions)
+    ]
+    return {
+        "game": slug, "format": "digit", "positions": positions,
+        "dataSince": draws[0]["date"] if draws else None, "drawCount": n,
+        "allTimeDrawCount": n, "generatedAt": now_iso(),
+        "positional": positional,
+        "overall": [{"d": dv, "count": overall.get(dv, 0)} for dv in range(10)],
+        "hotDigits": [dv for dv, _ in overall.most_common(3)],
+        "topCombos": [{"combo": c, "count": ct} for c, ct in combos.most_common(12)],
+        "sum": {"avg": round(sum(sums) / n, 1) if n else 0,
+                "min": min(sums) if sums else 0, "max": max(sums) if sums else 0},
+    }
 
 
 def load_draws(conn, slug):
@@ -193,6 +229,20 @@ def main() -> int:
                                "dataSince": payload["dataSince"]})
             era_note = f" (stats era {cfg['stats_from']}+: {len(era)})" if cfg.get("stats_from") else ""
             print(f"✓ {slug}: {len(draws)} draws{era_note}, hot={stats['aggregate']['hot'][:3]}")
+
+        # positional digit games (separate stats shape)
+        for slug, positions in DIGIT_GAMES.items():
+            draws = load_draws(conn, slug)
+            if not draws:
+                continue
+            payload = write_draws(conn, slug, draws)
+            stats = compute_digit_stats(slug, positions, draws)
+            (STATS_DIR / f"{slug}.json").write_text(json.dumps(stats, indent=2) + "\n")
+            newest = draws[-1]
+            latest_all.append({"slug": slug, "latestDate": newest["date"], "numbers": newest["numbers"],
+                               "bonus": None, "nextDraw": payload["nextDraw"], "nextJackpot": None,
+                               "drawCount": len(draws), "dataSince": payload["dataSince"]})
+            print(f"✓ {slug}: {len(draws)} digit draws, hot digits={stats['hotDigits']}")
     finally:
         conn.close()
     (DRAWS_DIR / "_latest.json").write_text(json.dumps(

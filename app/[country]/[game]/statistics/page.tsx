@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { countryName } from "@/config/games";
-import { resolveGame, countryGameParams, getStats } from "@/lib/draws";
+import { resolveGame, countryGameParams, getStats, getDigitStats } from "@/lib/draws";
 import { drawDate } from "@/lib/format";
 import { absUrl } from "@/lib/site";
 import { GameTabs } from "@/components/draws/GameTabs";
 import { NumberGrid } from "@/components/draws/NumberGrid";
+import { DigitStats } from "@/components/draws/DigitStats";
 import { FrequencyChart, SumChart, OddEvenChart } from "@/components/draws/StatCharts";
 import { AdSlot } from "@/components/site/AdSlot";
 import { JsonLd } from "@/components/site/JsonLd";
@@ -45,6 +46,40 @@ export default function StatisticsPage({ params }: { params: { country: string; 
   const g = resolveGame(params.country, params.game);
   if (!g) notFound();
   const base = `/${params.country}/${g.slug}`;
+
+  // Positional digit games (Numbers, Win 4) use a distinct statistics view.
+  if (g.format === "digit") {
+    const ds = getDigitStats(g.slug);
+    if (!ds) notFound();
+    return (
+      <>
+        <div className="page-head">
+          <div className="container">
+            <div className="breadcrumb">
+              <Link href={`/${params.country}`}>{countryName(g.country)}</Link> /{" "}
+              <Link href={base}>{g.name}</Link> / <span>Statistics</span>
+            </div>
+            <div className="section-eyebrow">Statistics</div>
+            <h1 className="section-headline">
+              {g.name} <em>digit stats.</em>
+            </h1>
+            <p className="section-lede">
+              Computed from {ds.drawCount.toLocaleString("en-CA")} evening draws since{" "}
+              {ds.dataSince ? drawDate(ds.dataSince) : "—"}. Each position is drawn
+              independently — past frequency doesn&rsquo;t change future odds.
+            </p>
+            <GameTabs country={params.country} slug={g.slug} active="statistics" format={g.format} />
+          </div>
+        </div>
+        <section className="section" style={{ paddingTop: 40 }}>
+          <div className="container">
+            <DigitStats stats={ds} name={g.name} />
+          </div>
+        </section>
+      </>
+    );
+  }
+
   const stats = getStats(g.slug);
   if (!stats) notFound();
   const a = stats.aggregate;

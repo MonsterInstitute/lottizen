@@ -77,7 +77,30 @@ LIVE = [
      "inception": None, "olg_name": "LOTTARIO", "product": "LOTT"},
     {"slug": "megadice", "pick": 6, "max": 45, "wclc": None,
      "inception": None, "olg_name": "MEGADICE LOTTO", "product": None},
+    # BCLC — latest only via PlayNow JSON (no public history endpoint)
+    {"slug": "bc-49", "pick": 6, "max": 49, "wclc": None, "inception": None,
+     "olg_name": None, "product": None, "playnow": "BC49"},
 ]
+
+
+def playnow_latest(key: str):
+    """Latest draw for a PlayNow game key (SIX49/BC49/LMAX/DGRD)."""
+    try:
+        data = json.loads(http_bytes("https://www.playnow.com/services2/lotto/draw/latest",
+                                     {"User-Agent": UA, "Accept": "application/json"}, timeout=20))
+        g = data.get(key)
+        if not g or not g.get("drawNbrs"):
+            return None
+        d = g.get("drawDate", "")  # e.g. "Jul 1, 2026"
+        try:
+            date = datetime.strptime(d, "%b %d, %Y").date().isoformat()
+        except ValueError:
+            return None
+        return {"date": date, "numbers": sorted(int(x) for x in g["drawNbrs"]),
+                "bonus": g.get("bonusNbr")}
+    except Exception as e:  # noqa: BLE001
+        print(f"  ! playnow {key}: {e}", file=sys.stderr)
+        return None
 
 
 def now_iso() -> str:
@@ -380,6 +403,10 @@ def backfill_game(conn, cfg, latest, delay=1.0):
     l = latest.get(cfg["olg_name"].upper()) if cfg.get("olg_name") else None
     if l:
         add_source(per_date, "olg-feed", [l])
+    if cfg.get("playnow"):
+        pn = playnow_latest(cfg["playnow"])
+        if pn:
+            add_source(per_date, "playnow", [pn])
     if not per_date:
         print(f"  ! no data for {slug}")
         return
@@ -413,6 +440,10 @@ def daily_game(conn, cfg, latest):
     l = latest.get(cfg["olg_name"].upper()) if cfg.get("olg_name") else None
     if l and (not max_date or l["date"] > max_date):
         insert_new(conn, slug, l["date"], l["numbers"], l.get("bonus"), "olg-feed")
+    if cfg.get("playnow"):
+        pn = playnow_latest(cfg["playnow"])
+        if pn and (not max_date or pn["date"] > max_date):
+            insert_new(conn, slug, pn["date"], pn["numbers"], pn.get("bonus"), "playnow")
     if cfg.get("product"):
         nd, jp = olg_next_jackpot(cfg["product"])
         set_meta(conn, slug, nd, jp)

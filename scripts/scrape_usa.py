@@ -50,6 +50,13 @@ US = [
      "pick": 20, "max": 80},
 ]
 
+# Positional digit games (each draw is N digits 0-9, repeats allowed) from the
+# combined NY "Daily Numbers / Win-4" dataset. Evening draw is canonical.
+US_DIGIT = [
+    {"slug": "numbers", "ds": "hsys-3def", "field": "evening_daily", "positions": 3},
+    {"slug": "win-4", "ds": "hsys-3def", "field": "evening_win_4", "positions": 4},
+]
+
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
@@ -124,6 +131,33 @@ def scrape_game(conn, cfg) -> tuple[int, str, str]:
     return stored, (dates[0] if dates else "?"), (dates[-1] if dates else "?")
 
 
+def scrape_digit(conn, cfg) -> tuple[int, str, str]:
+    rows = fetch_all(cfg["ds"])
+    ts = now_iso()
+    stored, dates = 0, []
+    for r in rows:
+        raw = r.get(cfg["field"])
+        if not raw or not str(raw).strip():
+            continue
+        s = re.sub(r"\D", "", str(raw)).zfill(cfg["positions"])
+        if len(s) != cfg["positions"]:
+            continue
+        digits = [int(c) for c in s]
+        date = r["draw_date"][:10]
+        dates.append(date)
+        conn.execute(
+            """INSERT INTO draws (game_id, draw_date, numbers, bonus, source, verified, scraped_at)
+               VALUES (?,?,?,NULL,'data.ny.gov',0,?)
+               ON CONFLICT(game_id, draw_date) DO UPDATE SET
+                 numbers=excluded.numbers, source=excluded.source, scraped_at=excluded.scraped_at""",
+            (cfg["slug"], date, ",".join(map(str, digits)), ts),
+        )
+        stored += 1
+    conn.commit()
+    dates.sort()
+    return stored, (dates[0] if dates else "?"), (dates[-1] if dates else "?")
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--game")
@@ -138,6 +172,14 @@ def main() -> int:
             try:
                 n, lo, hi = scrape_game(conn, cfg)
                 print(f"✓ {cfg['slug']}: {n} draws, {lo} → {hi} (data.ny.gov)")
+            except Exception as e:  # noqa: BLE001
+                print(f"✗ {cfg['slug']}: {e}", file=sys.stderr)
+        for cfg in US_DIGIT:
+            if args.game and cfg["slug"] != args.game:
+                continue
+            try:
+                n, lo, hi = scrape_digit(conn, cfg)
+                print(f"✓ {cfg['slug']}: {n} digit draws, {lo} → {hi} (data.ny.gov)")
             except Exception as e:  # noqa: BLE001
                 print(f"✗ {cfg['slug']}: {e}", file=sys.stderr)
         return 0
