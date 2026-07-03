@@ -8,14 +8,27 @@ const TABS = [
   { key: "faq", label: "FAQ" },
 ];
 
-/** Chip-style sub-navigation shared across a game's pages. */
-export function GameTabs({ slug, active }: { slug: string; active: string }) {
+/** Chip sub-nav shared across a game's pages. `digit` games hide the stat/tool tabs. */
+export function GameTabs({
+  country,
+  slug,
+  active,
+  hideStats = false,
+}: {
+  country: string;
+  slug: string;
+  active: string;
+  hideStats?: boolean;
+}) {
+  const tabs = hideStats
+    ? TABS.filter((t) => t.key !== "statistics" && t.key !== "generator")
+    : TABS;
   return (
     <div className="chip-row" style={{ marginTop: 24 }}>
-      {TABS.map((t) => (
+      {tabs.map((t) => (
         <Link
           key={t.key}
-          href={`/canada/${slug}${t.key ? `/${t.key}` : ""}`}
+          href={`/${country}/${slug}${t.key ? `/${t.key}` : ""}`}
           className={`chip ${active === t.key ? "active" : ""}`}
         >
           {t.label}

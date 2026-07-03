@@ -9,11 +9,16 @@ export function Generator({
   pick,
   max,
   hasBonus,
+  bonusMax,
+  bonusLabel = "Bonus",
   frequency,
 }: {
   pick: number;
   max: number;
   hasBonus: boolean;
+  /** secondary-ball pool size (own pool, e.g. Powerball 1-26). */
+  bonusMax?: number;
+  bonusLabel?: string;
   /** count per number index 1..max, for statistics weighting */
   frequency: { n: number; count: number }[];
 }) {
@@ -68,9 +73,9 @@ export function Generator({
     } else {
       nums = pickUnique(pool, pick, mode === "weighted");
     }
-    const bonus = hasBonus
-      ? pickUnique(pool.filter((n) => !nums.includes(n)), 1, false)[0]
-      : null;
+    // Secondary ball comes from its OWN pool (1..bonusMax), independent of the main pool.
+    const bPool = Array.from({ length: bonusMax ?? max }, (_, i) => i + 1);
+    const bonus = hasBonus ? bPool[Math.floor(Math.random() * bPool.length)] : null;
     setLine({ nums, bonus });
   }
 

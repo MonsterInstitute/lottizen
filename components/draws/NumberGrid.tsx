@@ -6,9 +6,11 @@ import type { NumberStat } from "@/lib/draws";
  * shows frequency + a mini bar; hot/cold numbers are tinted.
  */
 export function NumberGrid({
+  country,
   slug,
   numbers,
 }: {
+  country: string;
   slug: string;
   numbers: NumberStat[];
 }) {
@@ -18,11 +20,13 @@ export function NumberGrid({
       {numbers.map((s) => (
         <Link
           key={s.n}
-          href={`/canada/${slug}/number/${s.n}`}
+          href={`/${country}/${slug}/number/${s.n}`}
           className={`num-tile ${s.hot ? "is-hot" : ""} ${s.cold ? "is-cold" : ""}`}
         >
           <div className="nt-n">{String(s.n).padStart(2, "0")}</div>
-          <div className="nt-c">{s.count}× · {(s.frequency * 100).toFixed(0)}%</div>
+          <div className="nt-c">
+            {s.count}× · {(s.frequency * 100).toFixed(0)}%
+          </div>
           <div className="nt-bar">
             <span style={{ width: `${(s.count / maxCount) * 100}%` }} />
           </div>

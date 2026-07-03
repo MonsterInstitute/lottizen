@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getLiveGame } from "@/config/games";
-import { getDrawsByYear, getPlayableSlugs, getResultYears } from "@/lib/draws";
+import { countryName } from "@/config/games";
+import { resolveGame, countryGameYearParams, getDrawsByYear, getResultYears } from "@/lib/draws";
 import { drawDate } from "@/lib/format";
 import { absUrl } from "@/lib/site";
 import { Balls } from "@/components/draws/Balls";
@@ -10,37 +10,34 @@ import { GameTabs } from "@/components/draws/GameTabs";
 
 export const dynamicParams = false;
 export function generateStaticParams() {
-  const params: { game: string; year: string }[] = [];
-  for (const game of getPlayableSlugs()) {
-    for (const y of getResultYears(game)) params.push({ game, year: String(y) });
-  }
-  return params;
+  return countryGameYearParams();
 }
 
 export function generateMetadata({
   params,
 }: {
-  params: { game: string; year: string };
+  params: { country: string; game: string; year: string };
 }): Metadata {
-  const g = getLiveGame(params.game);
+  const g = resolveGame(params.country, params.game);
   if (!g) return {};
   const title = `${g.name} Results ${params.year} — Winning Numbers`;
   const description = `All ${g.name} winning numbers from ${params.year}.`;
   return {
     title,
     description,
-    alternates: { canonical: `/canada/${g.slug}/results/${params.year}` },
-    openGraph: { title, description, url: absUrl(`/canada/${g.slug}/results/${params.year}`) },
+    alternates: { canonical: `/${params.country}/${g.slug}/results/${params.year}` },
+    openGraph: { title, description, url: absUrl(`/${params.country}/${g.slug}/results/${params.year}`) },
   };
 }
 
 export default function ResultsYearPage({
   params,
 }: {
-  params: { game: string; year: string };
+  params: { country: string; game: string; year: string };
 }) {
-  const g = getLiveGame(params.game);
+  const g = resolveGame(params.country, params.game);
   if (!g) notFound();
+  const base = `/${params.country}/${g.slug}`;
   const year = Number(params.year);
   const draws = getDrawsByYear(g.slug, year).slice().reverse();
   if (!draws.length) notFound();
@@ -51,30 +48,26 @@ export default function ResultsYearPage({
       <div className="page-head">
         <div className="container">
           <div className="breadcrumb">
-            <Link href="/canada">Canada</Link> /{" "}
-            <Link href={`/canada/${g.slug}`}>{g.name}</Link> /{" "}
-            <Link href={`/canada/${g.slug}/results`}>Results</Link> / <span>{year}</span>
+            <Link href={`/${params.country}`}>{countryName(g.country)}</Link> /{" "}
+            <Link href={base}>{g.name}</Link> /{" "}
+            <Link href={`${base}/results`}>Results</Link> / <span>{year}</span>
           </div>
           <div className="section-eyebrow">Results · {year}</div>
           <h1 className="section-headline">
             {g.name} <em>{year}.</em>
           </h1>
-          <GameTabs slug={g.slug} active="results" />
+          <GameTabs country={params.country} slug={g.slug} active="results" />
         </div>
       </div>
 
       <section className="section" style={{ paddingTop: 40 }}>
         <div className="container">
           <div className="chip-row" style={{ marginBottom: 24 }}>
-            <Link href={`/canada/${g.slug}/results`} className="chip">
+            <Link href={`${base}/results`} className="chip">
               All
             </Link>
             {years.map((y) => (
-              <Link
-                key={y}
-                href={`/canada/${g.slug}/results/${y}`}
-                className={`chip ${y === year ? "active" : ""}`}
-              >
+              <Link key={y} href={`${base}/results/${y}`} className={`chip ${y === year ? "active" : ""}`}>
                 {y}
               </Link>
             ))}

@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getLiveGame } from "@/config/games";
-import { getDraws, getPlayableSlugs, getResultYears } from "@/lib/draws";
+import { countryName } from "@/config/games";
+import { resolveGame, countryGameParams, getDraws, getResultYears } from "@/lib/draws";
 import { drawDate } from "@/lib/format";
 import { absUrl } from "@/lib/site";
 import { Balls } from "@/components/draws/Balls";
@@ -11,27 +11,28 @@ import { AdSlot } from "@/components/site/AdSlot";
 
 export const dynamicParams = false;
 export function generateStaticParams() {
-  return getPlayableSlugs().map((game) => ({ game }));
+  return countryGameParams();
 }
 
-export function generateMetadata({ params }: { params: { game: string } }): Metadata {
-  const g = getLiveGame(params.game);
+export function generateMetadata({ params }: { params: { country: string; game: string } }): Metadata {
+  const g = resolveGame(params.country, params.game);
   if (!g) return {};
   const title = `${g.name} Results — Past Winning Numbers`;
   const description = `Full ${g.name} results archive: past winning numbers and bonus for every draw, newest first.`;
   return {
     title,
     description,
-    alternates: { canonical: `/canada/${g.slug}/results` },
-    openGraph: { title, description, url: absUrl(`/canada/${g.slug}/results`) },
+    alternates: { canonical: `/${params.country}/${g.slug}/results` },
+    openGraph: { title, description, url: absUrl(`/${params.country}/${g.slug}/results`) },
   };
 }
 
 const RECENT_LIMIT = 200;
 
-export default function ResultsPage({ params }: { params: { game: string } }) {
-  const g = getLiveGame(params.game);
+export default function ResultsPage({ params }: { params: { country: string; game: string } }) {
+  const g = resolveGame(params.country, params.game);
   if (!g) notFound();
+  const base = `/${params.country}/${g.slug}`;
   const draws = getDraws(g.slug);
   if (!draws) notFound();
   const years = getResultYears(g.slug);
@@ -43,8 +44,8 @@ export default function ResultsPage({ params }: { params: { game: string } }) {
       <div className="page-head">
         <div className="container">
           <div className="breadcrumb">
-            <Link href="/canada">Canada</Link> /{" "}
-            <Link href={`/canada/${g.slug}`}>{g.name}</Link> / <span>Results</span>
+            <Link href={`/${params.country}`}>{countryName(g.country)}</Link> /{" "}
+            <Link href={base}>{g.name}</Link> / <span>Results</span>
           </div>
           <div className="section-eyebrow">Results</div>
           <h1 className="section-headline">
@@ -53,11 +54,9 @@ export default function ResultsPage({ params }: { params: { game: string } }) {
           <p className="section-lede">
             {draws.drawCount.toLocaleString("en-CA")} {g.name} draws on record since{" "}
             {draws.dataSince ? drawDate(draws.dataSince) : "—"}.
-            {truncated
-              ? ` Showing the ${RECENT_LIMIT} most recent — use the year filter for the full archive.`
-              : ""}
+            {truncated ? ` Showing the ${RECENT_LIMIT} most recent — use the year filter for the full archive.` : ""}
           </p>
-          <GameTabs slug={g.slug} active="results" />
+          <GameTabs country={params.country} slug={g.slug} active="results" />
         </div>
       </div>
 
@@ -67,7 +66,7 @@ export default function ResultsPage({ params }: { params: { game: string } }) {
             <div className="chip-row" style={{ marginBottom: 24 }}>
               <span className="chip active">All</span>
               {years.map((y) => (
-                <Link key={y} href={`/canada/${g.slug}/results/${y}`} className="chip">
+                <Link key={y} href={`${base}/results/${y}`} className="chip">
                   {y}
                 </Link>
               ))}

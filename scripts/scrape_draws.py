@@ -72,6 +72,11 @@ LIVE = [
      "inception": "western-max", "olg_name": None, "product": None},
     {"slug": "western-6-49", "pick": 6, "max": 49, "wclc": "western-649-extra",
      "inception": "western-649", "olg_name": None, "product": None},
+    # OLG-only games — latest via OLG feed (no WCLC/inception source)
+    {"slug": "lottario", "pick": 6, "max": 45, "wclc": None,
+     "inception": None, "olg_name": "LOTTARIO", "product": "LOTT"},
+    {"slug": "megadice", "pick": 6, "max": 45, "wclc": None,
+     "inception": None, "olg_name": "MEGADICE LOTTO", "product": None},
 ]
 
 

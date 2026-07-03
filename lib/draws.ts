@@ -1,17 +1,15 @@
+import { RAW_DRAWS, RAW_STATS } from "@/lib/game-data";
 import latestJson from "@/data/draws/_latest.json";
-import lottoMaxDraws from "@/data/draws/lotto-max.json";
-import lotto649Draws from "@/data/draws/lotto-6-49.json";
-import ontario49Draws from "@/data/draws/ontario-49.json";
-import dailyGrandDraws from "@/data/draws/daily-grand.json";
-import westernMaxDraws from "@/data/draws/western-max.json";
-import western649Draws from "@/data/draws/western-6-49.json";
-import lottoMaxStats from "@/data/stats/lotto-max.json";
-import lotto649Stats from "@/data/stats/lotto-6-49.json";
-import ontario49Stats from "@/data/stats/ontario-49.json";
-import dailyGrandStats from "@/data/stats/daily-grand.json";
-import westernMaxStats from "@/data/stats/western-max.json";
-import western649Stats from "@/data/stats/western-6-49.json";
-import { LIVE_GAMES, getLiveGame } from "@/config/games";
+import {
+  LIVE_GAMES,
+  getLiveGame,
+  getGame,
+  countrySlug,
+  countryFromSlug,
+  COUNTRIES,
+  type Country,
+  type GameConfig,
+} from "@/config/games";
 
 export interface Draw {
   date: string;
@@ -44,6 +42,12 @@ export interface NumberStat {
   cold: boolean;
   partners: Partner[];
 }
+export interface BonusStats {
+  label: string;
+  max: number;
+  chart: { n: number; count: number }[];
+  hot: number[];
+}
 export interface Aggregate {
   hot: number[];
   cold: number[];
@@ -55,11 +59,14 @@ export interface Aggregate {
   consecutive: { drawsWith: number; pct: number };
   topPairs: { a: number; b: number; count: number }[];
   frequencyChart: { n: number; count: number }[];
+  bonus?: BonusStats;
 }
 export interface StatsFile {
   game: string;
   dataSince: string | null;
   drawCount: number;
+  allTimeDrawCount: number;
+  statsFrom: string | null;
   pick: number;
   max: number;
   generatedAt: string;
@@ -77,22 +84,8 @@ export interface LatestGame {
   dataSince: string | null;
 }
 
-const DRAWS: Record<string, DrawsFile> = {
-  "lotto-max": lottoMaxDraws as DrawsFile,
-  "lotto-6-49": lotto649Draws as DrawsFile,
-  "ontario-49": ontario49Draws as DrawsFile,
-  "daily-grand": dailyGrandDraws as DrawsFile,
-  "western-max": westernMaxDraws as DrawsFile,
-  "western-6-49": western649Draws as DrawsFile,
-};
-const STATS: Record<string, StatsFile> = {
-  "lotto-max": lottoMaxStats as StatsFile,
-  "lotto-6-49": lotto649Stats as StatsFile,
-  "ontario-49": ontario49Stats as StatsFile,
-  "daily-grand": dailyGrandStats as StatsFile,
-  "western-max": westernMaxStats as StatsFile,
-  "western-6-49": western649Stats as StatsFile,
-};
+const DRAWS = RAW_DRAWS as Record<string, DrawsFile>;
+const STATS = RAW_STATS as Record<string, StatsFile>;
 
 export function getDraws(slug: string): DrawsFile | undefined {
   return DRAWS[slug];
@@ -109,28 +102,59 @@ export function getLatestAll(): LatestGame[] {
 export function getLatestGeneratedAt(): string {
   return (latestJson as { generatedAt: string }).generatedAt;
 }
-
-/** Live game slugs that actually have a stats file with draws. */
-export function getPlayableSlugs(): string[] {
-  return LIVE_GAMES.filter((g) => (STATS[g.slug]?.drawCount ?? 0) > 0).map((g) => g.slug);
+export function hasData(slug: string): boolean {
+  return (STATS[slug]?.drawCount ?? 0) > 0;
 }
 
-/** Years present in a game's history (desc), for /results/[year]. */
+/** Live game slugs (optionally within a country) that have scraped data. */
+export function getPlayableSlugs(country?: Country): string[] {
+  return LIVE_GAMES.filter((g) => (!country || g.country === country) && hasData(g.slug)).map(
+    (g) => g.slug,
+  );
+}
+
+/** Resolve a game that is playable in the given country URL slug (else undefined). */
+export function resolveGame(countryUrlSlug: string, gameSlug: string): GameConfig | undefined {
+  const code = countryFromSlug(countryUrlSlug);
+  const g = getGame(gameSlug);
+  if (!code || !g || g.country !== code || !g.live || !hasData(g.slug)) return undefined;
+  return g;
+}
+
+/** [{ country, game }] for every playable game — for generateStaticParams. */
+export function countryGameParams(): { country: string; game: string }[] {
+  const out: { country: string; game: string }[] = [];
+  for (const c of COUNTRIES) for (const g of getPlayableSlugs(c.code)) out.push({ country: c.slug, game: g });
+  return out;
+}
+export function countryGameYearParams(): { country: string; game: string; year: string }[] {
+  const out: { country: string; game: string; year: string }[] = [];
+  for (const { country, game } of countryGameParams())
+    for (const y of getResultYears(game)) out.push({ country, game, year: String(y) });
+  return out;
+}
+export function countryGameNumberParams(): { country: string; game: string; n: string }[] {
+  const out: { country: string; game: string; n: string }[] = [];
+  for (const { country, game } of countryGameParams()) {
+    const s = getStats(game);
+    if (!s) continue;
+    for (let n = 1; n <= s.max; n++) out.push({ country, game, n: String(n) });
+  }
+  return out;
+}
+
 export function getResultYears(slug: string): number[] {
   const d = DRAWS[slug];
   if (!d) return [];
   const years = new Set(d.draws.map((x) => Number(x.date.slice(0, 4))));
   return [...years].sort((a, b) => b - a);
 }
-
 export function getDrawsByYear(slug: string, year: number): Draw[] {
   return getDraws(slug)?.draws.filter((d) => d.date.startsWith(String(year))) ?? [];
 }
-
-/** Combine registry config + latest data for a live game. */
 export function liveGameCard(slug: string) {
   const cfg = getLiveGame(slug);
-  const latest = getLatestAll().find((g) => g.slug === slug);
+  const l = getLatestAll().find((g) => g.slug === slug);
   const stats = STATS[slug];
-  return cfg && stats ? { cfg, latest, stats } : undefined;
+  return cfg && stats ? { cfg, latest: l, stats } : undefined;
 }

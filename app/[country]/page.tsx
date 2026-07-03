@@ -1,29 +1,42 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { gamesByAgency } from "@/config/games";
-import { getLatestAll, getPlayableSlugs } from "@/lib/draws";
+import { notFound } from "next/navigation";
+import {
+  COUNTRIES,
+  countryFromSlug,
+  countryName,
+  gamesByAgency,
+} from "@/config/games";
+import { getLatestAll, hasData } from "@/lib/draws";
 import { drawDate } from "@/lib/format";
-import { SITE, absUrl } from "@/lib/site";
+import { absUrl } from "@/lib/site";
 import { Balls } from "@/components/draws/Balls";
 import { JsonLd } from "@/components/site/JsonLd";
 
-export const metadata: Metadata = {
-  title: "Canadian Lottery Results & Statistics",
-  description:
-    "Winning numbers, statistics, and number tools for every Canadian draw lottery — Lotto Max, Lotto 6/49, Ontario 49 and more, by region.",
-  alternates: { canonical: "/canada" },
-  openGraph: {
-    title: "Canadian Lottery Results & Statistics · Lottizen",
-    description:
-      "Winning numbers and statistics for every Canadian draw lottery, grouped by region.",
-    url: absUrl("/canada"),
-    type: "website",
-  },
-};
+export const dynamicParams = false;
+export function generateStaticParams() {
+  return COUNTRIES.map((c) => ({ country: c.slug }));
+}
 
-export default function CanadaOverview() {
-  const groups = gamesByAgency();
-  const live = new Set(getPlayableSlugs());
+export function generateMetadata({ params }: { params: { country: string } }): Metadata {
+  const code = countryFromSlug(params.country);
+  if (!code) return {};
+  const name = countryName(code);
+  const title = `${name} Lottery Results & Statistics`;
+  const description = `Winning numbers, statistics, and number tools for every ${name} draw lottery.`;
+  return {
+    title,
+    description,
+    alternates: { canonical: `/${params.country}` },
+    openGraph: { title, description, url: absUrl(`/${params.country}`), type: "website" },
+  };
+}
+
+export default function CountryOverview({ params }: { params: { country: string } }) {
+  const code = countryFromSlug(params.country);
+  if (!code) notFound();
+  const name = countryName(code);
+  const groups = gamesByAgency(code);
   const latest = new Map(getLatestAll().map((g) => [g.slug, g]));
 
   return (
@@ -32,23 +45,22 @@ export default function CanadaOverview() {
         data={{
           "@context": "https://schema.org",
           "@type": "CollectionPage",
-          name: "Canadian Lottery Games",
-          url: absUrl("/canada"),
-          description: metadata.description,
+          name: `${name} Lottery Games`,
+          url: absUrl(`/${params.country}`),
         }}
       />
       <div className="page-head">
         <div className="container">
           <div className="breadcrumb">
-            <Link href="/">Home</Link> / <span>Canada</span>
+            <Link href="/">Home</Link> / <span>{name}</span>
           </div>
-          <div className="section-eyebrow">All of Canada</div>
+          <div className="section-eyebrow">{name}</div>
           <h1 className="section-headline">
-            Every Canadian <em>draw game.</em>
+            Every {name === "Canada" ? "Canadian" : "US"} <em>draw game.</em>
           </h1>
           <p className="section-lede">
-            Winning numbers, deep statistics, and number tools for the national
-            games and every provincial lottery — organized by who runs them.
+            Winning numbers, deep statistics, and number tools for the national games and
+            every regional lottery — organized by who runs them.
           </p>
         </div>
       </div>
@@ -68,14 +80,14 @@ export default function CanadaOverview() {
                 }}
               >
                 {grp.games.map((g) => {
-                  const isLive = live.has(g.slug);
+                  const isLive = g.live && hasData(g.slug);
                   const l = latest.get(g.slug);
                   const inner = (
                     <>
                       <div className="game-card-head">
                         <span className="game-card-name">{g.name}</span>
                         <span className="game-card-meta">
-                          {g.pick}/{g.max}
+                          {g.format === "digit" ? `${g.pick}-digit` : `${g.pick}/${g.max}`}
                         </span>
                       </div>
                       <div className="game-card-meta" style={{ marginBottom: 12 }}>
@@ -83,9 +95,7 @@ export default function CanadaOverview() {
                       </div>
                       {isLive && l ? (
                         <>
-                          <div className="game-card-date">
-                            Latest · {drawDate(l.latestDate)}
-                          </div>
+                          <div className="game-card-date">Latest · {drawDate(l.latestDate)}</div>
                           <Balls numbers={l.numbers} bonus={l.bonus} size="sm" />
                         </>
                       ) : (
@@ -94,15 +104,11 @@ export default function CanadaOverview() {
                     </>
                   );
                   return isLive ? (
-                    <Link key={g.slug} href={`/canada/${g.slug}`} className="game-card">
+                    <Link key={g.slug} href={`/${params.country}/${g.slug}`} className="game-card">
                       {inner}
                     </Link>
                   ) : (
-                    <div
-                      key={g.slug}
-                      className="game-card"
-                      style={{ opacity: 0.6, cursor: "default" }}
-                    >
+                    <div key={g.slug} className="game-card" style={{ opacity: 0.55 }}>
                       {inner}
                     </div>
                   );

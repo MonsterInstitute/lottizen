@@ -4,13 +4,15 @@
   "private": true,
   "description": "Smarter Scratch. Better Odds. — Ontario scratch-ticket value rankings.",
   "scripts": {
-    "dev": "next dev",
+    "dev": "node scripts/gen_data_index.mjs && next dev",
+    "prebuild": "node scripts/gen_data_index.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "data:scratch": "python3 scripts/scrape_olg.py && python3 scripts/calculate_rankings.py",
     "data:draws": "python3 scripts/scrape_draws.py && python3 scripts/calculate_stats.py",
-    "data:refresh": "npm run data:draws && npm run data:scratch"
+    "data:usa": "python3 scripts/scrape_usa.py && python3 scripts/calculate_stats.py",
+    "data:refresh": "npm run data:draws && npm run data:usa && npm run data:scratch"
   },
   "dependencies": {
     "class-variance-authority": "^0.7.0",
