@@ -87,7 +87,7 @@ export default function NumberPage({
 
       <section className="section" style={{ paddingTop: 36 }}>
         <div className="container">
-          <div className="stat-grid" style={{ marginBottom: 40 }}>
+          <div className="stat-grid" style={{ marginBottom: 16 }}>
             {tiles.map((t) => (
               <div className="stat-tile" key={t.k}>
                 <div className="k">{t.k}</div>
@@ -96,6 +96,11 @@ export default function NumberPage({
               </div>
             ))}
           </div>
+          <p style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--ink-3)", marginBottom: 40 }}>
+            Frequency &amp; gaps are over the full {stats.drawCount.toLocaleString("en-CA")}-draw record
+            {stats.statsFrom ? " (current game matrix)" : ""}; the hot / cold label reflects the recent{" "}
+            {stats.aggregate.windowSize}-draw window.
+          </p>
 
           <p className="prose" style={{ marginBottom: 40 }}>
             In {g.name}, number <strong>{n}</strong> has been drawn <strong>{stat.count} times</strong> across{" "}

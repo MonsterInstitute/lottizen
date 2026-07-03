@@ -60,6 +60,10 @@ export interface Aggregate {
   consecutive: { drawsWith: number; pct: number };
   topPairs: { a: number; b: number; count: number }[];
   frequencyChart: { n: number; count: number }[];
+  allTimeTop: number[];
+  windowChart: { n: number; count: number }[];
+  windowTop: number[];
+  windowSize: number;
   bonus?: BonusStats;
 }
 export interface StatsFile {

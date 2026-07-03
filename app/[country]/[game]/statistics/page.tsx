@@ -10,6 +10,7 @@ import { GameSwitcher } from "@/components/draws/GameSwitcher";
 import { NumberGrid } from "@/components/draws/NumberGrid";
 import { DigitStats } from "@/components/draws/DigitStats";
 import { FrequencyChart, SumChart, OddEvenChart } from "@/components/draws/StatCharts";
+import { FrequencyToggle } from "@/components/draws/FrequencyToggle";
 import { AdSlot } from "@/components/site/AdSlot";
 import { JsonLd } from "@/components/site/JsonLd";
 
@@ -150,17 +151,17 @@ export default function StatisticsPage({ params }: { params: { country: string; 
           <div className="stat-grid" style={{ marginBottom: 40 }}>
             <div className="chart-card">
               <h3>Hot numbers</h3>
-              <div className="sub">Most drawn over the last {Math.min(50, stats.drawCount)} draws.</div>
+              <div className="sub">Most drawn over the last {a.windowSize} draws (recent window).</div>
               <Chips base={base} nums={a.hot} />
             </div>
             <div className="chart-card">
               <h3>Cold numbers</h3>
-              <div className="sub">Longest current gap since last drawn.</div>
+              <div className="sub">Longest current gap since last drawn (all-time gap).</div>
               <Chips base={base} nums={a.cold} />
             </div>
             <div className="chart-card">
               <h3>Draw shape</h3>
-              <div className="sub">Typical make-up of a winning line.</div>
+              <div className="sub">Averages over all {stats.drawCount.toLocaleString("en-CA")} draws.</div>
               <div style={{ fontFamily: "var(--font-mono)", fontSize: 14, lineHeight: 2, color: "var(--ink-2)" }}>
                 Avg sum <strong style={{ color: "var(--ink)" }}>{a.sum.avg}</strong>
                 <br />
@@ -171,13 +172,21 @@ export default function StatisticsPage({ params }: { params: { country: string; 
             </div>
           </div>
 
-          <div className="chart-card" style={{ marginBottom: 24 }}>
-            <h3>Number frequency</h3>
-            <div className="sub">
-              How many times each number (1–{stats.max}) has been drawn. Hot numbers in deep orange.
-            </div>
-            <FrequencyChart data={a.frequencyChart} hot={a.hot} />
-          </div>
+          <FrequencyToggle
+            windowSize={a.windowSize}
+            allTime={{
+              chart: a.frequencyChart,
+              top: a.allTimeTop,
+              basis: `${stats.drawCount.toLocaleString("en-CA")} draws${
+                stats.statsFrom
+                  ? ` since ${drawDate(stats.statsFrom)} (current matrix)`
+                  : stats.dataSince
+                    ? ` since ${drawDate(stats.dataSince)}`
+                    : ""
+              }`,
+            }}
+            window={{ chart: a.windowChart, top: a.windowTop, basis: `the last ${a.windowSize} draws` }}
+          />
 
           {a.bonus && (
             <div className="chart-card" style={{ marginBottom: 24 }}>
@@ -192,12 +201,12 @@ export default function StatisticsPage({ params }: { params: { country: string; 
           <div className="stat-grid" style={{ marginBottom: 40 }}>
             <div className="chart-card">
               <h3>Sum distribution</h3>
-              <div className="sub">Total of the {stats.pick} main numbers per draw.</div>
+              <div className="sub">Total of the {stats.pick} main numbers per draw — all {stats.drawCount.toLocaleString("en-CA")} draws.</div>
               <SumChart data={a.sum.buckets} />
             </div>
             <div className="chart-card">
               <h3>Odd numbers per draw</h3>
-              <div className="sub">How many of the {stats.pick} numbers are odd.</div>
+              <div className="sub">How many of the {stats.pick} numbers are odd — all {stats.drawCount.toLocaleString("en-CA")} draws.</div>
               <OddEvenChart data={a.oddEven.dist} />
             </div>
           </div>
@@ -209,7 +218,9 @@ export default function StatisticsPage({ params }: { params: { country: string; 
           {a.topPairs.length > 0 && (
             <div className="chart-card" style={{ marginBottom: 40 }}>
               <h3>Most common pairs</h3>
-              <div className="sub">Number duos that show up together most often.</div>
+              <div className="sub">
+                Number duos drawn together most often, across all {stats.drawCount.toLocaleString("en-CA")} draws.
+              </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
                 {a.topPairs.map((p) => (
                   <div key={`${p.a}-${p.b}`} style={{ display: "flex", alignItems: "center", gap: 6 }}>

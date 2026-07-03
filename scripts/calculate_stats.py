@@ -137,6 +137,7 @@ def compute_stats(slug, cfg, draws):
             "partners": [{"n": p, "count": c} for p, c in partners[num].most_common(5)],
         })
     window = draws[-HOT_WINDOW:] if n > HOT_WINDOW else draws
+    win_size = len(window)
     wf = Counter()
     for d in window:
         for x in d["numbers"]:
@@ -144,6 +145,11 @@ def compute_stats(slug, cfg, draws):
                 wf[x] += 1
     hot = [k for k, _ in wf.most_common(6)]
     cold = [z["n"] for z in sorted(numbers, key=lambda z: z["currentGap"], reverse=True)[:6]]
+    # top-7 by ALL-TIME count vs top-7 in the recent WINDOW — each paired with its
+    # own bar heights so a chart never mixes time scales (see statistics UI).
+    all_time_top = [z["n"] for z in sorted(numbers, key=lambda z: z["count"], reverse=True)[:7]]
+    window_top = [k for k, _ in wf.most_common(7)]
+    window_chart = [{"n": num, "count": wf.get(num, 0)} for num in all_nums]
     hs, cs = set(hot), set(cold)
     for z in numbers:
         z["hot"] = z["n"] in hs; z["cold"] = z["n"] in cs
@@ -174,6 +180,10 @@ def compute_stats(slug, cfg, draws):
         "consecutive": {"drawsWith": cons, "pct": round(cons / n * 100, 1) if n else 0},
         "topPairs": [{"a": a, "b": b, "count": c} for (a, b), c in pair_counter.most_common(10)],
         "frequencyChart": [{"n": z["n"], "count": z["count"]} for z in numbers],
+        "allTimeTop": all_time_top,
+        "windowChart": window_chart,
+        "windowTop": window_top,
+        "windowSize": win_size,
     }
     # secondary ball (Powerball / Mega Ball / Cash Ball / Bonus)
     if cfg.get("bonus_max"):
