@@ -6,6 +6,7 @@ import { resolveGame, countryGameParams, getStats, getDigitStats } from "@/lib/d
 import { drawDate } from "@/lib/format";
 import { absUrl } from "@/lib/site";
 import { GameTabs } from "@/components/draws/GameTabs";
+import { GameSwitcher } from "@/components/draws/GameSwitcher";
 import { NumberGrid } from "@/components/draws/NumberGrid";
 import { DigitStats } from "@/components/draws/DigitStats";
 import { FrequencyChart, SumChart, OddEvenChart } from "@/components/draws/StatCharts";
@@ -69,6 +70,7 @@ export default function StatisticsPage({ params }: { params: { country: string; 
               independently — past frequency doesn&rsquo;t change future odds.
             </p>
             <GameTabs country={params.country} slug={g.slug} active="statistics" format={g.format} />
+            <GameSwitcher slug={g.slug} kind="statistics" />
           </div>
         </div>
         <section className="section" style={{ paddingTop: 40 }}>
@@ -118,6 +120,7 @@ export default function StatisticsPage({ params }: { params: { country: string; 
             and random.
           </p>
           <GameTabs country={params.country} slug={g.slug} active="statistics" />
+            <GameSwitcher slug={g.slug} kind="statistics" />
         </div>
       </div>
 

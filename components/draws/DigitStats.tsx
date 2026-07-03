@@ -1,9 +1,8 @@
 import type { DigitStatsFile } from "@/lib/draws";
+import { FrequencyChart } from "@/components/draws/StatCharts";
 
 /** Statistics view for positional digit games (Numbers, Win 4). */
 export function DigitStats({ stats, name }: { stats: DigitStatsFile; name: string }) {
-  const overallMax = Math.max(1, ...stats.overall.map((o) => o.count));
-
   return (
     <>
       {/* Per-position digit frequency */}
@@ -58,29 +57,10 @@ export function DigitStats({ stats, name }: { stats: DigitStatsFile; name: strin
       <div className="chart-card" style={{ marginBottom: 40 }}>
         <h3>Overall digit frequency</h3>
         <div className="sub">Every digit across all {stats.positions} positions. Hottest in deep orange.</div>
-        <div style={{ display: "flex", gap: 10, alignItems: "flex-end", height: 140, marginTop: 12 }}>
-          {stats.overall.map((o) => {
-            const hot = stats.hotDigits.includes(o.d);
-            return (
-              <div key={o.d} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                <div style={{ flex: 1, width: "100%", display: "flex", alignItems: "flex-end" }}>
-                  <span
-                    style={{
-                      width: "100%",
-                      height: `${(o.count / overallMax) * 100}%`,
-                      background: hot ? "var(--brand-deep)" : "var(--brand)",
-                      opacity: hot ? 1 : 0.5,
-                      borderRadius: "3px 3px 0 0",
-                    }}
-                  />
-                </div>
-                <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, fontWeight: 700, color: hot ? "var(--brand-deep)" : "var(--ink-2)" }}>
-                  {o.d}
-                </span>
-              </div>
-            );
-          })}
-        </div>
+        <FrequencyChart
+          data={stats.overall.map((o) => ({ n: o.d, count: o.count }))}
+          hot={stats.hotDigits}
+        />
       </div>
 
       {/* Top straight combinations */}

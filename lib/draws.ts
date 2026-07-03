@@ -6,6 +6,7 @@ import {
   getGame,
   countrySlug,
   countryFromSlug,
+  regionBucket,
   COUNTRIES,
   type Country,
   type GameConfig,
@@ -175,6 +176,51 @@ export function getResultYears(slug: string): number[] {
 export function getDrawsByYear(slug: string, year: number): Draw[] {
   return getDraws(slug)?.draws.filter((d) => d.date.startsWith(String(year))) ?? [];
 }
+export interface HubGame {
+  slug: string;
+  name: string;
+  agency: string;
+  country: Country;
+  countrySlug: string;
+  bucket: string;
+  depth: string;
+  href: string;
+}
+
+/** All playable games for a hub (statistics or generator), with a depth label.
+ *  Digit games are excluded from the generator hub (they have no generator). */
+export function getHubGames(kind: "statistics" | "generator"): HubGame[] {
+  const out: HubGame[] = [];
+  for (const g of LIVE_GAMES) {
+    if (!hasData(g.slug)) continue;
+    if (kind === "generator" && g.format === "digit") continue;
+    const s = RAW_STATS[g.slug] as { drawCount?: number; dataSince?: string | null } | undefined;
+    const dc = s?.drawCount ?? 0;
+    const since = s?.dataSince ? String(s.dataSince).slice(0, 4) : null;
+    out.push({
+      slug: g.slug,
+      name: g.name,
+      agency: g.agency,
+      country: g.country,
+      countrySlug: countrySlug(g.country),
+      bucket: regionBucket(g),
+      depth: dc < 10 ? "Building" : since ? `since ${since}` : "",
+      href: `/${countrySlug(g.country)}/${g.slug}/${kind}`,
+    });
+  }
+  return out;
+}
+
+/** Sibling games in the same region bucket + national, for the on-page switcher. */
+export function siblingGames(slug: string, kind: "statistics" | "generator"): HubGame[] {
+  const g = getLiveGame(slug);
+  if (!g) return [];
+  const bucket = regionBucket(g);
+  return getHubGames(kind).filter(
+    (h) => h.country === g.country && h.slug !== slug && (h.bucket === bucket || h.bucket === "National"),
+  );
+}
+
 export function liveGameCard(slug: string) {
   const cfg = getLiveGame(slug);
   const l = getLatestAll().find((g) => g.slug === slug);

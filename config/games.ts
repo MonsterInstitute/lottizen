@@ -104,6 +104,47 @@ export function gamesForCountry(code: Country): GameConfig[] {
   return GAMES.filter((g) => g.country === code);
 }
 
+/** Coarse region bucket for hub grouping. */
+export function regionBucket(g: GameConfig): string {
+  switch (g.agency) {
+    case "National":
+    case "Multi-State":
+      return "National";
+    case "OLG":
+      return "Ontario";
+    case "WCLC":
+      return "Western Canada";
+    case "BCLC":
+      return "British Columbia";
+    case "Loto-Québec":
+      return "Québec";
+    case "ALC":
+      return "Atlantic";
+    case "NY Lottery":
+      return "New York";
+    default:
+      return "Other";
+  }
+}
+
+/** Map a Vercel province/state code (ON, BC, QC, NY…) to a region bucket. */
+export function bucketForRegionCode(code: string): string | null {
+  const m: Record<string, string> = {
+    ON: "Ontario",
+    BC: "British Columbia",
+    AB: "Western Canada",
+    SK: "Western Canada",
+    MB: "Western Canada",
+    QC: "Québec",
+    NS: "Atlantic",
+    NB: "Atlantic",
+    PE: "Atlantic",
+    NL: "Atlantic",
+    NY: "New York",
+  };
+  return m[code] ?? null;
+}
+
 /** Games grouped by agency within a country, for the country overview. */
 export function gamesByAgency(code: Country): { agency: Agency; games: GameConfig[] }[] {
   const order: Agency[] = ["National", "Multi-State", "NY Lottery", "OLG", "WCLC", "BCLC", "Loto-Québec", "ALC"];

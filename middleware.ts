@@ -1,29 +1,51 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 /**
- * Geo-routing — runs ONLY on `/` (see matcher). Sends Canadian visitors to
- * /canada and US visitors to /usa; everyone else stays on the two-country
- * landing page. All other paths (/canada/*, /usa/*, /scratch/*, …) are never
- * intercepted, so users and crawlers reach any page directly.
+ * Geo-routing + geo hint.
  *
- * Precedence: explicit user choice (lottizen_region cookie, set by the nav
- * country switch) > real geo (x-vercel-ip-country) > dev override
- * (DEV_GEO_COUNTRY) > default CA in development. Uses a 307 (temporary) so the
- * redirect is never cached and users can always switch countries.
+ * On `/`: redirect Canadian visitors to /canada and US visitors to /usa
+ * (307, uncached); other countries stay on the landing page. Precedence:
+ * lottizen_region cookie (nav country switch) > x-vercel-ip-country >
+ * DEV_GEO_COUNTRY > CA in dev.
+ *
+ * On every matched path we also write a lightweight, non-httpOnly cookie
+ * `lottizen_geo` = "<country>-<region>" (e.g. "CA-ON", "US-NY") from Vercel's
+ * geo headers. The /statistics and /generator hubs read it client-side to sort
+ * the user's province/state games to the top — the pages stay fully static.
  */
-export const config = { matcher: "/" };
+export const config = { matcher: ["/", "/statistics", "/generator"] };
+
+const YEAR = 60 * 60 * 24 * 365;
 
 export function middleware(req: NextRequest) {
-  const cookie = req.cookies.get("lottizen_region")?.value?.toUpperCase();
-  const ip = req.headers.get("x-vercel-ip-country")?.toUpperCase();
-  const devOverride = process.env.DEV_GEO_COUNTRY?.toUpperCase();
   const isDev = process.env.NODE_ENV !== "production";
+  const country = req.headers.get("x-vercel-ip-country")?.toUpperCase();
+  const region = req.headers.get("x-vercel-ip-country-region")?.toUpperCase();
 
-  const region = cookie || ip || devOverride || (isDev ? "CA" : undefined);
+  // Build the geo hint (fall back to a dev override in local development).
+  const devGeo = process.env.DEV_GEO?.toUpperCase();
+  const geo =
+    (country ? (region ? `${country}-${region}` : country) : undefined) ||
+    devGeo ||
+    (isDev ? "CA-ON" : undefined);
 
-  if (region === "CA") return NextResponse.redirect(new URL("/canada", req.url), 307);
-  if (region === "US") return NextResponse.redirect(new URL("/usa", req.url), 307);
+  const withGeo = (res: NextResponse) => {
+    if (geo) res.cookies.set("lottizen_geo", geo, { path: "/", maxAge: YEAR, sameSite: "lax" });
+    return res;
+  };
 
-  // Unknown / other countries: stay on the landing page.
-  return NextResponse.next();
+  // Only the root path redirects by country.
+  if (req.nextUrl.pathname === "/") {
+    const chosen =
+      req.cookies.get("lottizen_region")?.value?.toUpperCase() ||
+      country ||
+      process.env.DEV_GEO_COUNTRY?.toUpperCase() ||
+      (isDev ? "CA" : undefined);
+    if (chosen === "CA") return withGeo(NextResponse.redirect(new URL("/canada", req.url), 307));
+    if (chosen === "US") return withGeo(NextResponse.redirect(new URL("/usa", req.url), 307));
+    return withGeo(NextResponse.next());
+  }
+
+  // Hub pages: just set the geo hint.
+  return withGeo(NextResponse.next());
 }

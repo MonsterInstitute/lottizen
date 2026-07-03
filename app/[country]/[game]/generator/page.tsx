@@ -5,6 +5,7 @@ import { countryName } from "@/config/games";
 import { resolveGame, countryGamePoolParams, getStats } from "@/lib/draws";
 import { absUrl } from "@/lib/site";
 import { GameTabs } from "@/components/draws/GameTabs";
+import { GameSwitcher } from "@/components/draws/GameSwitcher";
 import { Generator } from "@/components/draws/Generator";
 
 export const dynamicParams = false;
@@ -50,6 +51,7 @@ export default function GeneratorPage({ params }: { params: { country: string; g
             fun; the odds are identical no matter how you choose.
           </p>
           <GameTabs country={params.country} slug={g.slug} active="generator" />
+          <GameSwitcher slug={g.slug} kind="generator" />
         </div>
       </div>
 
