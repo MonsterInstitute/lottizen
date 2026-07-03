@@ -27,12 +27,16 @@ export function generateMetadata({ params }: { params: { game: string } }): Meta
   };
 }
 
+const RECENT_LIMIT = 200;
+
 export default function ResultsPage({ params }: { params: { game: string } }) {
   const g = getLiveGame(params.game);
   if (!g) notFound();
   const draws = getDraws(g.slug);
   if (!draws) notFound();
   const years = getResultYears(g.slug);
+  const shown = draws.draws.slice(0, RECENT_LIMIT);
+  const truncated = draws.draws.length > RECENT_LIMIT;
 
   return (
     <>
@@ -47,8 +51,11 @@ export default function ResultsPage({ params }: { params: { game: string } }) {
             {g.name} <em>winning numbers.</em>
           </h1>
           <p className="section-lede">
-            Every {g.name} draw since {draws.dataSince ? drawDate(draws.dataSince) : "—"} —
-            newest first. {draws.drawCount} draws on record.
+            {draws.drawCount.toLocaleString("en-CA")} {g.name} draws on record since{" "}
+            {draws.dataSince ? drawDate(draws.dataSince) : "—"}.
+            {truncated
+              ? ` Showing the ${RECENT_LIMIT} most recent — use the year filter for the full archive.`
+              : ""}
           </p>
           <GameTabs slug={g.slug} active="results" />
         </div>
@@ -75,7 +82,7 @@ export default function ResultsPage({ params }: { params: { game: string } }) {
               </tr>
             </thead>
             <tbody>
-              {draws.draws.map((d) => (
+              {shown.map((d) => (
                 <tr key={d.date}>
                   <td className="rdate">{drawDate(d.date)}</td>
                   <td>

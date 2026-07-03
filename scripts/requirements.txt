@@ -1,5 +1,7 @@
 # Live scraping dependencies (the scraper degrades gracefully without them:
 # it falls back to seeded sample data). CI installs these before scraping.
-playwright>=1.47      # headless Chromium render + XHR sniff (Akamai/Vue)
-beautifulsoup4>=4.12  # DOM fallback parser
+playwright>=1.47      # headless Chromium render + XHR sniff (Akamai/Vue); WCLC month nav
+beautifulsoup4>=4.12  # DOM parser (WCLC winning-numbers pages)
+pdfplumber>=0.11      # WCLC "since inception" full-history PDF extraction
+certifi>=2024.0       # CA bundle for HTTPS in venvs without system certs
 # After install, run once: playwright install chromium
