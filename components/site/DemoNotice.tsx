@@ -10,7 +10,7 @@ export function DemoNotice() {
   const { source, generatedAt } = getRankings();
   if (source === "sample") {
     return (
-      <div className="notice" style={{ marginTop: 28 }}>
+      <div className="notice">
         <span className="notice-tag">Demo data</span>
         <span>
           These rankings use <strong>illustrative sample figures</strong>, not
@@ -21,7 +21,7 @@ export function DemoNotice() {
     );
   }
   return (
-    <div className="notice" style={{ marginTop: 28 }}>
+    <div className="notice">
       <span className="notice-tag">Live · OLG</span>
       <span>
         Updated <strong>{humanDateTime(generatedAt)}</strong> from OLG&rsquo;s

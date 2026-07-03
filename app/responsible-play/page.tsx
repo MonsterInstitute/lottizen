@@ -24,7 +24,7 @@ export default function ResponsiblePlayPage() {
           <div className="breadcrumb">
             <Link href="/">Rankings</Link> / <span>Responsible Play</span>
           </div>
-          <div className="section-eyebrow">/ Play Smart</div>
+          <div className="section-eyebrow">Play smart</div>
           <h1 className="section-headline">
             A ticket is <em>entertainment.</em>
           </h1>

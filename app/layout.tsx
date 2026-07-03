@@ -1,35 +1,21 @@
 import type { Metadata } from "next";
-import {
-  Big_Shoulders_Display,
-  Newsreader,
-  Plus_Jakarta_Sans,
-  JetBrains_Mono,
-} from "next/font/google";
+import { Playfair_Display, Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
-import { Ticker } from "@/components/site/Ticker";
-import { ThemeToggle } from "@/components/site/ThemeToggle";
 import { JsonLd } from "@/components/site/JsonLd";
-import { SITE, absUrl } from "@/lib/site";
+import { SITE } from "@/lib/site";
 
-const display = Big_Shoulders_Display({
+const serif = Playfair_Display({
   subsets: ["latin"],
-  weight: ["300", "400", "600", "700", "900"],
-  variable: "--font-display",
-  display: "swap",
-});
-const serif = Newsreader({
-  subsets: ["latin"],
-  style: ["italic", "normal"],
-  weight: ["400", "500"],
+  style: ["normal", "italic"],
+  weight: ["500", "600", "700", "800", "900"],
   variable: "--font-serif",
   display: "swap",
-  adjustFontFallback: false, // Newsreader ships no size-adjust metrics; skip the override probe
 });
-const sans = Plus_Jakarta_Sans({
+const sans = Inter({
   subsets: ["latin"],
-  weight: ["400", "500", "700", "800"],
+  weight: ["400", "500", "600", "700"],
   variable: "--font-sans",
   display: "swap",
 });
@@ -75,9 +61,6 @@ export const metadata: Metadata = {
   category: "reference",
 };
 
-// Set the theme before first paint to avoid a flash.
-const themeInit = `(function(){try{var t=localStorage.getItem('lottizen-theme');document.documentElement.setAttribute('data-theme',t==='night'?'night':'day');}catch(e){document.documentElement.setAttribute('data-theme','day');}})();`;
-
 const orgJsonLd = {
   "@context": "https://schema.org",
   "@type": "Organization",
@@ -96,17 +79,12 @@ export default function RootLayout({
   return (
     <html
       lang="en-CA"
-      data-theme="day"
-      className={`${display.variable} ${serif.variable} ${sans.variable} ${mono.variable}`}
-      suppressHydrationWarning
+      className={`${serif.variable} ${sans.variable} ${mono.variable}`}
     >
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeInit }} />
         <JsonLd data={orgJsonLd} />
       </head>
       <body>
-        <ThemeToggle />
-        <Ticker />
         <Header />
         <main>{children}</main>
         <Footer />

@@ -4,9 +4,9 @@ import { money, price } from "@/lib/format";
 import { ScoreBadge } from "@/components/ranking/ScoreBadge";
 
 /**
- * The core ranking board. Each row links to /scratch/[slug]. Uses the ported
- * grid + brutalist frame; collapses to stacked cards on mobile (see globals).
- * `startRank` lets sub-lists (e.g. a price page) keep their own numbering.
+ * The core ranking board — editorial table: hairline rows, serif game names,
+ * mono numerics, generous row height. Each row links to /scratch/[slug] and
+ * collapses to a stacked card on mobile (see globals).
  */
 export function RankingTable({
   games,
@@ -20,35 +20,38 @@ export function RankingTable({
   return (
     <div className="rank-table">
       <div className="rank-head">
-        <div>Rank</div>
+        <div>#</div>
         <div>Game</div>
-        <div>Price</div>
-        <div>Prizes Left</div>
-        <div>Top Prizes Left</div>
-        <div>Score</div>
+        <div className="num-col">Price</div>
+        <div className="num-col">Prizes left</div>
+        <div className="num-col">Top prizes left</div>
+        <div className="num-col">Score</div>
       </div>
       {games.map((g, i) => {
         const pos = startRank + i;
         return (
           <Link href={`/scratch/${g.slug}`} className="rank-row" key={g.slug}>
-            <div className="rank-pos">{pos}</div>
+            <div className="rank-pos">
+              {String(pos).padStart(2, "0")}
+            </div>
             <div className="rank-name">
               {g.name}
               <span className="rank-gameno">
                 GAME #{g.gameNumber} · TOP PRIZE {g.topPrizeLabel}
               </span>
             </div>
-            <div className="rank-cell rank-num">
+            <div className="rank-cell rank-num num-col">
               <span className="rank-cell-label">Price</span>
               <strong>{price(g.price)}</strong>
             </div>
-            <div className="rank-cell rank-num">
+            <div className="rank-cell rank-num num-col">
               <span className="rank-cell-label">Prizes left</span>
-              <strong>{money(g.remainingPrizePool, { compact: true })}</strong>
+              {money(g.remainingPrizePool, { compact: true })}
             </div>
-            <div className="rank-cell rank-num">
+            <div className="rank-cell rank-num num-col">
               <span className="rank-cell-label">Top left</span>
-              <strong>{g.topPrizesRemaining}</strong>&nbsp;/&nbsp;{g.topPrizesTotal}
+              <strong>{g.topPrizesRemaining}</strong>
+              <span style={{ color: "var(--ink-3)" }}>&nbsp;/&nbsp;{g.topPrizesTotal}</span>
             </div>
             <div className="rank-score">
               <ScoreBadge value={g.valueScore} hot={pos <= hotCount} />

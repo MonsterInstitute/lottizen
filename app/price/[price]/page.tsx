@@ -76,7 +76,7 @@ export default function PricePage({ params }: { params: { price: string } }) {
           <div className="breadcrumb">
             <Link href="/">Rankings</Link> / <span>${p} Tickets</span>
           </div>
-          <div className="section-eyebrow">/ By Price · ${p}</div>
+          <div className="section-eyebrow">By price · ${p}</div>
           <h1 className="section-headline">
             Best <em>${p}</em> scratch tickets.
           </h1>
@@ -89,18 +89,19 @@ export default function PricePage({ params }: { params: { price: string } }) {
         </div>
       </div>
 
-      <section className="section" style={{ paddingTop: 40 }}>
+      <section className="section" style={{ paddingTop: 44 }}>
         <div className="container">
-          <DemoNotice />
-          <AdSlot slot="price-top" format="leaderboard" />
-          <div style={{ height: 24 }} />
-          {games.length ? (
-            <RankingTable games={games} />
-          ) : (
-            <p className="section-lede">No games at this price right now.</p>
-          )}
+          <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+            <DemoNotice />
+            <AdSlot slot="price-top" format="leaderboard" />
+            {games.length ? (
+              <RankingTable games={games} />
+            ) : (
+              <p className="section-lede">No games at this price right now.</p>
+            )}
+          </div>
           <div style={{ marginTop: 40 }}>
-            <Link href="/" className="btn-secondary">
+            <Link href="/" className="btn btn-secondary">
               ← Back to full rankings
             </Link>
           </div>

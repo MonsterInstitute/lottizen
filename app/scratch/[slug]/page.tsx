@@ -119,7 +119,7 @@ export default function ScratchPage({ params }: { params: { slug: string } }) {
           >
             <div>
               <div className="section-eyebrow">
-                / Rank #{g.rank} of {games.length} · Game #{g.gameNumber}
+                Rank {g.rank} of {games.length} · Game #{g.gameNumber}
               </div>
               <h1 className="section-headline" style={{ marginBottom: 12 }}>
                 {g.name}
@@ -174,7 +174,9 @@ export default function ScratchPage({ params }: { params: { slug: string } }) {
             </div>
           </div>
 
-          <DemoNotice />
+          <div style={{ marginTop: 20 }}>
+            <DemoNotice />
+          </div>
 
           {/* Prize table */}
           <h2
@@ -203,11 +205,13 @@ export default function ScratchPage({ params }: { params: { slug: string } }) {
                   <tr key={i} className={t.remaining === 0 ? "depleted" : ""}>
                     <td className="amount">
                       {t.label}
-                      {t.isTop ? " ★" : ""}
+                      {t.isTop ? (
+                        <span style={{ color: "var(--brand)" }}> ★</span>
+                      ) : null}
                     </td>
-                    <td>{count(t.total)}</td>
-                    <td>{count(t.remaining)}</td>
-                    <td>{pctLeft.toFixed(0)}%</td>
+                    <td className="num">{count(t.total)}</td>
+                    <td className="num">{count(t.remaining)}</td>
+                    <td className="num">{pctLeft.toFixed(0)}%</td>
                   </tr>
                 );
               })}
@@ -218,14 +222,14 @@ export default function ScratchPage({ params }: { params: { slug: string } }) {
             style={{
               fontFamily: "var(--font-mono)",
               fontSize: 12,
-              color: "var(--ink-dim)",
+              color: "var(--ink-3)",
               marginTop: 14,
-              letterSpacing: "0.04em",
+              letterSpacing: "0.02em",
             }}
           >
             Value retention {g.valueRetention.toFixed(2)}× · data as of{" "}
             {humanDate(g.scrapedAt)}. OLG lists a game&rsquo;s top prize tiers; see{" "}
-            <Link href="/methodology" style={{ color: "var(--orange)" }}>
+            <Link href="/methodology" style={{ color: "var(--brand-deep)" }}>
               methodology
             </Link>
             .
@@ -244,7 +248,7 @@ export default function ScratchPage({ params }: { params: { slug: string } }) {
           <RankingTable games={related} startRank={1} hotCount={0} />
 
           <div style={{ marginTop: 40 }}>
-            <Link href="/" className="btn-secondary">
+            <Link href="/" className="btn btn-secondary">
               ← Back to full rankings
             </Link>
           </div>

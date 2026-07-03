@@ -3,19 +3,24 @@ import { Logo } from "@/components/site/Logo";
 
 export function Header() {
   return (
-    <nav className="site-nav">
+    <header className="site-nav">
       <div className="container nav-inner">
         <Logo />
-        <div className="nav-links">
+        <nav className="nav-links">
           <Link href="/">Rankings</Link>
-          <Link href="/price/5">By Price</Link>
-          <Link href="/methodology">Methodology</Link>
-          <Link href="/responsible-play">Play Smart</Link>
-          <Link href="/methodology" className="nav-cta">
-            How It Works
+          <Link href="/price/5">By price</Link>
+          <Link href="/methodology">How it works</Link>
+          <Link href="/responsible-play">Play smart</Link>
+        </nav>
+        <div className="nav-right">
+          <Link href="/methodology" className="nav-signin">
+            Methodology
+          </Link>
+          <Link href="/" className="nav-cta">
+            Today&rsquo;s picks
           </Link>
         </div>
       </div>
-    </nav>
+    </header>
   );
 }

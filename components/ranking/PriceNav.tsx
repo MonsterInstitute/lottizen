@@ -5,9 +5,9 @@ import { getActivePricePoints } from "@/lib/data";
 export function PriceNav({ active }: { active?: number }) {
   const prices = getActivePricePoints();
   return (
-    <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 28 }}>
+    <div className="chip-row">
       <Link href="/" className={`chip ${active === undefined ? "active" : ""}`}>
-        All
+        All prices
       </Link>
       {prices.map((p) => (
         <Link

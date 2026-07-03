@@ -61,7 +61,7 @@ export default function MethodologyPage() {
           <div className="breadcrumb">
             <Link href="/">Rankings</Link> / <span>Methodology</span>
           </div>
-          <div className="section-eyebrow">/ Methodology</div>
+          <div className="section-eyebrow">Methodology</div>
           <h1 className="section-headline">
             How we score <em>value.</em>
           </h1>
