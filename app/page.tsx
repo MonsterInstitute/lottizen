@@ -1,36 +1,39 @@
 import Link from "next/link";
-import { getRankings, getTopPick } from "@/lib/data";
-import { money, humanDate } from "@/lib/format";
+import { getLiveGame, LIVE_GAMES } from "@/config/games";
+import { getLatestAll, getLatestGeneratedAt, getStats } from "@/lib/draws";
+import { getTopPick, getRankings } from "@/lib/data";
+import { drawDate, money, humanDate } from "@/lib/format";
 import { SITE, absUrl } from "@/lib/site";
-import { RankingTable } from "@/components/ranking/RankingTable";
-import { PriceNav } from "@/components/ranking/PriceNav";
-import { TopPickCard } from "@/components/ranking/TopPickCard";
-import { DemoNotice } from "@/components/site/DemoNotice";
+import { Balls } from "@/components/draws/Balls";
 import { AdSlot } from "@/components/site/AdSlot";
 import { JsonLd } from "@/components/site/JsonLd";
 
 export default function HomePage() {
-  const { games, generatedAt } = getRankings();
-  const top = getTopPick();
-  const totalPrizePool = games.reduce((s, g) => s + g.remainingPrizePool, 0);
+  const latest = getLatestAll();
+  const generatedAt = getLatestGeneratedAt();
+  const byslug = new Map(latest.map((l) => [l.slug, l]));
+  const featured = byslug.get("lotto-max");
+  const featuredCfg = getLiveGame("lotto-max");
+  const scratchTop = getTopPick();
+  const scratchCount = getRankings().games.length;
 
-  const itemListJsonLd = {
+  const jackpot = (slug: string) => {
+    const j = byslug.get(slug)?.nextJackpot;
+    return j ? money(j, { compact: true }) : "TBA";
+  };
+
+  const jsonLd = {
     "@context": "https://schema.org",
-    "@type": "ItemList",
-    name: `Ontario Scratch Ticket Value Rankings — ${humanDate(generatedAt)}`,
-    description: SITE.description,
-    numberOfItems: games.length,
-    itemListElement: games.map((g) => ({
-      "@type": "ListItem",
-      position: g.rank,
-      url: absUrl(`/scratch/${g.slug}`),
-      name: g.name,
-    })),
+    "@type": "WebSite",
+    name: SITE.name,
+    url: SITE.url,
+    description:
+      "Canadian lottery winning numbers, results and number statistics — Lotto Max, Lotto 6/49, Ontario 49 and more.",
   };
 
   return (
     <>
-      <JsonLd data={itemListJsonLd} />
+      <JsonLd data={jsonLd} />
 
       {/* ============ HERO ============ */}
       <section className="hero">
@@ -38,94 +41,174 @@ export default function HomePage() {
           <div>
             <span className="pill reveal r-1">
               <span className="dot" />
-              Ontario&rsquo;s scratch-ticket value tracker
+              Canada&rsquo;s lottery numbers &amp; statistics
             </span>
-
             <h1 className="hero-headline">
-              <span className="line reveal r-2">Smarter scratch,</span>
+              <span className="line reveal r-2">Canada&rsquo;s lottery,</span>
               <span className="line reveal r-3">
-                <em>better odds.</em>
+                by the <em>numbers.</em>
               </span>
             </h1>
-
             <p className="hero-deck reveal r-4">
-              Not every scratch ticket is worth the same today. Lottizen tracks{" "}
-              <strong>every Ontario instant game&rsquo;s remaining prizes</strong>{" "}
-              from OLG and scores which still have the most value left — so you
-              buy the smart one, not the pretty one.
+              Winning numbers, deep statistics, and number tools for{" "}
+              <strong>every Canadian draw game</strong> — Lotto Max, 6/49, Ontario 49 and
+              more. Plus a scratch-ticket value tracker, because the smart play is knowing
+              the math.
             </p>
-
             <div className="hero-cta-row reveal r-5">
-              <Link href="#rankings" className="btn btn-primary">
-                See today&rsquo;s rankings
+              <Link href="/canada" className="btn btn-primary">
+                Browse all games
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                   <path d="M5 12h14M13 5l7 7-7 7" />
                 </svg>
               </Link>
-              <Link href="/methodology" className="btn btn-secondary">
-                How the score works
+              <Link href="/canada/lotto-max/statistics" className="btn btn-secondary">
+                Number statistics
               </Link>
             </div>
-
             <div className="hero-meta reveal r-5">
-              Updated {humanDate(generatedAt)} · {games.length} games tracked · Free
+              Updated {humanDate(generatedAt)} · {LIVE_GAMES.length} games live · Free
             </div>
           </div>
 
-          <TopPickCard game={top} />
+          {/* Featured latest draw */}
+          {featured && featuredCfg && (
+            <div className="data-card reveal r-3">
+              <div className="data-card-head">
+                <Link href="/canada/lotto-max" className="data-card-title">
+                  {featuredCfg.name}
+                </Link>
+                <span className="status-pill">Latest</span>
+              </div>
+              <div className="game-card-date" style={{ marginTop: 16, marginBottom: 14 }}>
+                {drawDate(featured.latestDate)}
+              </div>
+              <Balls numbers={featured.numbers} bonus={featured.bonus} size="lg" />
+              <div className="game-card-jackpot">
+                <span className="lbl">Next jackpot</span>
+                <span className="amt">{jackpot("lotto-max")}</span>
+              </div>
+              <div className="data-card-foot">
+                <span>{featured.drawCount} draws on record</span>
+                <Link href="/canada/lotto-max/statistics" style={{ color: "var(--brand-deep)", textDecoration: "none" }}>
+                  Stats →
+                </Link>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
-      {/* ============ STAT BAND ============ */}
-      <section className="container">
-        <div className="stat-band">
-          <div className="stat-cell">
-            <div className="stat-cell-label">Games tracked</div>
-            <div className="stat-cell-value">{games.length}</div>
-            <div className="stat-cell-foot">
-              Active OLG instant games, re-ranked every morning.
-            </div>
-          </div>
-          <div className="stat-cell">
-            <div className="stat-cell-label">Prize money unclaimed</div>
-            <div className="stat-cell-value">
-              {money(totalPrizePool, { compact: true })}
-              <em>+</em>
-            </div>
-            <div className="stat-cell-foot">
-              Across every tracked game, right now.
-            </div>
-          </div>
-          <div className="stat-cell">
-            <div className="stat-cell-label">Today&rsquo;s best value</div>
-            <div className="stat-cell-value">{top.valueScore.toFixed(0)}</div>
-            <div className="stat-cell-foot">
-              {top.name} — highest Value Score on the board.
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ============ RANKINGS ============ */}
-      <section className="section" id="rankings">
+      {/* ============ RECENT RESULTS ============ */}
+      <section className="section" style={{ paddingTop: 40 }}>
         <div className="container">
-          <div className="section-eyebrow">Today&rsquo;s board</div>
+          <div className="section-eyebrow">Latest results</div>
           <div className="section-head-row">
             <h2 className="section-headline">
-              Ontario scratch tickets, ranked by <em>value left.</em>
+              Tonight&rsquo;s winning <em>numbers.</em>
             </h2>
-            <p className="section-lede" style={{ maxWidth: "26em" }}>
-              Higher Value Score = more expected prize money still in the game
-              per dollar you spend. Tap any ticket for the full prize breakdown.
+            <p className="section-lede" style={{ maxWidth: "24em" }}>
+              The most recent draw for each game we track, with the next estimated jackpot.
             </p>
           </div>
 
-          <div style={{ marginTop: 28, display: "flex", flexDirection: "column", gap: 20 }}>
-            <DemoNotice />
-            <PriceNav />
-            <AdSlot slot="rankings-top" format="leaderboard" />
-            <RankingTable games={games} />
-            <AdSlot slot="rankings-bottom" format="leaderboard" />
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
+              gap: 16,
+              marginTop: 32,
+            }}
+          >
+            {LIVE_GAMES.map((g) => {
+              const l = byslug.get(g.slug);
+              if (!l) return null;
+              return (
+                <Link key={g.slug} href={`/canada/${g.slug}`} className="game-card">
+                  <div className="game-card-head">
+                    <span className="game-card-name">{g.name}</span>
+                    <span className="game-card-meta">{g.pick}/{g.max}</span>
+                  </div>
+                  <div className="game-card-date">{drawDate(l.latestDate)}</div>
+                  <Balls numbers={l.numbers} bonus={l.bonus} size="sm" />
+                  <div className="game-card-jackpot">
+                    <span className="lbl">Next jackpot</span>
+                    <span className="amt">{jackpot(g.slug)}</span>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+
+          <div style={{ marginTop: 28 }}>
+            <Link href="/canada" className="btn btn-secondary">
+              All Canadian games →
+            </Link>
+          </div>
+
+          <div style={{ marginTop: 40 }}>
+            <AdSlot slot="home-mid" format="leaderboard" />
+          </div>
+        </div>
+      </section>
+
+      {/* ============ SCRATCH TRACKER (demoted module) ============ */}
+      <section className="section" style={{ paddingTop: 0 }}>
+        <div className="container">
+          <div
+            className="card home-scratch-grid"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "1.4fr 1fr",
+              gap: 32,
+              alignItems: "center",
+              padding: 36,
+            }}
+          >
+            <div>
+              <div className="section-eyebrow" style={{ marginBottom: 14 }}>
+                Scratch Value Tracker
+              </div>
+              <h2 className="section-headline" style={{ fontSize: "clamp(28px,3.4vw,44px)", marginBottom: 12 }}>
+                Which scratch ticket is <em>worth it</em> today?
+              </h2>
+              <p className="section-lede" style={{ marginBottom: 22 }}>
+                We track OLG&rsquo;s remaining instant-game prizes and rank every Ontario
+                scratch ticket by the value still left to win.
+              </p>
+              <Link href="/scratch" className="btn btn-primary">
+                Open the tracker
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <path d="M5 12h14M13 5l7 7-7 7" />
+                </svg>
+              </Link>
+            </div>
+            <div className="data-card" style={{ boxShadow: "var(--shadow-sm)" }}>
+              <div className="data-card-head">
+                <span className="data-card-title">{scratchTop.name}</span>
+                <span className="status-pill">#1 value</span>
+              </div>
+              <div className="data-row">
+                <span className="k">Value score</span>
+                <span className="v" style={{ color: "var(--brand-deep)", fontWeight: 700 }}>
+                  {scratchTop.valueScore.toFixed(1)}
+                </span>
+              </div>
+              <div className="data-row">
+                <span className="k">Ticket price</span>
+                <span className="v">${Math.round(scratchTop.price)}</span>
+              </div>
+              <div className="data-row">
+                <span className="k">Prizes unclaimed</span>
+                <span className="v">{money(scratchTop.remainingPrizePool, { compact: true })}</span>
+              </div>
+              <div className="data-card-foot">
+                <span>{scratchCount} scratch games ranked</span>
+                <Link href="/scratch" style={{ color: "var(--brand-deep)", textDecoration: "none" }}>
+                  See all →
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
       </section>

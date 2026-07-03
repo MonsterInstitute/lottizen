@@ -41,6 +41,19 @@ export function humanDate(iso: string): string {
   });
 }
 
+/** "2026-06-30" -> "Tue, Jun 30, 2026" (date-only, no TZ shift). */
+export function drawDate(ymd: string): string {
+  const [y, m, d] = ymd.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  return dt.toLocaleDateString("en-CA", {
+    weekday: "short",
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
+
 export function humanDateTime(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleString("en-CA", {

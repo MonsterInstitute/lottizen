@@ -22,7 +22,7 @@ export default function ResponsiblePlayPage() {
       <div className="page-head">
         <div className="container">
           <div className="breadcrumb">
-            <Link href="/">Rankings</Link> / <span>Responsible Play</span>
+            <Link href="/">Home</Link> / <span>Responsible Play</span>
           </div>
           <div className="section-eyebrow">Play smart</div>
           <h1 className="section-headline">

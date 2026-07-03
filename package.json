@@ -8,29 +8,30 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "data:scrape": "python3 scripts/scrape_olg.py",
-    "data:rank": "python3 scripts/calculate_rankings.py",
-    "data:refresh": "python3 scripts/scrape_olg.py && python3 scripts/calculate_rankings.py"
+    "data:scratch": "python3 scripts/scrape_olg.py && python3 scripts/calculate_rankings.py",
+    "data:draws": "python3 scripts/scrape_draws.py && python3 scripts/calculate_stats.py",
+    "data:refresh": "npm run data:draws && npm run data:scratch"
   },
   "dependencies": {
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.454.0",
     "next": "14.2.15",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "clsx": "^2.1.1",
-    "tailwind-merge": "^2.5.4",
-    "class-variance-authority": "^0.7.0",
-    "lucide-react": "^0.454.0"
+    "recharts": "^2.13.0",
+    "tailwind-merge": "^2.5.4"
   },
   "devDependencies": {
-    "typescript": "^5.6.3",
     "@types/node": "^20.16.11",
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.0",
-    "tailwindcss": "^3.4.14",
-    "postcss": "^8.4.47",
     "autoprefixer": "^10.4.20",
-    "tailwindcss-animate": "^1.0.7",
     "eslint": "^8.57.1",
-    "eslint-config-next": "14.2.15"
+    "eslint-config-next": "14.2.15",
+    "postcss": "^8.4.47",
+    "tailwindcss": "^3.4.14",
+    "tailwindcss-animate": "^1.0.7",
+    "typescript": "^5.6.3"
   }
 }

@@ -42,8 +42,8 @@ export function generateMetadata({
   return {
     title,
     description,
-    alternates: { canonical: `/price/${p}` },
-    openGraph: { title, description, url: absUrl(`/price/${p}`), type: "website" },
+    alternates: { canonical: `/scratch/price/${p}` },
+    openGraph: { title, description, url: absUrl(`/scratch/price/${p}`), type: "website" },
     twitter: { card: "summary_large_image", title, description },
   };
 }
@@ -74,7 +74,7 @@ export default function PricePage({ params }: { params: { price: string } }) {
       <div className="page-head">
         <div className="container">
           <div className="breadcrumb">
-            <Link href="/">Rankings</Link> / <span>${p} Tickets</span>
+            <Link href="/scratch">Scratch</Link> / <span>${p} Tickets</span>
           </div>
           <div className="section-eyebrow">By price · ${p}</div>
           <h1 className="section-headline">
@@ -101,7 +101,7 @@ export default function PricePage({ params }: { params: { price: string } }) {
             )}
           </div>
           <div style={{ marginTop: 40 }}>
-            <Link href="/" className="btn btn-secondary">
+            <Link href="/scratch" className="btn btn-secondary">
               ← Back to full rankings
             </Link>
           </div>

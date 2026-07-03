@@ -88,7 +88,7 @@ export default function ScratchPage({ params }: { params: { slug: string } }) {
         "@type": "ListItem",
         position: 2,
         name: `$${Math.round(g.price)} Tickets`,
-        item: absUrl(`/price/${Math.round(g.price)}`),
+        item: absUrl(`/scratch/price/${Math.round(g.price)}`),
       },
       { "@type": "ListItem", position: 3, name: g.name, item: absUrl(`/scratch/${g.slug}`) },
     ],
@@ -101,8 +101,8 @@ export default function ScratchPage({ params }: { params: { slug: string } }) {
       <div className="page-head">
         <div className="container">
           <div className="breadcrumb">
-            <Link href="/">Rankings</Link> /{" "}
-            <Link href={`/price/${Math.round(g.price)}`}>
+            <Link href="/scratch">Scratch</Link> /{" "}
+            <Link href={`/scratch/price/${Math.round(g.price)}`}>
               ${Math.round(g.price)} Tickets
             </Link>{" "}
             / <span>{g.name}</span>
@@ -248,7 +248,7 @@ export default function ScratchPage({ params }: { params: { slug: string } }) {
           <RankingTable games={related} startRank={1} hotCount={0} />
 
           <div style={{ marginTop: 40 }}>
-            <Link href="/" className="btn btn-secondary">
+            <Link href="/scratch" className="btn btn-secondary">
               ← Back to full rankings
             </Link>
           </div>

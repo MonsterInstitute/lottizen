@@ -3,7 +3,7 @@ export const SITE = {
   name: "Lottizen",
   tagline: "Smarter Scratch. Better Odds.",
   description:
-    "Live value rankings for Ontario scratch tickets. We track OLG's remaining instant-game prizes and compute a Value Score so you know which scratch ticket is worth buying right now.",
+    "Canadian lottery winning numbers, results, and number statistics — Lotto Max, Lotto 6/49, Ontario 49 and more — plus a scratch-ticket value tracker.",
   // Set NEXT_PUBLIC_SITE_URL in the environment for canonical/OG/sitemap URLs.
   url: (process.env.NEXT_PUBLIC_SITE_URL || "https://lottizen.com").replace(/\/$/, ""),
   locale: "en_CA",

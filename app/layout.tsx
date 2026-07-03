@@ -29,7 +29,7 @@ const mono = JetBrains_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),
   title: {
-    default: `${SITE.name} — ${SITE.tagline}`,
+    default: `${SITE.name} — Canadian Lottery Numbers & Statistics`,
     template: `%s · ${SITE.name}`,
   },
   description: SITE.description,
