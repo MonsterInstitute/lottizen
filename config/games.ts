@@ -81,7 +81,7 @@ export const GAMES: GameConfig[] = [
   },
 
   // ---------------- PLANNED (registered, rollout next) ----------------
-  { slug: "daily-grand", name: "Daily Grand", agency: "National", region: "Canada-wide", pick: 5, max: 49, hasBonus: true, drawDays: ["Monday", "Thursday"], price: 3, blurb: "Win $1,000 a day for life. Pick 5 of 49 plus a Grand Number.", sources: { wclcSlug: "daily-grand-extra", olgFeedName: "DAILY GRAND", olgProductId: "DLYGND" }, live: false },
+  { slug: "daily-grand", name: "Daily Grand", agency: "National", region: "Canada-wide", pick: 5, max: 49, hasBonus: true, drawDays: ["Monday", "Thursday"], price: 3, blurb: "Win $1,000 a day for life. Pick 5 of 49 plus a Grand Number.", sources: { wclcSlug: "daily-grand-extra", olgFeedName: "DAILY GRAND", olgProductId: "DLYGND" }, live: true },
   { slug: "lottario", name: "Lottario", agency: "OLG", region: "Ontario", pick: 6, max: 45, hasBonus: true, drawDays: ["Saturday"], price: 1, blurb: "Ontario's Saturday lotto — pick 6 of 45.", sources: { olgFeedName: "LOTTARIO", olgProductId: "LOTT" }, live: false },
   { slug: "encore", name: "Encore", agency: "OLG", region: "Ontario", pick: 7, max: 9, hasBonus: false, drawDays: ["Daily"], price: 1, blurb: "A 7-digit add-on to any Ontario lotto ticket.", sources: { olgFeedName: "ENCORE" }, live: false },
   { slug: "pick-2", name: "Pick 2", agency: "OLG", region: "Ontario", pick: 2, max: 9, hasBonus: false, drawDays: ["Daily"], price: 1, blurb: "Daily 2-digit game.", sources: { olgFeedName: "PICK 2" }, live: false },
@@ -91,8 +91,8 @@ export const GAMES: GameConfig[] = [
   { slug: "poker-lotto", name: "Poker Lotto", agency: "OLG", region: "Ontario", pick: 5, max: 52, hasBonus: false, drawDays: ["Daily"], price: 2, blurb: "A 5-card poker draw.", sources: { olgFeedName: "POKER LOTTO" }, live: false },
   { slug: "megadice", name: "MegaDice Lotto", agency: "OLG", region: "Ontario", pick: 6, max: 45, hasBonus: true, drawDays: ["Daily"], price: 1, blurb: "Daily 6 of 45 lotto.", sources: { olgFeedName: "MEGADICE LOTTO" }, live: false },
 
-  { slug: "western-max", name: "Western Max", agency: "WCLC", region: "Western Canada", pick: 7, max: 50, hasBonus: true, drawDays: ["Tuesday", "Friday"], price: 5, blurb: "Western Canada's 7 of 50 lotto.", sources: { wclcSlug: "western-max-extra" }, live: false },
-  { slug: "western-6-49", name: "Western 6/49", agency: "WCLC", region: "Western Canada", pick: 6, max: 49, hasBonus: true, drawDays: ["Wednesday", "Saturday"], price: 2, blurb: "Western Canada's 6 of 49.", sources: { wclcSlug: "western-649-extra" }, live: false },
+  { slug: "western-max", name: "Western Max", agency: "WCLC", region: "Western Canada", pick: 7, max: 50, hasBonus: true, drawDays: ["Tuesday", "Friday"], price: 5, blurb: "Western Canada's 7 of 50 lotto, drawn Tuesdays and Fridays.", sources: { wclcSlug: "western-max-extra" }, live: true },
+  { slug: "western-6-49", name: "Western 6/49", agency: "WCLC", region: "Western Canada", pick: 6, max: 49, hasBonus: true, drawDays: ["Wednesday", "Saturday"], price: 2, blurb: "Western Canada's 6 of 49, drawn Wednesdays and Saturdays.", sources: { wclcSlug: "western-649-extra" }, live: true },
   { slug: "bc-49", name: "BC/49", agency: "BCLC", region: "British Columbia", pick: 6, max: 49, hasBonus: true, drawDays: ["Wednesday", "Saturday"], price: 1, blurb: "British Columbia's 6 of 49.", live: false },
 
   { slug: "quebec-max", name: "Québec Max", agency: "Loto-Québec", region: "Québec", pick: 7, max: 50, hasBonus: true, drawDays: ["Tuesday", "Friday"], price: 5, blurb: "Québec's 7 of 50 lotto.", live: false },

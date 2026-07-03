@@ -1,0 +1,55 @@
+name: Daily draw results
+
+# Fetch the newest draw results every morning ~6:00 AM Eastern.
+# 10:00 UTC = 06:00 EDT (summer) / 05:00 EST (winter). Full history was
+# backfilled once via `scrape_draws.py --backfill`; this only appends the
+# latest draws (never overwrites reconciled history) and recomputes stats.
+on:
+  schedule:
+    - cron: "0 10 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: draws-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install scraper dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r scripts/requirements.txt
+          python -m playwright install --with-deps chromium
+
+      - name: Fetch latest draws (append-only)
+        run: python scripts/scrape_draws.py || echo "draw fetch failed; keeping last-good data"
+        continue-on-error: true
+
+      - name: Recompute statistics
+        run: python scripts/calculate_stats.py
+
+      - name: Commit refreshed data
+        id: commit
+        run: |
+          git config user.name "lottizen-bot"
+          git config user.email "bot@lottizen.ca"
+          git add data/draws data/stats data/lottizen.db
+          if git diff --staged --quiet; then
+            echo "No draw changes."
+          else
+            git commit -m "chore(data): daily draw refresh $(date -u +%Y-%m-%d)"
+            git push
+          fi
+
+      # Vercel's Git integration auto-deploys on push (see daily.yml note).

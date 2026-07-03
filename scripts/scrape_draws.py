@@ -66,6 +66,12 @@ LIVE = [
      "inception": "lotto-649", "olg_name": "LOTTO 6/49", "product": "649"},
     {"slug": "ontario-49", "pick": 6, "max": 49, "wclc": None,
      "inception": None, "olg_name": "ONTARIO 49", "product": "ONT49"},
+    {"slug": "daily-grand", "pick": 5, "max": 49, "wclc": "daily-grand-extra",
+     "inception": "daily-grand", "olg_name": "DAILY GRAND", "product": "DLYGND"},
+    {"slug": "western-max", "pick": 7, "max": 50, "wclc": "western-max-extra",
+     "inception": "western-max", "olg_name": None, "product": None},
+    {"slug": "western-6-49", "pick": 6, "max": 49, "wclc": "western-649-extra",
+     "inception": "western-649", "olg_name": None, "product": None},
 ]
 
 
@@ -366,7 +372,7 @@ def backfill_game(conn, cfg, latest, delay=1.0):
         add_source(per_date, "wclc", recent)
         print(f"  WCLC recent: {len(recent)} draws")
         time.sleep(delay)
-    l = latest.get(cfg["olg_name"].upper())
+    l = latest.get(cfg["olg_name"].upper()) if cfg.get("olg_name") else None
     if l:
         add_source(per_date, "olg-feed", [l])
     if not per_date:
@@ -379,14 +385,29 @@ def backfill_game(conn, cfg, latest, delay=1.0):
     summarize(conn, slug, cfg["pick"], recon)
 
 
+def insert_new(conn, game_id, date, numbers, bonus, source):
+    """Insert a draw only if that date isn't already recorded — daily runs must
+    never overwrite the reconciled/verified full-history rows."""
+    conn.execute(
+        """INSERT INTO draws (game_id, draw_date, numbers, bonus, source, verified, scraped_at)
+           VALUES (?,?,?,?,?,0,?)
+           ON CONFLICT(game_id, draw_date) DO NOTHING""",
+        (game_id, date, ",".join(str(x) for x in numbers), bonus, source, now_iso()),
+    )
+
+
 def daily_game(conn, cfg, latest):
     slug = cfg["slug"]
+    row = conn.execute("SELECT MAX(draw_date) FROM draws WHERE game_id=?", (slug,)).fetchone()
+    max_date = row[0] if row else None
+    # only consider draws strictly newer than what we already have
     if cfg.get("wclc"):
         for d in wclc_history(cfg["wclc"]):
-            upsert_one(conn, slug, d["date"], d["numbers"], d.get("bonus"), "wclc", 0)
-    l = latest.get(cfg["olg_name"].upper())
-    if l:
-        upsert_one(conn, slug, l["date"], l["numbers"], l.get("bonus"), "olg-feed", 0)
+            if not max_date or d["date"] > max_date:
+                insert_new(conn, slug, d["date"], d["numbers"], d.get("bonus"), "wclc")
+    l = latest.get(cfg["olg_name"].upper()) if cfg.get("olg_name") else None
+    if l and (not max_date or l["date"] > max_date):
+        insert_new(conn, slug, l["date"], l["numbers"], l.get("bonus"), "olg-feed")
     if cfg.get("product"):
         nd, jp = olg_next_jackpot(cfg["product"])
         set_meta(conn, slug, nd, jp)

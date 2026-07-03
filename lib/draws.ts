@@ -2,9 +2,15 @@ import latestJson from "@/data/draws/_latest.json";
 import lottoMaxDraws from "@/data/draws/lotto-max.json";
 import lotto649Draws from "@/data/draws/lotto-6-49.json";
 import ontario49Draws from "@/data/draws/ontario-49.json";
+import dailyGrandDraws from "@/data/draws/daily-grand.json";
+import westernMaxDraws from "@/data/draws/western-max.json";
+import western649Draws from "@/data/draws/western-6-49.json";
 import lottoMaxStats from "@/data/stats/lotto-max.json";
 import lotto649Stats from "@/data/stats/lotto-6-49.json";
 import ontario49Stats from "@/data/stats/ontario-49.json";
+import dailyGrandStats from "@/data/stats/daily-grand.json";
+import westernMaxStats from "@/data/stats/western-max.json";
+import western649Stats from "@/data/stats/western-6-49.json";
 import { LIVE_GAMES, getLiveGame } from "@/config/games";
 
 export interface Draw {
@@ -75,11 +81,17 @@ const DRAWS: Record<string, DrawsFile> = {
   "lotto-max": lottoMaxDraws as DrawsFile,
   "lotto-6-49": lotto649Draws as DrawsFile,
   "ontario-49": ontario49Draws as DrawsFile,
+  "daily-grand": dailyGrandDraws as DrawsFile,
+  "western-max": westernMaxDraws as DrawsFile,
+  "western-6-49": western649Draws as DrawsFile,
 };
 const STATS: Record<string, StatsFile> = {
   "lotto-max": lottoMaxStats as StatsFile,
   "lotto-6-49": lotto649Stats as StatsFile,
   "ontario-49": ontario49Stats as StatsFile,
+  "daily-grand": dailyGrandStats as StatsFile,
+  "western-max": westernMaxStats as StatsFile,
+  "western-6-49": western649Stats as StatsFile,
 };
 
 export function getDraws(slug: string): DrawsFile | undefined {

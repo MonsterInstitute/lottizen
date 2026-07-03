@@ -31,6 +31,9 @@ GAME_POOL = {
     "lotto-max": (7, 50),
     "lotto-6-49": (6, 49),
     "ontario-49": (6, 49),
+    "daily-grand": (5, 49),
+    "western-max": (7, 50),
+    "western-6-49": (6, 49),
 }
 HOT_WINDOW = 50
 
