@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Logo } from "@/components/site/Logo";
+import { RegionLink } from "@/components/site/RegionLink";
 
 export function Header() {
   return (
@@ -7,8 +8,12 @@ export function Header() {
       <div className="container nav-inner">
         <Logo />
         <nav className="nav-links">
-          <Link href="/usa">USA</Link>
-          <Link href="/canada">Canada</Link>
+          <RegionLink region="US" href="/usa">
+            USA
+          </RegionLink>
+          <RegionLink region="CA" href="/canada">
+            Canada
+          </RegionLink>
           <Link href="/usa/powerball/statistics">Statistics</Link>
           <Link href="/usa/powerball/generator">Number Tools</Link>
           <Link href="/scratch">Scratch</Link>
