@@ -1003,12 +1003,39 @@ a.game-card:hover {
   border-color: #cdd7dc;
   background: #eef3f5;
 }
+/* New-to-pool numbers (e.g. Lotto Max 51/52): hatched fill so they read as
+   "new, not cold", distinct from the hot/cold tints. */
+.num-tile.is-new {
+  border-color: #b9c2cf;
+  border-style: dashed;
+  background-color: #f4f6f9;
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(91, 107, 128, 0.09) 0,
+    rgba(91, 107, 128, 0.09) 4px,
+    transparent 4px,
+    transparent 8px
+  );
+}
 .num-tile .nt-n {
   font-family: var(--font-mono), monospace;
   font-variant-numeric: tabular-nums;
   font-size: 20px;
   font-weight: 700;
   color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.num-tile .nt-new {
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #fff;
+  background: #5b6b80;
+  border-radius: 3px;
+  padding: 1px 4px;
+  line-height: 1.4;
 }
 .num-tile .nt-c {
   font-family: var(--font-mono), monospace;

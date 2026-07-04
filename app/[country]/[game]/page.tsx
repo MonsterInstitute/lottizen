@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { countryName } from "@/config/games";
+import { countryName, operatorName } from "@/config/games";
 import { resolveGame, countryGameParams, getDraws, getStats, liveGameCard } from "@/lib/draws";
-import { drawDate, money } from "@/lib/format";
+import { drawDate, money, nextDrawDate, nDraws } from "@/lib/format";
 import { absUrl } from "@/lib/site";
 import { Balls } from "@/components/draws/Balls";
 import { GameTabs } from "@/components/draws/GameTabs";
@@ -37,7 +37,11 @@ export default function GamePage({ params }: { params: { country: string; game: 
   const stats = getStats(g.slug);
   if (!card || !draws || !stats) notFound();
   const latest = draws.draws[0];
-  const jackpotStr = card.latest?.nextJackpot ? money(card.latest.nextJackpot, { compact: true }) : "TBA";
+  // Only progressive games with a real scraped estimate show a jackpot; everything
+  // else shows the next draw date and hides the jackpot row (never a stale "TBA").
+  const showJackpot = g.progressive && card.latest?.nextJackpot != null;
+  const jackpotStr = showJackpot ? money(card.latest!.nextJackpot!, { compact: true }) : null;
+  const nextDraw = card.latest?.nextDraw ?? nextDrawDate(g.drawDays);
 
   return (
     <>
@@ -93,13 +97,15 @@ export default function GamePage({ params }: { params: { country: string; game: 
               <div className="data-card-head">
                 <span className="data-card-title">Next draw</span>
               </div>
+              {jackpotStr && (
+                <div className="data-row">
+                  <span className="k">Estimated jackpot</span>
+                  <span className="v" style={{ color: "var(--brand-deep)", fontWeight: 700 }}>{jackpotStr}</span>
+                </div>
+              )}
               <div className="data-row">
-                <span className="k">Estimated jackpot</span>
-                <span className="v" style={{ color: "var(--brand-deep)", fontWeight: 700 }}>{jackpotStr}</span>
-              </div>
-              <div className="data-row">
-                <span className="k">Draw date</span>
-                <span className="v">{card.latest?.nextDraw ? drawDate(card.latest.nextDraw) : "—"}</span>
+                <span className="k">Next draw</span>
+                <span className="v">{drawDate(nextDraw)}</span>
               </div>
               <div className="data-row">
                 <span className="k">Draw days</span>
@@ -127,7 +133,7 @@ export default function GamePage({ params }: { params: { country: string; game: 
                 <p>
                   Bet <strong>straight</strong> to win on an exact-order match, or{" "}
                   <strong>boxed</strong> to win on any order (better odds, smaller payout).
-                  Exact prizes are set by {g.agency}. Lottizen tracks the numbers and the math,
+                  Exact prizes are set by {operatorName(g)}. Lottizen tracks the numbers and the math,
                   not the ticket sale.
                 </p>
               </>
@@ -142,7 +148,7 @@ export default function GamePage({ params }: { params: { country: string; game: 
                 <h3>Match &amp; prize tiers</h3>
                 <p>
                   Match all {g.pick} main numbers{g.hasBonus ? ` (and the ${g.bonusLabel ?? "bonus"} where it applies)` : ""} to
-                  win the jackpot; lower tiers pay for partial matches. Exact tiers and odds are set by {g.agency}.
+                  win the jackpot; lower tiers pay for partial matches. Exact tiers and odds are set by {operatorName(g)}.
                   Lottizen tracks the numbers and the math, not the ticket sale.
                 </p>
               </>
@@ -159,7 +165,7 @@ export default function GamePage({ params }: { params: { country: string; game: 
             <Link href={`${base}/statistics`} className="game-card">
               <span className="game-card-name">Statistics</span>
               <div className="game-card-meta" style={{ marginTop: 8 }}>
-                Frequency, gaps, hot &amp; cold across {stats.drawCount.toLocaleString("en-CA")} draws.
+                Frequency, gaps, hot &amp; cold across {nDraws(stats.drawCount)}.
               </div>
             </Link>
             {g.format !== "digit" && (
@@ -179,8 +185,8 @@ export default function GamePage({ params }: { params: { country: string; game: 
           </div>
 
           <p style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--ink-3)", marginTop: 32 }}>
-            {stats.allTimeDrawCount.toLocaleString("en-CA")} draws on record since{" "}
-            {draws.dataSince ? drawDate(draws.dataSince) : "—"} · not affiliated with {g.agency}.
+            {nDraws(stats.allTimeDrawCount)} on record since{" "}
+            {draws.dataSince ? drawDate(draws.dataSince) : "—"} · not affiliated with {operatorName(g)}.
           </p>
         </div>
       </section>

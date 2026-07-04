@@ -31,6 +31,9 @@ jobs:
         continue-on-error: true
       - name: Recompute statistics
         run: python scripts/calculate_stats.py
+      # Deploy gate: build + audit before committing; CRITICAL/HIGH findings skip the commit.
+      - name: Build & audit (deploy gate)
+        uses: ./.github/actions/build-and-audit
       - name: Commit refreshed data
         run: |
           git config user.name "lottizen-bot"

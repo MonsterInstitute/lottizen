@@ -60,7 +60,7 @@ SOURCE_PRIORITY = {"wclc-inception": 3, "wclc": 2, "olg-feed": 1, "lotterycanada
 
 # Live games + their scrape config (mirrors config/games.ts).
 LIVE = [
-    {"slug": "lotto-max", "pick": 7, "max": 50, "wclc": "lotto-max-extra",
+    {"slug": "lotto-max", "pick": 7, "max": 52, "wclc": "lotto-max-extra",
      "inception": "lotto-max", "olg_name": "LOTTO MAX", "product": "LMAX"},
     {"slug": "lotto-6-49", "pick": 6, "max": 49, "wclc": "lotto-649-extra",
      "inception": "lotto-649", "olg_name": "LOTTO 6/49", "product": "649"},
@@ -75,7 +75,7 @@ LIVE = [
     # OLG-only games — latest via OLG feed (no WCLC/inception source)
     {"slug": "lottario", "pick": 6, "max": 45, "wclc": None,
      "inception": None, "olg_name": "LOTTARIO", "product": "LOTT"},
-    {"slug": "megadice", "pick": 6, "max": 45, "wclc": None,
+    {"slug": "megadice", "pick": 6, "max": 39, "wclc": None,
      "inception": None, "olg_name": "MEGADICE LOTTO", "product": None},
     # BCLC — latest only via PlayNow JSON (no public history endpoint)
     {"slug": "bc-49", "pick": 6, "max": 49, "wclc": None, "inception": None,
@@ -204,25 +204,34 @@ def olg_latest() -> dict[str, dict]:
             continue
         nums = sorted(int(x) for x in re.findall(r"\d+", reg))
         bonus = int(g["bonus"]) if g.get("bonus") and str(g["bonus"]).isdigit() else None
-        out[g["name"].strip().upper()] = {"date": g.get("drawDate"), "numbers": nums, "bonus": bonus}
+        # The feed carries the NEXT draw's advertised jackpot + date directly — this is
+        # the real source (the drawinformation endpoint returns no amount). `jackpot` is a
+        # plain number for growing/fixed-jackpot games and a nested dict for for-life games.
+        jp = g.get("jackpot")
+        jackpot = float(jp) if isinstance(jp, (int, float)) or (
+            isinstance(jp, str) and jp.replace(".", "", 1).isdigit()) else None
+        nextdraw = (str(g.get("nextdrawDate") or "")[:10]) or None
+        out[g["name"].strip().upper()] = {"date": g.get("drawDate"), "numbers": nums,
+                                          "bonus": bonus, "jackpot": jackpot, "nextdraw": nextdraw}
     return out
 
 
-def olg_next_jackpot(product_id: str):
-    try:
-        url = f"{OLG_DRAWINFO}?productId={product_id}&startingDrawNumber=0&numberOfDraws=2&ignoreJackpots=false"
-        rows = olg_get(url)
-        for r in rows if isinstance(rows, list) else []:
-            jp, date = r.get("jackpots"), r.get("drawDate", "")[:10]
-            if jp and isinstance(jp, dict):
-                for j in jp.get("drawJackpots") or []:
-                    amt = j.get("amount") or j.get("estimatedJackpot")
-                    if amt:
-                        return date, float(re.sub(r"[^\d.]", "", str(amt)) or 0)
-        return (rows[0].get("drawDate", "")[:10] if isinstance(rows, list) and rows else None), None
-    except Exception as e:  # noqa: BLE001
-        print(f"  ! drawinfo {product_id}: {e}", file=sys.stderr)
-        return None, None
+# Growing-jackpot games worth surfacing an estimate for. Fixed-prize (Ontario 49,
+# MegaDice), for-life (Daily Grand), and regional fixed games get a next draw date
+# but NO jackpot amount, so the UI shows the date and hides the jackpot row.
+OLG_PROGRESSIVE = {"lotto-max", "lotto-6-49", "lottario"}
+
+
+def apply_olg_meta(conn, cfg, latest):
+    """Store the next draw date (+ jackpot for progressive games) from the OLG feed."""
+    if not cfg.get("olg_name"):
+        return
+    l = latest.get(cfg["olg_name"].upper())
+    if not l:
+        return
+    jackpot = l.get("jackpot") if cfg["slug"] in OLG_PROGRESSIVE else None
+    if l.get("nextdraw") or jackpot is not None:
+        set_meta(conn, cfg["slug"], l.get("nextdraw"), jackpot)
 
 
 DATE_RE = re.compile(r"^([A-Z][a-z]+ \d{1,2}, \d{4})\s+(.+)$")
@@ -411,9 +420,7 @@ def backfill_game(conn, cfg, latest, delay=1.0):
         print(f"  ! no data for {slug}")
         return
     recon = reconcile(conn, slug, per_date)
-    if cfg.get("product"):
-        nd, jp = olg_next_jackpot(cfg["product"])
-        set_meta(conn, slug, nd, jp)
+    apply_olg_meta(conn, cfg, latest)
     summarize(conn, slug, cfg["pick"], recon)
 
 
@@ -444,9 +451,7 @@ def daily_game(conn, cfg, latest):
         pn = playnow_latest(cfg["playnow"])
         if pn and (not max_date or pn["date"] > max_date):
             insert_new(conn, slug, pn["date"], pn["numbers"], pn.get("bonus"), "playnow")
-    if cfg.get("product"):
-        nd, jp = olg_next_jackpot(cfg["product"])
-        set_meta(conn, slug, nd, jp)
+    apply_olg_meta(conn, cfg, latest)
     conn.commit()
     cnt = conn.execute("SELECT COUNT(*), MIN(draw_date), MAX(draw_date) FROM draws WHERE game_id=?", (slug,)).fetchone()
     print(f"  {slug}: {cnt[0]} draws, {cnt[1]} → {cnt[2]}")

@@ -43,6 +43,11 @@ jobs:
       - name: Recompute rankings
         run: python scripts/calculate_rankings.py
 
+      # Deploy gate: build the site and audit it before committing. A CRITICAL or
+      # HIGH finding fails here and skips the commit below, so bad data never ships.
+      - name: Build & audit (deploy gate)
+        uses: ./.github/actions/build-and-audit
+
       - name: Commit refreshed data
         id: commit
         run: |

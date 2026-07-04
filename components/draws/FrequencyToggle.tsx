@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { FrequencyChart } from "@/components/draws/StatCharts";
+import { nDraws } from "@/lib/format";
 
 interface View {
   chart: { n: number; count: number }[];
@@ -18,10 +19,15 @@ export function FrequencyToggle({
   allTime,
   window,
   windowSize,
+  newNums = [],
+  poolSince,
 }: {
   allTime: View;
   window: View;
   windowSize: number;
+  /** Numbers that joined the pool mid-era — rendered hatched and footnoted. */
+  newNums?: number[];
+  poolSince?: string;
 }) {
   const [view, setView] = useState<"all" | "window">("all");
   const cur = view === "all" ? allTime : window;
@@ -39,15 +45,25 @@ export function FrequencyToggle({
             All-time
           </button>
           <button type="button" className={`chip ${view === "window" ? "active" : ""}`} onClick={() => setView("window")}>
-            Last {windowSize} draws
+            Last {nDraws(windowSize)}
           </button>
         </div>
       </div>
       <div style={{ marginTop: 14 }}>
-        <FrequencyChart data={cur.chart} hot={cur.top} />
+        <FrequencyChart data={cur.chart} hot={cur.top} newNums={newNums} />
       </div>
       <div className="sub" style={{ marginTop: 10, marginBottom: 0 }}>
         Based on {cur.basis}.
+        {newNums.length > 0 && (
+          <>
+            {" "}
+            <span style={{ color: "#5b6b80" }}>
+              Hatched bars ({newNums.join(", ")}) joined the pool
+              {poolSince ? ` ${new Date(poolSince).toLocaleDateString("en-CA", { month: "short", year: "numeric", timeZone: "UTC" })}` : ""},
+              so they have fewer draws and sit outside the hot ranking.
+            </span>
+          </>
+        )}
       </div>
     </div>
   );

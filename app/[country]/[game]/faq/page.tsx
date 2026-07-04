@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { countryName, type GameConfig } from "@/config/games";
+import { countryName, operatorName, type GameConfig } from "@/config/games";
 import { resolveGame, countryGameParams } from "@/lib/draws";
 import { absUrl } from "@/lib/site";
 import { GameTabs } from "@/components/draws/GameTabs";
@@ -22,7 +22,7 @@ function faqs(g: GameConfig) {
     },
     {
       q: `Does Lottizen sell ${name} tickets?`,
-      a: `No. Lottizen is an independent information site — we track winning numbers and statistics only. Buy tickets from ${g.agency} or an authorized retailer.`,
+      a: `No. Lottizen is an independent information site — we track winning numbers and statistics only. Buy tickets from ${operatorName(g)} or an authorized retailer.`,
     },
   ];
   if (g.country === "US") {
@@ -57,7 +57,7 @@ function faqs(g: GameConfig) {
     },
     {
       q: `How long do I have to claim a ${name} prize?`,
-      a: `In most Canadian provinces you have 12 months from the draw date to claim. Confirm the deadline and process with ${g.agency}.`,
+      a: `In most Canadian provinces you have 12 months from the draw date to claim. Confirm the deadline and process with ${operatorName(g)}.`,
     },
     {
       q: `Can I stay anonymous if I win ${name}?`,

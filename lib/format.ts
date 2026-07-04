@@ -26,6 +26,11 @@ export function count(n: number): string {
   return n.toLocaleString("en-CA");
 }
 
+/** "1 draw" / "743 draws" — count with a correctly pluralized noun. */
+export function nDraws(n: number): string {
+  return `${n.toLocaleString("en-CA")} draw${n === 1 ? "" : "s"}`;
+}
+
 export function score(n: number): string {
   return n.toFixed(1);
 }
@@ -52,6 +57,32 @@ export function drawDate(ymd: string): string {
     day: "numeric",
     timeZone: "UTC",
   });
+}
+
+const WEEKDAY: Record<string, number> = {
+  Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6,
+};
+
+/** Next upcoming draw date ("YYYY-MM-DD") derived from a game's draw-day schedule,
+ *  evaluated at build time (the site rebuilds daily). Daily/nightly games return
+ *  today; weekly games return the nearest scheduled weekday on/after today. Used as
+ *  a fallback so every game shows a real next draw date instead of a blank or "TBA". */
+export function nextDrawDate(drawDays: string[], now: Date = new Date()): string {
+  const s = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Toronto", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(now);
+  const [y, m, d] = s.split(/\D+/).filter(Boolean).map(Number);
+  const base = Date.UTC(y, m - 1, d);
+  const isDaily = drawDays.some((x) => /daily|night/i.test(x)) || drawDays.length >= 7;
+  if (isDaily) return new Date(base).toISOString().slice(0, 10);
+  const wanted = new Set(
+    drawDays.map((x) => WEEKDAY[x]).filter((n): n is number => n !== undefined),
+  );
+  for (let off = 0; off < 8; off++) {
+    const dt = new Date(base + off * 86_400_000);
+    if (wanted.has(dt.getUTCDay())) return dt.toISOString().slice(0, 10);
+  }
+  return new Date(base).toISOString().slice(0, 10);
 }
 
 export function humanDateTime(iso: string): string {

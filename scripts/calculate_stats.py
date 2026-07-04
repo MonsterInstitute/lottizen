@@ -28,23 +28,32 @@ HOT_WINDOW = 50
 # Digit / card games are handled elsewhere (results-only pages).
 GAMES = {
     # ---- Canada ----
-    "lotto-max": {"pick": 7, "max": 50},
+    # Lotto Max matrix: 7/49 -> 7/50 on 2019-05-14 -> 7/52 on 2026-04-14. Cut at the
+    # 2019 change (~740 draws) so stats span the modern 50/52-ball era but stay useful;
+    # numbers 51-52 only exist since Apr 2026. (NOT 2026-04-14, which left only ~23 draws.)
+    "lotto-max": {"pick": 7, "max": 52, "stats_from": "2019-05-14",
+                  # 51 & 52 only entered the pool on 2026-04-14 (7/50 -> 7/52), so they
+                  # exist for a fraction of the stats era. Flag them and keep them OUT of
+                  # frequency/hot/cold/gap/pair rankings so they don't read as "cold".
+                  "pool_added": {"since": "2026-04-14", "numbers": [51, 52]}},
     "lotto-6-49": {"pick": 6, "max": 49},
     "ontario-49": {"pick": 6, "max": 49},
     "daily-grand": {"pick": 5, "max": 49, "bonus_max": 7, "bonus_label": "Grand Number"},
-    "western-max": {"pick": 7, "max": 50},
+    # Western Max: 7/49 until 2019-05-14, then 7/50 (never went to 7/52). Cut excludes
+    # the 324 older 7/49 draws so the 50-ball pool isn't mixed with the 49-ball era.
+    "western-max": {"pick": 7, "max": 50, "stats_from": "2019-05-14"},
     "western-6-49": {"pick": 6, "max": 49},
     "lottario": {"pick": 6, "max": 45, "bonus_max": 45, "bonus_label": "Bonus"},
-    "megadice": {"pick": 6, "max": 45, "bonus_max": 45, "bonus_label": "Bonus"},
+    "megadice": {"pick": 6, "max": 39, "bonus_max": 39, "bonus_label": "Bonus"},
     "bc-49": {"pick": 6, "max": 49, "bonus_max": 49, "bonus_label": "Bonus"},
     "quebec-49": {"pick": 6, "max": 49, "bonus_max": 49, "bonus_label": "Bonus"},
-    "quebec-max": {"pick": 7, "max": 50},
+    "quebec-max": {"pick": 7, "max": 52},
     "atlantic-49": {"pick": 6, "max": 49, "bonus_max": 49, "bonus_label": "Bonus"},
     "bucko": {"pick": 5, "max": 41},
     # ---- USA ----
     "powerball": {"pick": 5, "max": 69, "bonus_max": 26, "bonus_label": "Powerball",
                   "stats_from": "2015-10-07"},
-    "mega-millions": {"pick": 5, "max": 70, "bonus_max": 25, "bonus_label": "Mega Ball",
+    "mega-millions": {"pick": 5, "max": 70, "bonus_max": 24, "bonus_label": "Mega Ball",
                       "stats_from": "2017-10-31"},
     "cash4life": {"pick": 5, "max": 60, "bonus_max": 4, "bonus_label": "Cash Ball"},
     "new-york-lotto": {"pick": 6, "max": 59, "bonus_max": 59, "bonus_label": "Bonus"},
@@ -105,6 +114,10 @@ def load_draws(conn, slug):
 
 def compute_stats(slug, cfg, draws):
     pick, mx = cfg["pick"], cfg["max"]
+    # Numbers added to the pool partway through the stats era (e.g. Lotto Max 51-52).
+    # They're excluded from ranking-type stats and flagged in the per-number list.
+    pool_added = cfg.get("pool_added") or {}
+    new_nums = set(pool_added.get("numbers", []))
     n = len(draws)
     all_nums = list(range(1, mx + 1))
     freq = Counter(); last_idx = {}; max_gap = {k: 0 for k in all_nums}; prev = {}
@@ -136,6 +149,8 @@ def compute_stats(slug, cfg, draws):
             "hot": False, "cold": False,
             "partners": [{"n": p, "count": c} for p, c in partners[num].most_common(5)],
         })
+        if num in new_nums:
+            numbers[-1]["newSince"] = pool_added["since"]
     window = draws[-HOT_WINDOW:] if n > HOT_WINDOW else draws
     win_size = len(window)
     wf = Counter()
@@ -143,12 +158,16 @@ def compute_stats(slug, cfg, draws):
         for x in d["numbers"]:
             if 1 <= x <= mx:
                 wf[x] += 1
-    hot = [k for k, _ in wf.most_common(6)]
-    cold = [z["n"] for z in sorted(numbers, key=lambda z: z["currentGap"], reverse=True)[:6]]
+    # Rankings exclude pool-addition numbers (e.g. Lotto Max 51-52): they've existed for
+    # only part of the era, so ranking them against full-era numbers would mislabel them
+    # as "cold"/"least frequent". They still appear in the per-number grid and charts.
+    rankable = [z for z in numbers if z["n"] not in new_nums]
+    hot = [k for k, _ in wf.most_common() if k not in new_nums][:6]
+    cold = [z["n"] for z in sorted(rankable, key=lambda z: z["currentGap"], reverse=True)[:6]]
     # top-7 by ALL-TIME count vs top-7 in the recent WINDOW — each paired with its
     # own bar heights so a chart never mixes time scales (see statistics UI).
-    all_time_top = [z["n"] for z in sorted(numbers, key=lambda z: z["count"], reverse=True)[:7]]
-    window_top = [k for k, _ in wf.most_common(7)]
+    all_time_top = [z["n"] for z in sorted(rankable, key=lambda z: z["count"], reverse=True)[:7]]
+    window_top = [k for k, _ in wf.most_common() if k not in new_nums][:7]
     window_chart = [{"n": num, "count": wf.get(num, 0)} for num in all_nums]
     hs, cs = set(hot), set(cold)
     for z in numbers:
@@ -167,9 +186,9 @@ def compute_stats(slug, cfg, draws):
     agg = {
         "hot": hot, "cold": cold,
         "mostFrequent": [{"n": z["n"], "count": z["count"]}
-                         for z in sorted(numbers, key=lambda z: z["count"], reverse=True)[:10]],
+                         for z in sorted(rankable, key=lambda z: z["count"], reverse=True)[:10]],
         "leastFrequent": [{"n": z["n"], "count": z["count"]}
-                          for z in sorted(numbers, key=lambda z: z["count"])[:10]],
+                          for z in sorted(rankable, key=lambda z: z["count"])[:10]],
         "oddEven": {"avgOdd": round(sum(odds) / n, 2) if n else 0,
                     "avgEven": round(pick - sum(odds) / n, 2) if n else 0,
                     "dist": [{"odd": k, "count": v} for k, v in sorted(Counter(odds).items())]},
@@ -178,7 +197,8 @@ def compute_stats(slug, cfg, draws):
         "sum": {"avg": round(sum(sums) / n, 1) if n else 0, "min": min(sums) if sums else 0,
                 "max": max(sums) if sums else 0, "buckets": hist(sums, sb)},
         "consecutive": {"drawsWith": cons, "pct": round(cons / n * 100, 1) if n else 0},
-        "topPairs": [{"a": a, "b": b, "count": c} for (a, b), c in pair_counter.most_common(10)],
+        "topPairs": [{"a": a, "b": b, "count": c} for (a, b), c in pair_counter.most_common()
+                     if a not in new_nums and b not in new_nums][:10],
         "frequencyChart": [{"n": z["n"], "count": z["count"]} for z in numbers],
         "allTimeTop": all_time_top,
         "windowChart": window_chart,
@@ -195,9 +215,12 @@ def compute_stats(slug, cfg, draws):
                 "chart": [{"n": k, "count": bf.get(k, 0)} for k in range(1, bmax + 1)],
                 "hot": [k for k, _ in bf.most_common(6)],
             }
-    return {"game": slug, "dataSince": draws[0]["date"] if draws else None,
-            "drawCount": n, "pick": pick, "max": mx, "generatedAt": now_iso(),
-            "statsFrom": cfg.get("stats_from"), "numbers": numbers, "aggregate": agg}
+    out = {"game": slug, "dataSince": draws[0]["date"] if draws else None,
+           "drawCount": n, "pick": pick, "max": mx, "generatedAt": now_iso(),
+           "statsFrom": cfg.get("stats_from"), "numbers": numbers, "aggregate": agg}
+    if new_nums:
+        out["poolAdded"] = {"since": pool_added["since"], "numbers": sorted(new_nums)}
+    return out
 
 
 def write_draws(conn, slug, draws):

@@ -44,26 +44,43 @@ function ChartTooltip({ active, payload, label, unit }: any) {
   );
 }
 
-/** Frequency of every number across all draws. Hot numbers highlighted. */
+const NEW_INK = "#5b6b80";
+
+/** Frequency of every number across all draws. Hot numbers highlighted. Numbers
+ *  that only recently joined the pool (`newNums`) render hatched so they read as
+ *  "newer, not cold" rather than as genuinely low-frequency bars. */
 export function FrequencyChart({
   data,
   hot,
+  newNums = [],
 }: {
   data: { n: number; count: number }[];
   hot: number[];
+  newNums?: number[];
 }) {
   const hotset = new Set(hot);
+  const newset = new Set(newNums);
   return (
     <ResponsiveContainer width="100%" height={260}>
       <BarChart data={data} margin={{ top: 8, right: 4, bottom: 4, left: -24 }}>
+        <defs>
+          <pattern id="newHatch" patternUnits="userSpaceOnUse" width="5" height="5" patternTransform="rotate(45)">
+            <rect width="5" height="5" fill={NEW_INK} fillOpacity={0.18} />
+            <line x1="0" y1="0" x2="0" y2="5" stroke={NEW_INK} strokeWidth={1.6} />
+          </pattern>
+        </defs>
         <CartesianGrid vertical={false} stroke={BORDER} />
         <XAxis dataKey="n" interval={4} {...axis} />
         <YAxis {...axis} />
         <Tooltip cursor={{ fill: "rgba(221,130,50,0.06)" }} content={<ChartTooltip unit="draws" />} />
         <Bar dataKey="count" radius={[3, 3, 0, 0]}>
-          {data.map((d) => (
-            <Cell key={d.n} fill={hotset.has(d.n) ? BRAND_DEEP : BRAND} fillOpacity={hotset.has(d.n) ? 1 : 0.55} />
-          ))}
+          {data.map((d) =>
+            newset.has(d.n) ? (
+              <Cell key={d.n} fill="url(#newHatch)" stroke={NEW_INK} strokeWidth={1} />
+            ) : (
+              <Cell key={d.n} fill={hotset.has(d.n) ? BRAND_DEEP : BRAND} fillOpacity={hotset.has(d.n) ? 1 : 0.55} />
+            ),
+          )}
         </Bar>
       </BarChart>
     </ResponsiveContainer>

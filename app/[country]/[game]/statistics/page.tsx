@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { countryName } from "@/config/games";
 import { resolveGame, countryGameParams, getStats, getDigitStats } from "@/lib/draws";
-import { drawDate } from "@/lib/format";
+import { drawDate, nDraws } from "@/lib/format";
 import { absUrl } from "@/lib/site";
 import { GameTabs } from "@/components/draws/GameTabs";
 import { GameSwitcher } from "@/components/draws/GameSwitcher";
@@ -87,6 +87,12 @@ export default function StatisticsPage({ params }: { params: { country: string; 
   if (!stats) notFound();
   const a = stats.aggregate;
   const thin = stats.drawCount < 10;
+  // When there are no more draws than the recent window, the All-time and "Last N"
+  // views are identical — show one static chart instead of a redundant toggle.
+  const collapseFreq = stats.drawCount <= a.windowSize;
+  const newNums = stats.poolAdded?.numbers ?? [];
+  const poolSince = stats.poolAdded?.since;
+  const excl = newNums.length ? ` Excludes ${newNums.join(" & ")} (new to the pool).` : "";
 
   return (
     <>
@@ -111,7 +117,7 @@ export default function StatisticsPage({ params }: { params: { country: string; 
             {g.name} <em>number stats.</em>
           </h1>
           <p className="section-lede">
-            Computed from {stats.drawCount.toLocaleString("en-CA")} draws
+            Computed from {nDraws(stats.drawCount)}
             {stats.statsFrom
               ? ` under the current game matrix (since ${drawDate(stats.statsFrom)})`
               : stats.dataSince
@@ -132,8 +138,20 @@ export default function StatisticsPage({ params }: { params: { country: string; 
               <span className="notice-tag">Rules era</span>
               <span>
                 {g.name} changed its number matrix on {drawDate(stats.statsFrom)}. These stats
-                use the {stats.drawCount.toLocaleString("en-CA")} draws since then; the results
-                archive keeps all {stats.allTimeDrawCount.toLocaleString("en-CA")} draws.
+                use the {nDraws(stats.drawCount)} since then; the results
+                archive keeps all {nDraws(stats.allTimeDrawCount)}.
+              </span>
+            </div>
+          )}
+          {stats.poolAdded && (
+            <div className="notice" style={{ marginBottom: 28 }}>
+              <span className="notice-tag">Pool update</span>
+              <span>
+                Number{newNums.length > 1 ? "s" : ""} {newNums.join(" & ")} joined the {g.name} pool
+                on {drawDate(stats.poolAdded.since)}, when it expanded to {stats.pick}/{stats.max}. They&rsquo;ve
+                appeared in only the draws since, so they&rsquo;re shown <strong>hatched</strong> and kept out
+                of the hot, cold, frequency and pairs rankings — otherwise they&rsquo;d look misleadingly
+                &ldquo;cold.&rdquo; The full archive still records every draw.
               </span>
             </div>
           )}
@@ -148,45 +166,61 @@ export default function StatisticsPage({ params }: { params: { country: string; 
             </div>
           )}
 
-          <div className="stat-grid" style={{ marginBottom: 40 }}>
-            <div className="chart-card">
-              <h3>Hot numbers</h3>
-              <div className="sub">Most drawn over the last {a.windowSize} draws (recent window).</div>
-              <Chips base={base} nums={a.hot} />
-            </div>
-            <div className="chart-card">
-              <h3>Cold numbers</h3>
-              <div className="sub">Longest current gap since last drawn (all-time gap).</div>
-              <Chips base={base} nums={a.cold} />
-            </div>
-            <div className="chart-card">
-              <h3>Draw shape</h3>
-              <div className="sub">Averages over all {stats.drawCount.toLocaleString("en-CA")} draws.</div>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: 14, lineHeight: 2, color: "var(--ink-2)" }}>
-                Avg sum <strong style={{ color: "var(--ink)" }}>{a.sum.avg}</strong>
-                <br />
-                Odd/Even <strong style={{ color: "var(--ink)" }}>{a.oddEven.avgOdd}</strong> / {a.oddEven.avgEven}
-                <br />
-                Consecutive <strong style={{ color: "var(--ink)" }}>{a.consecutive.pct}%</strong> of draws
+          {/* Hot/cold/shape are ranking-style stats — hidden until there are enough
+              draws to mean anything; the Building notice above explains the gap. */}
+          {!thin && (
+            <div className="stat-grid" style={{ marginBottom: 40 }}>
+              <div className="chart-card">
+                <h3>Hot numbers</h3>
+                <div className="sub">Most drawn over the last {nDraws(a.windowSize)} (recent window).{excl}</div>
+                <Chips base={base} nums={a.hot} />
+              </div>
+              <div className="chart-card">
+                <h3>Cold numbers</h3>
+                <div className="sub">Longest current gap since last drawn (all-time gap).{excl}</div>
+                <Chips base={base} nums={a.cold} />
+              </div>
+              <div className="chart-card">
+                <h3>Draw shape</h3>
+                <div className="sub">Averages over all {nDraws(stats.drawCount)}.</div>
+                <div style={{ fontFamily: "var(--font-mono)", fontSize: 14, lineHeight: 2, color: "var(--ink-2)" }}>
+                  Avg sum <strong style={{ color: "var(--ink)" }}>{a.sum.avg}</strong>
+                  <br />
+                  Odd/Even <strong style={{ color: "var(--ink)" }}>{a.oddEven.avgOdd}</strong> / {a.oddEven.avgEven}
+                  <br />
+                  Consecutive <strong style={{ color: "var(--ink)" }}>{a.consecutive.pct}%</strong> of draws
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
-          <FrequencyToggle
-            windowSize={a.windowSize}
-            allTime={{
-              chart: a.frequencyChart,
-              top: a.allTimeTop,
-              basis: `${stats.drawCount.toLocaleString("en-CA")} draws${
-                stats.statsFrom
-                  ? ` since ${drawDate(stats.statsFrom)} (current matrix)`
-                  : stats.dataSince
-                    ? ` since ${drawDate(stats.dataSince)}`
-                    : ""
-              }`,
-            }}
-            window={{ chart: a.windowChart, top: a.windowTop, basis: `the last ${a.windowSize} draws` }}
-          />
+          {collapseFreq ? (
+            <div className="chart-card" style={{ marginBottom: 24 }}>
+              <h3>Number frequency</h3>
+              <div className="sub" style={{ marginBottom: 14 }}>
+                How often each number has been drawn across all {nDraws(stats.drawCount)}.
+              </div>
+              <FrequencyChart data={a.frequencyChart} hot={a.allTimeTop} newNums={newNums} />
+            </div>
+          ) : (
+            <FrequencyToggle
+              windowSize={a.windowSize}
+              allTime={{
+                chart: a.frequencyChart,
+                top: a.allTimeTop,
+                basis: `${nDraws(stats.drawCount)}${
+                  stats.statsFrom
+                    ? ` since ${drawDate(stats.statsFrom)} (current matrix)`
+                    : stats.dataSince
+                      ? ` since ${drawDate(stats.dataSince)}`
+                      : ""
+                }`,
+              }}
+              window={{ chart: a.windowChart, top: a.windowTop, basis: `the last ${nDraws(a.windowSize)}` }}
+              newNums={newNums}
+              poolSince={poolSince}
+            />
+          )}
 
           {a.bonus && (
             <div className="chart-card" style={{ marginBottom: 24 }}>
@@ -201,12 +235,12 @@ export default function StatisticsPage({ params }: { params: { country: string; 
           <div className="stat-grid" style={{ marginBottom: 40 }}>
             <div className="chart-card">
               <h3>Sum distribution</h3>
-              <div className="sub">Total of the {stats.pick} main numbers per draw — all {stats.drawCount.toLocaleString("en-CA")} draws.</div>
+              <div className="sub">Total of the {stats.pick} main numbers per draw — all {nDraws(stats.drawCount)}.</div>
               <SumChart data={a.sum.buckets} />
             </div>
             <div className="chart-card">
               <h3>Odd numbers per draw</h3>
-              <div className="sub">How many of the {stats.pick} numbers are odd — all {stats.drawCount.toLocaleString("en-CA")} draws.</div>
+              <div className="sub">How many of the {stats.pick} numbers are odd — all {nDraws(stats.drawCount)}.</div>
               <OddEvenChart data={a.oddEven.dist} />
             </div>
           </div>
@@ -215,11 +249,11 @@ export default function StatisticsPage({ params }: { params: { country: string; 
             <AdSlot slot={`stats-${g.slug}`} format="leaderboard" />
           </div>
 
-          {a.topPairs.length > 0 && (
+          {!thin && a.topPairs.length > 0 && (
             <div className="chart-card" style={{ marginBottom: 40 }}>
               <h3>Most common pairs</h3>
               <div className="sub">
-                Number duos drawn together most often, across all {stats.drawCount.toLocaleString("en-CA")} draws.
+                Number duos drawn together most often, across all {nDraws(stats.drawCount)}.
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
                 {a.topPairs.map((p) => (

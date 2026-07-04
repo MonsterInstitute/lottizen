@@ -8,7 +8,7 @@ import {
 } from "@/config/games";
 import { getLatestAll, getLatestGeneratedAt, hasData } from "@/lib/draws";
 import { getTopPick, getRankings } from "@/lib/data";
-import { drawDate, money, humanDate } from "@/lib/format";
+import { drawDate, money, humanDate, nextDrawDate } from "@/lib/format";
 import { SITE, absUrl } from "@/lib/site";
 import { Balls } from "@/components/draws/Balls";
 import { AdSlot } from "@/components/site/AdSlot";
@@ -26,9 +26,13 @@ export default function HomePage() {
   const featuredCfg =
     gamesForCountry("US").find((g) => g.slug === "powerball") ??
     gamesForCountry("CA").find((g) => g.slug === "lotto-max");
-  const jackpot = (slug: string) => {
-    const j = latest.get(slug)?.nextJackpot;
-    return j ? money(j, { compact: true }) : "TBA";
+  // A progressive game with a real scraped estimate shows its jackpot; every other
+  // game shows its next draw date instead. Never a stale "TBA".
+  const jackpotOrDraw = (g: GameConfig): { label: string; value: string } => {
+    const j = g.progressive ? latest.get(g.slug)?.nextJackpot : null;
+    if (j != null) return { label: "Next jackpot", value: money(j, { compact: true }) };
+    const nd = latest.get(g.slug)?.nextDraw ?? nextDrawDate(g.drawDays);
+    return { label: "Next draw", value: drawDate(nd) };
   };
 
   const jsonLd = {
@@ -92,8 +96,8 @@ export default function HomePage() {
               </div>
               <Balls numbers={featured.numbers} bonus={featured.bonus} size="lg" />
               <div className="game-card-jackpot">
-                <span className="lbl">Next jackpot</span>
-                <span className="amt">{jackpot(featuredCfg.slug)}</span>
+                <span className="lbl">{jackpotOrDraw(featuredCfg).label}</span>
+                <span className="amt">{jackpotOrDraw(featuredCfg).value}</span>
               </div>
               <div className="data-card-foot">
                 <span>{featured.drawCount.toLocaleString("en-CA")} draws on record</span>
@@ -142,8 +146,8 @@ export default function HomePage() {
                       <div className="game-card-date">{drawDate(l.latestDate)}</div>
                       <Balls numbers={l.numbers} bonus={l.bonus} size="sm" />
                       <div className="game-card-jackpot">
-                        <span className="lbl">Next jackpot</span>
-                        <span className="amt">{jackpot(g.slug)}</span>
+                        <span className="lbl">{jackpotOrDraw(g).label}</span>
+                        <span className="amt">{jackpotOrDraw(g).value}</span>
                       </div>
                     </Link>
                   );

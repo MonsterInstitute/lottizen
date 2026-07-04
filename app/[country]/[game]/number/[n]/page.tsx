@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { countryName } from "@/config/games";
 import { resolveGame, countryGameNumberParams, getStats, getNumberStat, getDraws } from "@/lib/draws";
-import { drawDate } from "@/lib/format";
+import { drawDate, nDraws } from "@/lib/format";
 import { absUrl } from "@/lib/site";
 import { Balls } from "@/components/draws/Balls";
 import { JsonLd } from "@/components/site/JsonLd";
@@ -45,11 +45,12 @@ export default function NumberPage({
   if (!stats || !stat || !draws || n < 1 || n > stats.max) notFound();
 
   const appearances = draws.draws.filter((d) => d.numbers.includes(n)).slice(0, 12);
+  const isNew = !!stat.newSince;
   const tiles = [
-    { k: "Times drawn", v: String(stat.count), foot: `of ${stats.drawCount.toLocaleString("en-CA")} draws` },
-    { k: "Frequency", v: `${(stat.frequency * 100).toFixed(1)}%`, foot: "of all draws" },
-    { k: "Current gap", v: String(stat.currentGap), foot: "draws since last seen" },
-    { k: "Longest gap", v: String(stat.maxGap), foot: "draws, historically" },
+    { k: "Times drawn", v: String(stat.count), foot: isNew ? `since ${drawDate(stat.newSince!)}` : `of ${nDraws(stats.drawCount)}` },
+    { k: "Frequency", v: isNew ? "—" : `${(stat.frequency * 100).toFixed(1)}%`, foot: isNew ? "too few draws" : "of all draws" },
+    { k: "Current gap", v: String(stat.currentGap), foot: `draw${stat.currentGap === 1 ? "" : "s"} since last seen` },
+    { k: "Longest gap", v: String(stat.maxGap), foot: isNew ? "since it joined" : `draw${stat.maxGap === 1 ? "" : "s"}, historically` },
   ];
 
   return (
@@ -78,7 +79,7 @@ export default function NumberPage({
               <div className="section-eyebrow">{g.name}</div>
               <h1 className="section-headline" style={{ marginBottom: 0 }}>
                 Number {n}
-                {stat.hot ? <em> · hot</em> : stat.cold ? <em> · cold</em> : null}
+                {stat.newSince ? <em> · new</em> : stat.hot ? <em> · hot</em> : stat.cold ? <em> · cold</em> : null}
               </h1>
             </div>
           </div>
@@ -87,6 +88,17 @@ export default function NumberPage({
 
       <section className="section" style={{ paddingTop: 36 }}>
         <div className="container">
+          {stat.newSince && (
+            <div className="notice" style={{ marginBottom: 20 }}>
+              <span className="notice-tag">New to pool</span>
+              <span>
+                Number {n} was added to {g.name} on {drawDate(stat.newSince)}, when the game expanded
+                to {stats.pick}/{stats.max}. It has only been drawable in the draws since then, so the
+                counts and gaps below cover a much shorter window than the long-standing numbers and
+                aren&rsquo;t directly comparable.
+              </span>
+            </div>
+          )}
           <div className="stat-grid" style={{ marginBottom: 16 }}>
             {tiles.map((t) => (
               <div className="stat-tile" key={t.k}>
@@ -97,17 +109,29 @@ export default function NumberPage({
             ))}
           </div>
           <p style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--ink-3)", marginBottom: 40 }}>
-            Frequency &amp; gaps are over the full {stats.drawCount.toLocaleString("en-CA")}-draw record
-            {stats.statsFrom ? " (current game matrix)" : ""}; the hot / cold label reflects the recent{" "}
-            {stats.aggregate.windowSize}-draw window.
+            {isNew
+              ? `Number ${n} joined the pool on ${drawDate(stat.newSince!)}, so its counts cover only the draws since then and it's kept out of the hot / cold ranking.`
+              : `Frequency & gaps are over the full ${stats.drawCount.toLocaleString("en-CA")}-draw record${stats.statsFrom ? " (current game matrix)" : ""}; the hot / cold label reflects the recent ${stats.aggregate.windowSize}-draw window.`}
           </p>
 
           <p className="prose" style={{ marginBottom: 40 }}>
-            In {g.name}, number <strong>{n}</strong> has been drawn <strong>{stat.count} times</strong> across{" "}
-            {stats.drawCount.toLocaleString("en-CA")} recorded draws ({(stat.frequency * 100).toFixed(1)}%). It was
-            last drawn <strong>{stat.lastDate ? drawDate(stat.lastDate) : "—"}</strong>
-            {stat.currentGap > 0 ? `, ${stat.currentGap} draw${stat.currentGap === 1 ? "" : "s"} ago` : " (in the latest draw)"}.
-            Its longest dry spell on record is {stat.maxGap} draws.
+            {isNew ? (
+              <>
+                In {g.name}, number <strong>{n}</strong> has been drawn <strong>{stat.count} times</strong> since it
+                joined the pool on <strong>{drawDate(stat.newSince!)}</strong> (the game expanded to {stats.pick}/{stats.max}).
+                It was last drawn <strong>{stat.lastDate ? drawDate(stat.lastDate) : "—"}</strong>
+                {stat.currentGap > 0 ? `, ${stat.currentGap} draw${stat.currentGap === 1 ? "" : "s"} ago` : " (in the latest draw)"}.
+                With so few draws on record, its frequency isn&rsquo;t yet comparable to the long-standing numbers.
+              </>
+            ) : (
+              <>
+                In {g.name}, number <strong>{n}</strong> has been drawn <strong>{stat.count} times</strong> across{" "}
+                {nDraws(stats.drawCount)} on record ({(stat.frequency * 100).toFixed(1)}%). It was
+                last drawn <strong>{stat.lastDate ? drawDate(stat.lastDate) : "—"}</strong>
+                {stat.currentGap > 0 ? `, ${stat.currentGap} draw${stat.currentGap === 1 ? "" : "s"} ago` : " (in the latest draw)"}.
+                Its longest dry spell on record is {nDraws(stat.maxGap)}.
+              </>
+            )}
           </p>
 
           {stat.partners.length > 0 && (

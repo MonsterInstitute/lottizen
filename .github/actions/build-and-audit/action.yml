@@ -1,0 +1,28 @@
+name: Build and audit
+description: >-
+  Build the static site and run scripts/audit_site.py as a deploy gate. The
+  audit cross-checks config/games.ts, the DB, the generated JSON, and the built
+  HTML; it exits non-zero on any CRITICAL/HIGH finding, which fails this step and
+  (because later steps only run on success) skips the commit/push — so broken
+  data never deploys. MEDIUM/LOW findings are printed but do not block.
+
+runs:
+  using: composite
+  steps:
+    - name: Set up Node
+      uses: actions/setup-node@v4
+      with:
+        node-version: "20"
+        cache: npm
+
+    - name: Install Node dependencies
+      shell: bash
+      run: npm ci
+
+    - name: Build site (prebuild regenerates the data index)
+      shell: bash
+      run: npm run build
+
+    - name: Correctness audit (fails on CRITICAL/HIGH)
+      shell: bash
+      run: python scripts/audit_site.py

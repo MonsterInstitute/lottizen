@@ -41,6 +41,10 @@ export interface NumberStat {
   maxGap: number;
   hot: boolean;
   cold: boolean;
+  /** Set when this number joined the pool partway through the stats era (e.g. Lotto
+   *  Max 51/52 on 2026-04-14). Such numbers are excluded from hot/cold/frequency
+   *  rankings and flagged in the UI. ISO date it entered the pool. */
+  newSince?: string;
   partners: Partner[];
 }
 export interface BonusStats {
@@ -77,6 +81,9 @@ export interface StatsFile {
   generatedAt: string;
   numbers: NumberStat[];
   aggregate: Aggregate;
+  /** Numbers added to the pool partway through the stats era, with the date they
+   *  entered. Present only for games with a mid-era pool expansion (Lotto Max 51/52). */
+  poolAdded?: { since: string; numbers: number[] };
 }
 export interface LatestGame {
   slug: string;

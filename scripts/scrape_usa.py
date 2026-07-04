@@ -80,9 +80,53 @@ def init_db(conn):
             verified INTEGER NOT NULL DEFAULT 0, scraped_at TEXT NOT NULL,
             PRIMARY KEY (game_id, draw_date)
         );
+        CREATE TABLE IF NOT EXISTS game_meta (
+            game_id TEXT PRIMARY KEY, next_draw_date TEXT,
+            next_jackpot REAL, updated_at TEXT
+        );
         """
     )
     conn.commit()
+
+
+def set_meta(conn, game_id, next_date, jackpot):
+    conn.execute(
+        """INSERT INTO game_meta (game_id, next_draw_date, next_jackpot, updated_at)
+           VALUES (?,?,?,?)
+           ON CONFLICT(game_id) DO UPDATE SET
+             next_draw_date=excluded.next_draw_date, next_jackpot=excluded.next_jackpot,
+             updated_at=excluded.updated_at""",
+        (game_id, next_date, jackpot, now_iso()),
+    )
+    conn.commit()
+
+
+def http_text(url: str) -> str:
+    req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/json, text/xml, */*"})
+    with urllib.request.urlopen(req, timeout=30, context=ssl_ctx()) as r:
+        return r.read().decode("utf-8", "replace")
+
+
+# Mega Millions publishes the next draw's estimated jackpot (annuity) on its own
+# official service. Powerball's equivalent API is bot-walled, so we surface only
+# Mega Millions' estimate here; other US games show the next draw date and hide
+# the jackpot row (handled in the frontend). The next draw DATE is derived from the
+# fixed draw-day schedule at build time, so we store the amount with a null date.
+MM_ENDPOINT = "https://www.megamillions.com/cmspages/utilservice.asmx/GetLatestDrawData"
+
+
+def mega_millions_meta(conn) -> None:
+    try:
+        text = http_text(MM_ENDPOINT)
+        m = re.search(r'"NextPrizePool":\s*([0-9.]+)', text)
+        if not m:
+            print("  ! mega-millions: NextPrizePool not found", file=sys.stderr)
+            return
+        jackpot = float(m.group(1))
+        set_meta(conn, "mega-millions", None, jackpot)
+        print(f"✓ mega-millions next jackpot: ${jackpot:,.0f} (megamillions.com)")
+    except Exception as e:  # noqa: BLE001
+        print(f"  ! mega-millions jackpot: {e}", file=sys.stderr)
 
 
 def fetch_all(ds: str) -> list[dict]:
@@ -182,6 +226,8 @@ def main() -> int:
                 print(f"✓ {cfg['slug']}: {n} digit draws, {lo} → {hi} (data.ny.gov)")
             except Exception as e:  # noqa: BLE001
                 print(f"✗ {cfg['slug']}: {e}", file=sys.stderr)
+        if not args.game or args.game == "mega-millions":
+            mega_millions_meta(conn)
         return 0
     finally:
         conn.close()
