@@ -96,7 +96,7 @@ export default function CountryOverview({ params }: { params: { country: string 
                       {isLive && l ? (
                         <>
                           <div className="game-card-date">Latest · {drawDate(l.latestDate)}</div>
-                          <Balls numbers={l.numbers} bonus={l.bonus} size="sm" />
+                          <Balls numbers={l.numbers} bonus={l.bonus} bonus2={l.bonus2} size="sm" />
                         </>
                       ) : (
                         <div className="game-card-meta">Coming soon</div>

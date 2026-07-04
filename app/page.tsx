@@ -30,7 +30,7 @@ export default function HomePage() {
   // game shows its next draw date instead. Never a stale "TBA".
   const jackpotOrDraw = (g: GameConfig): { label: string; value: string } => {
     const j = g.progressive ? latest.get(g.slug)?.nextJackpot : null;
-    if (j != null) return { label: "Next jackpot", value: money(j, { compact: true }) };
+    if (j != null) return { label: "Next jackpot", value: money(j, { compact: true, currency: g.currency }) };
     const nd = latest.get(g.slug)?.nextDraw ?? nextDrawDate(g.drawDays);
     return { label: "Next draw", value: drawDate(nd) };
   };
@@ -64,8 +64,8 @@ export default function HomePage() {
             </h1>
             <p className="hero-deck reveal r-4">
               Winning numbers, deep statistics, and number tools for{" "}
-              <strong>every major draw game in Canada and the USA</strong> — Powerball, Mega
-              Millions, Lotto Max, 6/49 and more. Plus a scratch-ticket value tracker.
+              <strong>every major draw game in Canada, the USA and Europe</strong> — Powerball, Mega
+              Millions, EuroMillions, Lotto Max, UK Lotto and more. Plus a scratch-ticket value tracker.
             </p>
             <div className="hero-cta-row reveal r-5">
               <Link href="/usa" className="btn btn-primary">
@@ -76,6 +76,9 @@ export default function HomePage() {
               </Link>
               <Link href="/canada" className="btn btn-secondary">
                 Canadian games
+              </Link>
+              <Link href="/europe" className="btn btn-secondary">
+                European games
               </Link>
             </div>
             <div className="hero-meta reveal r-5">
@@ -94,7 +97,7 @@ export default function HomePage() {
               <div className="game-card-date" style={{ marginTop: 16, marginBottom: 14 }}>
                 {drawDate(featured.latestDate)}
               </div>
-              <Balls numbers={featured.numbers} bonus={featured.bonus} size="lg" />
+              <Balls numbers={featured.numbers} bonus={featured.bonus} bonus2={featured.bonus2} size="lg" />
               <div className="game-card-jackpot">
                 <span className="lbl">{jackpotOrDraw(featuredCfg).label}</span>
                 <span className="amt">{jackpotOrDraw(featuredCfg).value}</span>
@@ -120,7 +123,7 @@ export default function HomePage() {
               <div className="section-eyebrow">{c.name}</div>
               <div className="section-head-row">
                 <h2 className="section-headline">
-                  {c.name === "Canada" ? "Canadian" : "US"} <em>results.</em>
+                  {c.adjective} <em>results.</em>
                 </h2>
                 <Link href={`/${c.slug}`} className="btn btn-secondary">
                   All {c.name} games →
@@ -144,7 +147,7 @@ export default function HomePage() {
                         <span className="game-card-meta">{g.pick}/{g.max}</span>
                       </div>
                       <div className="game-card-date">{drawDate(l.latestDate)}</div>
-                      <Balls numbers={l.numbers} bonus={l.bonus} size="sm" />
+                      <Balls numbers={l.numbers} bonus={l.bonus} bonus2={l.bonus2} size="sm" />
                       <div className="game-card-jackpot">
                         <span className="lbl">{jackpotOrDraw(g).label}</span>
                         <span className="amt">{jackpotOrDraw(g).value}</span>

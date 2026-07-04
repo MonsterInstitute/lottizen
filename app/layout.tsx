@@ -78,7 +78,7 @@ export default function RootLayout({
 }) {
   return (
     <html
-      lang="en-CA"
+      lang="en"
       className={`${serif.variable} ${sans.variable} ${mono.variable}`}
     >
       <head>

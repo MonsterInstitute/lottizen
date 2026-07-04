@@ -16,6 +16,9 @@ export interface Draw {
   date: string;
   numbers: number[];
   bonus: number | null;
+  /** Second secondary ball for two-star games (EuroMillions Lucky Stars,
+   *  EuroJackpot Euro numbers). Absent/undefined for single-bonus games. */
+  bonus2?: number | null;
   jackpot: number | null;
 }
 export interface DrawsFile {
@@ -50,6 +53,8 @@ export interface NumberStat {
 export interface BonusStats {
   label: string;
   max: number;
+  /** How many secondary balls are drawn per draw (2 for Lucky Stars / Euro numbers). */
+  count?: number;
   chart: { n: number; count: number }[];
   hot: number[];
 }
@@ -90,6 +95,7 @@ export interface LatestGame {
   latestDate: string;
   numbers: number[];
   bonus: number | null;
+  bonus2?: number | null;
   nextDraw: string | null;
   nextJackpot: number | null;
   drawCount: number;

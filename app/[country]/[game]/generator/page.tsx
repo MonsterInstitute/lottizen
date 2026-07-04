@@ -62,6 +62,7 @@ export default function GeneratorPage({ params }: { params: { country: string; g
             max={g.max}
             hasBonus={g.hasBonus}
             bonusMax={g.bonusMax ?? g.max}
+            bonusCount={g.bonusCount ?? 1}
             bonusLabel={g.bonusLabel ?? "Bonus"}
             frequency={stats.aggregate.frequencyChart}
           />

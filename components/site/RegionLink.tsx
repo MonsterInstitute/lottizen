@@ -13,7 +13,7 @@ export function RegionLink({
   className,
   children,
 }: {
-  region: "CA" | "US";
+  region: "CA" | "US" | "EU";
   href: string;
   className?: string;
   children: React.ReactNode;

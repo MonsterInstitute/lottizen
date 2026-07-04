@@ -1,0 +1,50 @@
+name: Daily European draw results
+
+# European games draw on Tue & Fri (EuroMillions, EuroJackpot) and Wed & Sat
+# (UK Lotto). Run at 23:00 UTC on each of those days — after that evening's draw
+# has settled — to append the latest results. Full history was backfilled once via
+# `scrape_europe.py --backfill`; this only appends (never overwrites reconciled
+# rows) and recomputes stats. Separate from the CA/US workflows so they don't clash.
+on:
+  schedule:
+    - cron: "0 23 * * 2,3,5,6"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: europe-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r scripts/requirements.txt
+      - name: Fetch latest European draws (append-only)
+        run: python scripts/scrape_europe.py || echo "EU fetch failed; keeping last-good data"
+        continue-on-error: true
+      - name: Recompute statistics
+        run: python scripts/calculate_stats.py
+      # Deploy gate: build + audit before committing; CRITICAL/HIGH findings skip the commit.
+      - name: Build & audit (deploy gate)
+        uses: ./.github/actions/build-and-audit
+      - name: Commit refreshed data
+        run: |
+          git config user.name "lottizen-bot"
+          git config user.email "bot@lottizen.ca"
+          git add data/draws data/stats data/lottizen.db data/conflicts.log
+          if git diff --staged --quiet; then
+            echo "No European draw changes."
+          else
+            git commit -m "chore(data): daily European draw refresh $(date -u +%Y-%m-%d)"
+            git push
+          fi

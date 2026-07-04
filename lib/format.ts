@@ -1,11 +1,27 @@
 /** Formatting helpers shared across pages. */
 
-export function money(n: number, opts: { compact?: boolean } = {}): string {
+const CURRENCY_SYMBOL: Record<string, string> = { CAD: "$", USD: "$", EUR: "€", GBP: "£" };
+
+/** The currency symbol for a code ("$", "€", "£"). */
+export function currencySymbol(currency?: string): string {
+  return CURRENCY_SYMBOL[currency ?? "CAD"] ?? "$";
+}
+
+/** Exact ticket price with its currency symbol, e.g. "€2.50", "£2.00", "$3.00". */
+export function priceAmount(n: number, currency?: string): string {
+  return `${currencySymbol(currency)}${n.toFixed(2)}`;
+}
+
+export function money(
+  n: number,
+  opts: { compact?: boolean; currency?: "CAD" | "USD" | "EUR" | "GBP" } = {},
+): string {
+  const s = CURRENCY_SYMBOL[opts.currency ?? "CAD"] ?? "$";
   if (opts.compact) {
-    if (n >= 1_000_000) return `$${trim(n / 1_000_000)}M`;
-    if (n >= 1_000) return `$${trim(n / 1_000)}K`;
+    if (n >= 1_000_000) return `${s}${trim(n / 1_000_000)}M`;
+    if (n >= 1_000) return `${s}${trim(n / 1_000)}K`;
   }
-  return `$${Math.round(n).toLocaleString("en-CA")}`;
+  return `${s}${Math.round(n).toLocaleString("en-CA")}`;
 }
 
 function trim(n: number): string {

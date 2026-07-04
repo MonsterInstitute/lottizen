@@ -10,6 +10,7 @@ export function Generator({
   max,
   hasBonus,
   bonusMax,
+  bonusCount = 1,
   bonusLabel = "Bonus",
   frequency,
 }: {
@@ -18,12 +19,14 @@ export function Generator({
   hasBonus: boolean;
   /** secondary-ball pool size (own pool, e.g. Powerball 1-26). */
   bonusMax?: number;
+  /** how many secondary balls to draw (2 for EuroMillions Lucky Stars). */
+  bonusCount?: number;
   bonusLabel?: string;
   /** count per number index 1..max, for statistics weighting */
   frequency: { n: number; count: number }[];
 }) {
   const [mode, setMode] = useState<Mode>("quick");
-  const [line, setLine] = useState<{ nums: number[]; bonus: number | null } | null>(null);
+  const [line, setLine] = useState<{ nums: number[]; bonuses: number[] } | null>(null);
   const [birthday, setBirthday] = useState("");
 
   const weights = new Map(frequency.map((f) => [f.n, f.count]));
@@ -73,10 +76,11 @@ export function Generator({
     } else {
       nums = pickUnique(pool, pick, mode === "weighted");
     }
-    // Secondary ball comes from its OWN pool (1..bonusMax), independent of the main pool.
+    // Secondary balls come from their OWN pool (1..bonusMax), independent of the main
+    // pool; two-star games draw `bonusCount` unique secondaries (e.g. 2 Lucky Stars).
     const bPool = Array.from({ length: bonusMax ?? max }, (_, i) => i + 1);
-    const bonus = hasBonus ? bPool[Math.floor(Math.random() * bPool.length)] : null;
-    setLine({ nums, bonus });
+    const bonuses = hasBonus ? pickUnique(bPool, bonusCount, false) : [];
+    setLine({ nums, bonuses });
   }
 
   const modes: { key: Mode; label: string; desc: string }[] = [
@@ -128,7 +132,14 @@ export function Generator({
 
       {line && (
         <div style={{ marginTop: 26 }}>
-          <Balls numbers={line.nums} bonus={line.bonus} size="lg" />
+          <Balls
+            numbers={line.nums}
+            bonus={line.bonuses[0] ?? null}
+            bonus2={line.bonuses[1] ?? null}
+            star={bonusCount > 1}
+            bonusTitle={bonusLabel}
+            size="lg"
+          />
         </div>
       )}
 

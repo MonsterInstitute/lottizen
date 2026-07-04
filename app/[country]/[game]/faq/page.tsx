@@ -46,6 +46,43 @@ function faqs(g: GameConfig) {
       ...common,
     ];
   }
+  if (g.country === "EU") {
+    const uk = g.agency === "UK National Lottery";
+    const taxQ = uk
+      ? {
+          q: `Are ${name} winnings taxed in the UK?`,
+          a: `No. UK National Lottery prizes are paid completely tax-free — you keep 100% of the winnings. (Interest later earned on the money is taxable, and large gifts can carry inheritance-tax implications.)`,
+        }
+      : {
+          q: `Are ${name} winnings taxed?`,
+          a: `It depends where the ticket was bought. ${name} is a multi-country game and each country taxes prizes differently: the UK and Ireland pay out entirely tax-free, France taxes only the interest earned afterwards, while Spain withholds 20% on the part of a prize above €40,000 and Portugal 20% above €5,000. Your prize is paid and taxed under the rules of the country of purchase.`,
+        };
+    const claimQ = uk
+      ? {
+          q: `Where do I claim a ${name} prize?`,
+          a: `From The National Lottery (operated by Allwyn) — smaller prizes at retailers or in the app, larger prizes by post or in person. You have 180 days from the draw date to claim.`,
+        }
+      : {
+          q: `I bought a ${name} ticket abroad — where do I claim?`,
+          a: `You claim in the country where you bought the ticket, in that country's currency and under its rules — you can't buy in one country and collect in another. Each participating lottery pays its own winners; the shared prize pool is converted at the draw-day exchange rate.`,
+        };
+    const anonQ = uk
+      ? {
+          q: `Can I stay anonymous if I win ${name}?`,
+          a: `Yes. UK National Lottery winners can choose to stay completely anonymous — your name and details are only ever published if you agree to publicity.`,
+        }
+      : {
+          q: `Can I stay anonymous if I win ${name}?`,
+          a: `It depends on the country of purchase. UK and Irish winners may remain anonymous; some countries (for example Spain, Portugal and Austria) publish or may publish winner details. Check the rules of the lottery where you bought the ticket.`,
+        };
+    const deadlineQ = {
+      q: `How long do I have to claim a ${name} prize?`,
+      a: uk
+        ? `180 days from the draw date for UK National Lottery games.`
+        : `Claim deadlines vary by country, typically 90 days to 2 years from the draw (180 days in the UK, 90 days in Ireland). Confirm with the lottery where you purchased.`,
+    };
+    return [taxQ, claimQ, anonQ, deadlineQ, ...common];
+  }
   const anon =
     g.agency === "OLG"
       ? "No. In Ontario, OLG publishes the name and municipality of prize winners — you cannot claim a major prize anonymously."
@@ -123,7 +160,7 @@ export default function FaqPage({ params }: { params: { country: string; game: s
               </div>
             ))}
             <div className="notice" style={{ marginTop: 24 }}>
-              <span className="notice-tag">{g.country === "US" ? "18+" : "19+"}</span>
+              <span className="notice-tag">{g.country === "US" || g.country === "EU" ? "18+" : "19+"}</span>
               <span>
                 Play for entertainment only. Need support? See{" "}
                 <Link href="/responsible-play">responsible play resources</Link>.

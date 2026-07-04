@@ -59,6 +59,17 @@ GAMES = {
     "new-york-lotto": {"pick": 6, "max": 59, "bonus_max": 59, "bonus_label": "Bonus"},
     "take-5": {"pick": 5, "max": 39},
     "pick-10": {"pick": 20, "max": 80},
+    # ---- Europe ---- (two-secondary-ball games store both in bonus + bonus2)
+    # EuroMillions: 5/50 + 2 Lucky Stars 1-12. Stars grew 1-11 -> 1-12 on 2016-09-24;
+    # stats_from pins the star chart to the 12-star era.
+    "euromillions": {"pick": 5, "max": 50, "bonus_max": 12, "bonus_label": "Lucky Stars",
+                     "bonus_count": 2, "stats_from": "2016-09-24"},
+    # EuroJackpot: 5/50 + 2 Euro numbers 1-12. Euro pool grew to 1-12 on 2022-03-25.
+    "eurojackpot": {"pick": 5, "max": 50, "bonus_max": 12, "bonus_label": "Euro Numbers",
+                    "bonus_count": 2, "stats_from": "2022-03-25"},
+    # UK Lotto: 6/49 -> 6/59 on 2015-10-10; stats_from pins to the 59-ball era.
+    "uk-lotto": {"pick": 6, "max": 59, "bonus_max": 59, "bonus_label": "Bonus Ball",
+                 "stats_from": "2015-10-10"},
 }
 
 
@@ -104,12 +115,14 @@ def compute_digit_stats(slug, positions, draws):
 
 def load_draws(conn, slug):
     conn.row_factory = sqlite3.Row
+    has_b2 = "bonus2" in {c[1] for c in conn.execute("PRAGMA table_info(draws)")}
+    b2 = "bonus2" if has_b2 else "NULL AS bonus2"
     rows = conn.execute(
-        "SELECT draw_date, numbers, bonus, jackpot FROM draws WHERE game_id=? ORDER BY draw_date ASC",
+        f"SELECT draw_date, numbers, bonus, {b2}, jackpot FROM draws WHERE game_id=? ORDER BY draw_date ASC",
         (slug,),
     ).fetchall()
     return [{"date": r["draw_date"], "numbers": [int(x) for x in r["numbers"].split(",") if x],
-             "bonus": r["bonus"], "jackpot": r["jackpot"]} for r in rows]
+             "bonus": r["bonus"], "bonus2": r["bonus2"], "jackpot": r["jackpot"]} for r in rows]
 
 
 def compute_stats(slug, cfg, draws):
@@ -205,13 +218,19 @@ def compute_stats(slug, cfg, draws):
         "windowTop": window_top,
         "windowSize": win_size,
     }
-    # secondary ball (Powerball / Mega Ball / Cash Ball / Bonus)
+    # secondary pool (Powerball / Mega Ball / Bonus / EuroMillions Lucky Stars …).
+    # Two-secondary games (bonus_count=2) draw two from the same pool — count both.
     if cfg.get("bonus_max"):
         bmax = cfg["bonus_max"]
-        bf = Counter(d["bonus"] for d in draws if d.get("bonus") and 1 <= d["bonus"] <= bmax)
+        bcount = cfg.get("bonus_count", 1)
+        bf = Counter()
+        for d in draws:
+            for bv in ((d.get("bonus"), d.get("bonus2")) if bcount > 1 else (d.get("bonus"),)):
+                if bv and 1 <= bv <= bmax:
+                    bf[bv] += 1
         if bf:
             agg["bonus"] = {
-                "label": cfg.get("bonus_label", "Bonus"), "max": bmax,
+                "label": cfg.get("bonus_label", "Bonus"), "max": bmax, "count": bcount,
                 "chart": [{"n": k, "count": bf.get(k, 0)} for k in range(1, bmax + 1)],
                 "hot": [k for k, _ in bf.most_common(6)],
             }
@@ -226,10 +245,17 @@ def compute_stats(slug, cfg, draws):
 def write_draws(conn, slug, draws):
     m = conn.execute("SELECT next_draw_date, next_jackpot FROM game_meta WHERE game_id=?",
                      (slug,)).fetchone() if table_has(conn, "game_meta") else None
+    # Emit bonus2 only for games that use it, so single-bonus draw JSON stays lean.
+    out_draws = []
+    for d in reversed(draws):
+        row = {"date": d["date"], "numbers": d["numbers"], "bonus": d["bonus"], "jackpot": d["jackpot"]}
+        if d.get("bonus2") is not None:
+            row["bonus2"] = d["bonus2"]
+        out_draws.append(row)
     payload = {"game": slug, "dataSince": draws[0]["date"] if draws else None,
                "drawCount": len(draws), "nextDraw": m[0] if m else None,
                "nextJackpot": m[1] if m else None, "generatedAt": now_iso(),
-               "draws": list(reversed(draws))}
+               "draws": out_draws}
     (DRAWS_DIR / f"{slug}.json").write_text(json.dumps(payload, indent=2) + "\n")
     return payload
 
@@ -257,7 +283,8 @@ def main() -> int:
             (STATS_DIR / f"{slug}.json").write_text(json.dumps(stats, indent=2) + "\n")
             newest = draws[-1]
             latest_all.append({"slug": slug, "latestDate": newest["date"], "numbers": newest["numbers"],
-                               "bonus": newest["bonus"], "nextDraw": payload["nextDraw"],
+                               "bonus": newest["bonus"], "bonus2": newest.get("bonus2"),
+                               "nextDraw": payload["nextDraw"],
                                "nextJackpot": payload["nextJackpot"], "drawCount": len(draws),
                                "dataSince": payload["dataSince"]})
             era_note = f" (stats era {cfg['stats_from']}+: {len(era)})" if cfg.get("stats_from") else ""

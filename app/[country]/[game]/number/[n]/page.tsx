@@ -170,7 +170,7 @@ export default function NumberPage({
                     <tr key={d.date}>
                       <td className="rdate">{drawDate(d.date)}</td>
                       <td>
-                        <Balls numbers={d.numbers} bonus={d.bonus} size="sm" />
+                        <Balls numbers={d.numbers} bonus={d.bonus} bonus2={d.bonus2} size="sm" />
                       </td>
                     </tr>
                   ))}

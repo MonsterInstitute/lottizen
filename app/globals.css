@@ -893,6 +893,13 @@ a.data-card-title:hover {
   border-color: var(--brand);
   color: #fff;
 }
+/* Two-star secondary balls (EuroMillions Lucky Stars, EuroJackpot Euro numbers) —
+   a deeper accent so they read as distinct from a single orange bonus ball. */
+.ball.star {
+  background: var(--brand-deep);
+  border-color: var(--brand-deep);
+  color: #fff;
+}
 .ball.sm {
   width: 32px;
   height: 32px;

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { countryName, operatorName } from "@/config/games";
 import { resolveGame, countryGameParams, getDraws, getStats, liveGameCard } from "@/lib/draws";
-import { drawDate, money, nextDrawDate, nDraws } from "@/lib/format";
+import { drawDate, money, nextDrawDate, nDraws, priceAmount } from "@/lib/format";
 import { absUrl } from "@/lib/site";
 import { Balls } from "@/components/draws/Balls";
 import { GameTabs } from "@/components/draws/GameTabs";
@@ -40,7 +40,7 @@ export default function GamePage({ params }: { params: { country: string; game: 
   // Only progressive games with a real scraped estimate show a jackpot; everything
   // else shows the next draw date and hides the jackpot row (never a stale "TBA").
   const showJackpot = g.progressive && card.latest?.nextJackpot != null;
-  const jackpotStr = showJackpot ? money(card.latest!.nextJackpot!, { compact: true }) : null;
+  const jackpotStr = showJackpot ? money(card.latest!.nextJackpot!, { compact: true, currency: g.currency }) : null;
   const nextDraw = card.latest?.nextDraw ?? nextDrawDate(g.drawDays);
 
   return (
@@ -85,7 +85,7 @@ export default function GamePage({ params }: { params: { country: string; game: 
               <div className="game-card-date" style={{ fontSize: 14 }}>
                 {drawDate(latest.date)}
               </div>
-              <Balls numbers={latest.numbers} bonus={latest.bonus} size="lg" />
+              <Balls numbers={latest.numbers} bonus={latest.bonus} bonus2={latest.bonus2} size="lg" />
               <div style={{ marginTop: 20 }}>
                 <Link href={`${base}/results`} className="btn btn-secondary">
                   All results →
@@ -113,7 +113,7 @@ export default function GamePage({ params }: { params: { country: string; game: 
               </div>
               <div className="data-row">
                 <span className="k">Ticket price</span>
-                <span className="v">${g.price.toFixed(2)} {g.currency}</span>
+                <span className="v">{priceAmount(g.price, g.currency)} {g.currency}</span>
               </div>
             </div>
           </div>
@@ -140,9 +140,11 @@ export default function GamePage({ params }: { params: { country: string; game: 
             ) : (
               <>
                 <p>
-                  Each {g.name} play costs <strong>${g.price.toFixed(2)} {g.currency}</strong> and asks you to
+                  Each {g.name} play costs <strong>{priceAmount(g.price, g.currency)} {g.currency}</strong> and asks you to
                   select <strong>{g.pick} numbers from 1 to {g.max}</strong>
-                  {g.hasBonus ? `, plus a ${g.bonusLabel ?? "bonus"}${g.bonusMax ? ` from 1 to ${g.bonusMax}` : ""}` : ""}.
+                  {g.hasBonus
+                    ? `, plus ${g.bonusCount && g.bonusCount > 1 ? `${g.bonusCount} ${g.bonusLabel ?? "bonus numbers"}` : `a ${g.bonusLabel ?? "bonus"}`}${g.bonusMax ? ` from 1 to ${g.bonusMax}` : ""}`
+                    : ""}.
                   Draws take place <strong>{g.drawDays.join(" and ")}</strong>.
                 </p>
                 <h3>Match &amp; prize tiers</h3>

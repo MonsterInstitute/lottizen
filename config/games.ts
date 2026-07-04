@@ -5,10 +5,11 @@
  * this flag marks intent.
  */
 
-export type Country = "CA" | "US";
+export type Country = "CA" | "US" | "EU";
 export type Agency =
   | "National" | "OLG" | "WCLC" | "BCLC" | "Loto-Québec" | "ALC"
-  | "Multi-State" | "NY Lottery";
+  | "Multi-State" | "NY Lottery"
+  | "EuroMillions" | "EuroJackpot" | "UK National Lottery";
 /** Which page set a game supports. lotto/keno get full number statistics;
  *  digit/special get overview + results + faq only. */
 export type GameFormat = "lotto" | "keno" | "digit" | "special";
@@ -24,9 +25,12 @@ export interface GameConfig {
   hasBonus: boolean;
   bonusLabel?: string;
   bonusMax?: number;
+  /** How many secondary balls are drawn (default 1). EuroMillions Lucky Stars and
+   *  EuroJackpot Euro numbers draw 2 from the same pool; stored as bonus + bonus2. */
+  bonusCount?: number;
   drawDays: string[];
   price: number;
-  currency: "CAD" | "USD";
+  currency: "CAD" | "USD" | "EUR" | "GBP";
   blurb: string;
   format: GameFormat;
   /** Rules-matrix change date; statistics default to draws on/after it. */
@@ -49,6 +53,8 @@ const CA = (g: Partial<GameConfig>): GameConfig =>
   ({ country: "CA", currency: "CAD", format: "lotto", hasBonus: true, live: false, ...g } as GameConfig);
 const US = (g: Partial<GameConfig>): GameConfig =>
   ({ country: "US", currency: "USD", format: "lotto", hasBonus: true, live: false, ...g } as GameConfig);
+const EU = (g: Partial<GameConfig>): GameConfig =>
+  ({ country: "EU", currency: "EUR", format: "lotto", hasBonus: true, live: false, ...g } as GameConfig);
 
 export const GAMES: GameConfig[] = [
   // ============ CANADA ============
@@ -83,15 +89,21 @@ export const GAMES: GameConfig[] = [
   US({ slug: "pick-10", name: "Pick 10", agency: "NY Lottery", region: "New York", pick: 20, max: 80, hasBonus: false, drawDays: ["Daily"], price: 1, format: "keno", blurb: "New York's daily keno — 20 of 80 drawn, match 10.", notes: "Verified 2026-07 (nylottery.ny.gov): once daily (evening 8:30pm ET). Fixed prizes, match 10 = $500K.", sources: { nyDataset: "bycu-cw7c" }, live: true }),
   US({ slug: "numbers", name: "Numbers", agency: "NY Lottery", region: "New York", pick: 3, max: 9, hasBonus: false, drawDays: ["Daily"], price: 0.5, format: "digit", blurb: "New York's twice-daily 3-digit game — straight or boxed, evening draw tracked.", notes: "Verified 2026-07 (nylottery.ny.gov): twice daily (midday + evening); data uses the evening draw. 50¢ base play.", sources: { nyDataset: "hsys-3def" }, live: true }),
   US({ slug: "win-4", name: "Win 4", agency: "NY Lottery", region: "New York", pick: 4, max: 9, hasBonus: false, drawDays: ["Daily"], price: 0.5, format: "digit", blurb: "New York's twice-daily 4-digit game — straight or boxed, evening draw tracked.", notes: "Verified 2026-07 (nylottery.ny.gov): twice daily (midday + evening); data uses the evening draw. 50¢ base play.", sources: { nyDataset: "hsys-3def" }, live: true }),
+
+  // ============ EUROPE ============
+  EU({ slug: "euromillions", name: "EuroMillions", agency: "EuroMillions", region: "Pan-European (9 countries)", pick: 5, max: 50, bonusLabel: "Lucky Stars", bonusMax: 12, bonusCount: 2, drawDays: ["Tuesday", "Friday"], price: 2.5, currency: "EUR", progressive: true, statsFrom: "2016-09-24", blurb: "Europe's biggest cross-border jackpot — pick 5 of 50 plus 2 Lucky Stars of 12.", notes: "Verified 2026-07 (euro-millions.com): launched 2004-02-13 (UK/FR/ES), 2 Lucky Stars. Matrix change 2016-09-24 grew the Lucky Star pool 1–11 → 1–12; main 5/50 unchanged since 2011-05-10 (was 5/50 with 1–9 stars at launch, 1–11 from 2011). statsFrom=2016-09-24 pins star stats to the 1–12 era. UK price £2.50; sold in 9 core countries + affiliates. Jackpot cap €250M.", live: true }),
+  EU({ slug: "eurojackpot", name: "EuroJackpot", agency: "EuroJackpot", region: "Pan-European (18 countries)", pick: 5, max: 50, bonusLabel: "Euro Numbers", bonusMax: 12, bonusCount: 2, drawDays: ["Tuesday", "Friday"], price: 2, currency: "EUR", progressive: true, statsFrom: "2022-03-25", blurb: "The other pan-European jackpot — pick 5 of 50 plus 2 Euro numbers of 12.", notes: "Verified 2026-07 (euro-jackpot.net): launched 2012-03-23 (Fridays only), 2 Euro numbers from 1–8, grew to 1–10 (2014-10-10) then 1–12 on 2022-03-25 when a Tuesday draw was added (first Tue 2022-03-29). Main 5/50 unchanged. statsFrom=2022-03-25 pins Euro-number stats to the 1–12 era. Jackpot cap €120M.", live: true }),
+  EU({ slug: "uk-lotto", name: "UK Lotto", agency: "UK National Lottery", operator: "Allwyn UK (operator of The National Lottery)", region: "United Kingdom", pick: 6, max: 59, bonusLabel: "Bonus Ball", bonusMax: 59, drawDays: ["Wednesday", "Saturday"], price: 2, currency: "GBP", progressive: true, statsFrom: "2015-10-10", blurb: "Britain's original National Lottery draw — pick 6 of 59 plus a Bonus Ball.", notes: "Verified 2026-07 (national-lottery.co.uk / lottery.co.uk): launched 1994-11-19 as 6/49 (Saturdays; Wednesday draws added 1997-02-05). Pool grew 6/49 → 6/59 on 2015-10-10 (£2 ticket, added a Millionaire Raffle). statsFrom=2015-10-10 pins number stats to the 59-ball era; the archive keeps every draw back to 1994. Operator: Allwyn (took over from Camelot 2024-02).", live: true }),
 ];
 
-export const COUNTRIES: { code: Country; slug: string; name: string }[] = [
-  { code: "CA", slug: "canada", name: "Canada" },
-  { code: "US", slug: "usa", name: "United States" },
+export const COUNTRIES: { code: Country; slug: string; name: string; adjective: string }[] = [
+  { code: "CA", slug: "canada", name: "Canada", adjective: "Canadian" },
+  { code: "US", slug: "usa", name: "United States", adjective: "US" },
+  { code: "EU", slug: "europe", name: "Europe", adjective: "European" },
 ];
 
 export function countrySlug(code: Country): string {
-  return code === "US" ? "usa" : "canada";
+  return COUNTRIES.find((c) => c.code === code)?.slug ?? "canada";
 }
 export function countryFromSlug(slug: string): Country | undefined {
   return COUNTRIES.find((c) => c.slug === slug)?.code;
@@ -115,6 +127,9 @@ export const AGENCY_OPERATOR: Record<Agency, string> = {
   ALC: "the Atlantic Lottery Corporation (ALC)",
   "Multi-State": "the Multi-State Lottery Association (MUSL)",
   "NY Lottery": "the New York Lottery",
+  EuroMillions: "the EuroMillions participating lotteries",
+  EuroJackpot: "the EuroJackpot participating lotteries",
+  "UK National Lottery": "Allwyn UK (operator of The National Lottery)",
 };
 
 /** The full operator legal name for a game — per-game override, else the agency
@@ -152,6 +167,11 @@ export function regionBucket(g: GameConfig): string {
       return "Atlantic";
     case "NY Lottery":
       return "New York";
+    case "EuroMillions":
+    case "EuroJackpot":
+      return "Pan-European";
+    case "UK National Lottery":
+      return "United Kingdom";
     default:
       return "Other";
   }
@@ -171,13 +191,24 @@ export function bucketForRegionCode(code: string): string | null {
     PE: "Atlantic",
     NL: "Atlantic",
     NY: "New York",
+    // Europe: UK visitors see UK Lotto first; the rest of the EuroMillions/
+    // EuroJackpot footprint maps to the pan-European bucket.
+    GB: "United Kingdom",
+    IE: "Pan-European",
+    FR: "Pan-European",
+    ES: "Pan-European",
+    PT: "Pan-European",
+    AT: "Pan-European",
+    BE: "Pan-European",
+    CH: "Pan-European",
+    LU: "Pan-European",
   };
   return m[code] ?? null;
 }
 
 /** Games grouped by agency within a country, for the country overview. */
 export function gamesByAgency(code: Country): { agency: Agency; games: GameConfig[] }[] {
-  const order: Agency[] = ["National", "Multi-State", "NY Lottery", "OLG", "WCLC", "BCLC", "Loto-Québec", "ALC"];
+  const order: Agency[] = ["National", "Multi-State", "NY Lottery", "OLG", "WCLC", "BCLC", "Loto-Québec", "ALC", "EuroMillions", "EuroJackpot", "UK National Lottery"];
   return order
     .map((agency) => ({ agency, games: GAMES.filter((g) => g.country === code && g.agency === agency) }))
     .filter((grp) => grp.games.length > 0);

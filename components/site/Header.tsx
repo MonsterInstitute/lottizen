@@ -14,6 +14,9 @@ export function Header() {
           <RegionLink region="CA" href="/canada">
             Canada
           </RegionLink>
+          <RegionLink region="EU" href="/europe">
+            Europe
+          </RegionLink>
           <Link href="/statistics">Statistics</Link>
           <Link href="/generator">Number Tools</Link>
           <Link href="/scratch">Scratch</Link>

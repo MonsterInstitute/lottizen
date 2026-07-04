@@ -3,6 +3,8 @@
 import d_g_bc_49 from "@/data/draws/bc-49.json";
 import d_g_cash4life from "@/data/draws/cash4life.json";
 import d_g_daily_grand from "@/data/draws/daily-grand.json";
+import d_g_eurojackpot from "@/data/draws/eurojackpot.json";
+import d_g_euromillions from "@/data/draws/euromillions.json";
 import d_g_lottario from "@/data/draws/lottario.json";
 import d_g_lotto_6_49 from "@/data/draws/lotto-6-49.json";
 import d_g_lotto_max from "@/data/draws/lotto-max.json";
@@ -14,12 +16,15 @@ import d_g_ontario_49 from "@/data/draws/ontario-49.json";
 import d_g_pick_10 from "@/data/draws/pick-10.json";
 import d_g_powerball from "@/data/draws/powerball.json";
 import d_g_take_5 from "@/data/draws/take-5.json";
+import d_g_uk_lotto from "@/data/draws/uk-lotto.json";
 import d_g_western_6_49 from "@/data/draws/western-6-49.json";
 import d_g_western_max from "@/data/draws/western-max.json";
 import d_g_win_4 from "@/data/draws/win-4.json";
 import s_g_bc_49 from "@/data/stats/bc-49.json";
 import s_g_cash4life from "@/data/stats/cash4life.json";
 import s_g_daily_grand from "@/data/stats/daily-grand.json";
+import s_g_eurojackpot from "@/data/stats/eurojackpot.json";
+import s_g_euromillions from "@/data/stats/euromillions.json";
 import s_g_lottario from "@/data/stats/lottario.json";
 import s_g_lotto_6_49 from "@/data/stats/lotto-6-49.json";
 import s_g_lotto_max from "@/data/stats/lotto-max.json";
@@ -31,6 +36,7 @@ import s_g_ontario_49 from "@/data/stats/ontario-49.json";
 import s_g_pick_10 from "@/data/stats/pick-10.json";
 import s_g_powerball from "@/data/stats/powerball.json";
 import s_g_take_5 from "@/data/stats/take-5.json";
+import s_g_uk_lotto from "@/data/stats/uk-lotto.json";
 import s_g_western_6_49 from "@/data/stats/western-6-49.json";
 import s_g_western_max from "@/data/stats/western-max.json";
 import s_g_win_4 from "@/data/stats/win-4.json";
@@ -39,6 +45,8 @@ export const RAW_DRAWS: Record<string, any> = {
   "bc-49": d_g_bc_49,
   "cash4life": d_g_cash4life,
   "daily-grand": d_g_daily_grand,
+  "eurojackpot": d_g_eurojackpot,
+  "euromillions": d_g_euromillions,
   "lottario": d_g_lottario,
   "lotto-6-49": d_g_lotto_6_49,
   "lotto-max": d_g_lotto_max,
@@ -50,6 +58,7 @@ export const RAW_DRAWS: Record<string, any> = {
   "pick-10": d_g_pick_10,
   "powerball": d_g_powerball,
   "take-5": d_g_take_5,
+  "uk-lotto": d_g_uk_lotto,
   "western-6-49": d_g_western_6_49,
   "western-max": d_g_western_max,
   "win-4": d_g_win_4,
@@ -59,6 +68,8 @@ export const RAW_STATS: Record<string, any> = {
   "bc-49": s_g_bc_49,
   "cash4life": s_g_cash4life,
   "daily-grand": s_g_daily_grand,
+  "eurojackpot": s_g_eurojackpot,
+  "euromillions": s_g_euromillions,
   "lottario": s_g_lottario,
   "lotto-6-49": s_g_lotto_6_49,
   "lotto-max": s_g_lotto_max,
@@ -70,6 +81,7 @@ export const RAW_STATS: Record<string, any> = {
   "pick-10": s_g_pick_10,
   "powerball": s_g_powerball,
   "take-5": s_g_take_5,
+  "uk-lotto": s_g_uk_lotto,
   "western-6-49": s_g_western_6_49,
   "western-max": s_g_western_max,
   "win-4": s_g_win_4,

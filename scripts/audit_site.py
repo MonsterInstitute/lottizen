@@ -77,9 +77,11 @@ def load_config() -> list[dict]:
     games = []
     for line in text.splitlines():
         s = line.strip()
-        if not (s.startswith("CA({") or s.startswith("US({")):
+        if not (s.startswith("CA({") or s.startswith("US({") or s.startswith("EU({")):
             continue
-        country = "CA" if s.startswith("CA(") else "US"
+        country = "CA" if s.startswith("CA(") else "US" if s.startswith("US(") else "EU"
+        country_slug = {"CA": "canada", "US": "usa", "EU": "europe"}[country]
+        default_currency = {"CA": "CAD", "US": "USD", "EU": "EUR"}[country]
         slug = _field(s, "slug")
         if not slug:
             continue
@@ -89,11 +91,11 @@ def load_config() -> list[dict]:
             "slug": slug,
             "name": _field(s, "name"),
             "country": country,
-            "countrySlug": "usa" if country == "US" else "canada",
+            "countrySlug": country_slug,
             "agency": _field(s, "agency"),
             "operator": _field(s, "operator"),
             "price": _field(s, "price", float),
-            "currency": _field(s, "currency") or ("USD" if country == "US" else "CAD"),
+            "currency": _field(s, "currency") or default_currency,
             "pick": _field(s, "pick", int),
             "max": _field(s, "max", int),
             "bonusMax": _field(s, "bonusMax", int),
@@ -227,7 +229,7 @@ def audit():
             add(name, "overview", "Overview page missing from build output.", HIGH)
         else:
             otxt = page_text(ov)
-            m = re.search(r"Ticket price\s*\$([\d.]+)\s*(CAD|USD)", otxt)
+            m = re.search(r"Ticket price\s*[$€£]([\d.]+)\s*(CAD|USD|EUR|GBP)", otxt)
             if m:
                 rp, rc = float(m.group(1)), m.group(2)
                 if abs(rp - g["price"]) > 0.001:

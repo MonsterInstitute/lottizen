@@ -226,7 +226,9 @@ export default function StatisticsPage({ params }: { params: { country: string; 
             <div className="chart-card" style={{ marginBottom: 24 }}>
               <h3>{a.bonus.label} frequency</h3>
               <div className="sub">
-                The secondary ball is drawn from its own pool (1–{a.bonus.max}).
+                {(a.bonus.count ?? 1) > 1
+                  ? `Both ${a.bonus.label} are drawn from their own pool (1–${a.bonus.max}); counts include every ${a.bonus.label} drawn.`
+                  : `The secondary ball is drawn from its own pool (1–${a.bonus.max}).`}
               </div>
               <FrequencyChart data={a.bonus.chart} hot={a.bonus.hot} />
             </div>

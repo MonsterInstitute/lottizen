@@ -3,10 +3,11 @@ import { NextResponse, type NextRequest } from "next/server";
 /**
  * Geo-routing + geo hint.
  *
- * On `/`: redirect Canadian visitors to /canada and US visitors to /usa
- * (307, uncached); other countries stay on the landing page. Precedence:
- * lottizen_region cookie (nav country switch) > x-vercel-ip-country >
- * DEV_GEO_COUNTRY > CA in dev.
+ * On `/`: redirect Canadian visitors to /canada, US visitors to /usa, and
+ * European visitors (GB/IE/FR/ES/PT/AT/BE/CH/LU — the EuroMillions/EuroJackpot/
+ * UK Lotto footprint) to /europe (307, uncached); other countries stay on the
+ * landing page. Precedence: lottizen_region cookie (nav country switch) >
+ * x-vercel-ip-country > DEV_GEO_COUNTRY > CA in dev.
  *
  * On every matched path we also write a lightweight, non-httpOnly cookie
  * `lottizen_geo` = "<country>-<region>" (e.g. "CA-ON", "US-NY") from Vercel's
@@ -16,6 +17,10 @@ import { NextResponse, type NextRequest } from "next/server";
 export const config = { matcher: ["/", "/statistics", "/generator"] };
 
 const YEAR = 60 * 60 * 24 * 365;
+
+// Countries whose players play the European games we cover (EuroMillions is sold
+// across these; UK Lotto in GB). IP country in this set → /europe.
+const EU_COUNTRIES = new Set(["GB", "IE", "FR", "ES", "PT", "AT", "BE", "CH", "LU"]);
 
 export function middleware(req: NextRequest) {
   const isDev = process.env.NODE_ENV !== "production";
@@ -43,6 +48,8 @@ export function middleware(req: NextRequest) {
       (isDev ? "CA" : undefined);
     if (chosen === "CA") return withGeo(NextResponse.redirect(new URL("/canada", req.url), 307));
     if (chosen === "US") return withGeo(NextResponse.redirect(new URL("/usa", req.url), 307));
+    if (chosen === "EU" || (chosen && EU_COUNTRIES.has(chosen)))
+      return withGeo(NextResponse.redirect(new URL("/europe", req.url), 307));
     return withGeo(NextResponse.next());
   }
 
