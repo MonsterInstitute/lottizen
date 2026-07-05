@@ -6,11 +6,14 @@ name: Daily draw results
 # latest draws (never overwrites reconciled history) and recomputes stats.
 on:
   schedule:
-    - cron: "0 10 * * *"
+    # Staggered off daily.yml (0 10) / usa-daily.yml (30 10) so the workflows don't
+    # push to main at the same instant; commit_and_push.sh handles any remaining race.
+    - cron: "10 10 * * *"
   workflow_dispatch: {}
 
 permissions:
   contents: write
+  issues: write
 
 concurrency:
   group: draws-refresh
@@ -44,17 +47,16 @@ jobs:
       - name: Build & audit (deploy gate)
         uses: ./.github/actions/build-and-audit
 
-      - name: Commit refreshed data
-        id: commit
+      - name: Commit & push refreshed data (race-safe)
+        env:
+          REGEN_CMD: "python scripts/scrape_draws.py || true; python scripts/calculate_stats.py"
+          GIT_ADD_PATHS: "data/draws data/stats data/lottizen.db"
         run: |
-          git config user.name "lottizen-bot"
-          git config user.email "bot@lottizen.ca"
-          git add data/draws data/stats data/lottizen.db
-          if git diff --staged --quiet; then
-            echo "No draw changes."
-          else
-            git commit -m "chore(data): daily draw refresh $(date -u +%Y-%m-%d)"
-            git push
-          fi
+          export COMMIT_MSG="chore(data): daily draw refresh $(date -u +%Y-%m-%d)"
+          bash scripts/commit_and_push.sh
 
       # Vercel's Git integration auto-deploys on push (see daily.yml note).
+
+      - name: Report failure as a GitHub issue
+        if: failure()
+        uses: ./.github/actions/notify-failure

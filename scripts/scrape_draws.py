@@ -439,19 +439,37 @@ def daily_game(conn, cfg, latest):
     slug = cfg["slug"]
     row = conn.execute("SELECT MAX(draw_date) FROM draws WHERE game_id=?", (slug,)).fetchone()
     max_date = row[0] if row else None
-    # only consider draws strictly newer than what we already have
-    if cfg.get("wclc"):
+
+    # Each source runs independently: one source erroring (site restructure, timeout)
+    # must not stop the others for this game from inserting, or the game from committing.
+    def source(label, fn):
+        try:
+            fn()
+        except Exception as e:  # noqa: BLE001
+            print(f"  ! {slug} source '{label}': {type(e).__name__}: {e}", file=sys.stderr)
+
+    def _wclc():
         for d in wclc_history(cfg["wclc"]):
             if not max_date or d["date"] > max_date:
                 insert_new(conn, slug, d["date"], d["numbers"], d.get("bonus"), "wclc")
-    l = latest.get(cfg["olg_name"].upper()) if cfg.get("olg_name") else None
-    if l and (not max_date or l["date"] > max_date):
-        insert_new(conn, slug, l["date"], l["numbers"], l.get("bonus"), "olg-feed")
-    if cfg.get("playnow"):
+
+    def _olg():
+        l = latest.get(cfg["olg_name"].upper())
+        if l and (not max_date or l["date"] > max_date):
+            insert_new(conn, slug, l["date"], l["numbers"], l.get("bonus"), "olg-feed")
+
+    def _playnow():
         pn = playnow_latest(cfg["playnow"])
         if pn and (not max_date or pn["date"] > max_date):
             insert_new(conn, slug, pn["date"], pn["numbers"], pn.get("bonus"), "playnow")
-    apply_olg_meta(conn, cfg, latest)
+
+    if cfg.get("wclc"):
+        source("wclc", _wclc)
+    if cfg.get("olg_name"):
+        source("olg-feed", _olg)
+    if cfg.get("playnow"):
+        source("playnow", _playnow)
+    source("olg-meta", lambda: apply_olg_meta(conn, cfg, latest))
     conn.commit()
     cnt = conn.execute("SELECT COUNT(*), MIN(draw_date), MAX(draw_date) FROM draws WHERE game_id=?", (slug,)).fetchone()
     print(f"  {slug}: {cnt[0]} draws, {cnt[1]} → {cnt[2]}")
@@ -471,12 +489,22 @@ def main() -> int:
         latest = olg_latest()
         print(f"  got latest for {len(latest)} OLG games")
         games = [g for g in LIVE if not args.game or g["slug"] == args.game]
+        failures = []
         for cfg in games:
-            if args.backfill:
-                backfill_game(conn, cfg, latest)
-            else:
-                print(f"→ daily {cfg['slug']}")
-                daily_game(conn, cfg, latest)
+            # One game's failure must not abort the others — isolate each so a broken
+            # adapter or a single slow source can't sink the whole daily refresh.
+            try:
+                if args.backfill:
+                    backfill_game(conn, cfg, latest)
+                else:
+                    print(f"→ daily {cfg['slug']}")
+                    daily_game(conn, cfg, latest)
+            except Exception as e:  # noqa: BLE001
+                print(f"  ✗ {cfg['slug']}: {type(e).__name__}: {e}", file=sys.stderr)
+                failures.append(cfg["slug"])
+        if failures:
+            print(f"⚠ {len(failures)} game(s) failed: {', '.join(failures)} "
+                  f"(others still refreshed)", file=sys.stderr)
         return 0
     finally:
         conn.close()

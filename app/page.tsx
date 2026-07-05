@@ -8,7 +8,7 @@ import {
 } from "@/config/games";
 import { getLatestAll, getLatestGeneratedAt, hasData } from "@/lib/draws";
 import { getTopPick, getRankings } from "@/lib/data";
-import { drawDate, money, humanDate, nextDrawDate } from "@/lib/format";
+import { drawDate, money, humanDate, resolveNextDraw } from "@/lib/format";
 import { SITE, absUrl } from "@/lib/site";
 import { Balls } from "@/components/draws/Balls";
 import { AdSlot } from "@/components/site/AdSlot";
@@ -31,7 +31,7 @@ export default function HomePage() {
   const jackpotOrDraw = (g: GameConfig): { label: string; value: string } => {
     const j = g.progressive ? latest.get(g.slug)?.nextJackpot : null;
     if (j != null) return { label: "Next jackpot", value: money(j, { compact: true, currency: g.currency }) };
-    const nd = latest.get(g.slug)?.nextDraw ?? nextDrawDate(g.drawDays);
+    const nd = resolveNextDraw(latest.get(g.slug)?.nextDraw, g.drawDays);
     return { label: "Next draw", value: drawDate(nd) };
   };
 

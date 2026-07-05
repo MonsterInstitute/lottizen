@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: write # commit refreshed data back to the repo
+  issues: write # open a failure issue if the run fails
 
 concurrency:
   group: daily-refresh
@@ -48,25 +49,16 @@ jobs:
       - name: Build & audit (deploy gate)
         uses: ./.github/actions/build-and-audit
 
-      - name: Commit refreshed data
-        id: commit
-        run: |
-          git config user.name "lottizen-bot"
-          git config user.email "bot@lottizen.ca"
-          git add data/rankings.json data/lottizen.db
-          if git diff --staged --quiet; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-            echo "No data changes."
-          else
-            git commit -m "chore(data): daily OLG refresh $(date -u +%Y-%m-%d)"
-            git push
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      # Vercel's Git integration auto-deploys on push. If you'd rather trigger
-      # explicitly (e.g. Deploy Hook), set the VERCEL_DEPLOY_HOOK secret.
-      - name: Trigger Vercel deploy (optional)
-        if: steps.commit.outputs.changed == 'true' && env.HOOK != ''
+      - name: Commit & push refreshed data (race-safe)
         env:
-          HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
-        run: curl -fsSL -X POST "$HOOK" && echo "Vercel deploy triggered."
+          REGEN_CMD: "python scripts/scrape_olg.py --live || true; python scripts/calculate_rankings.py"
+          GIT_ADD_PATHS: "data/rankings.json data/lottizen.db"
+        run: |
+          export COMMIT_MSG="chore(data): daily OLG refresh $(date -u +%Y-%m-%d)"
+          bash scripts/commit_and_push.sh
+
+      # Vercel's Git integration auto-deploys on push.
+
+      - name: Report failure as a GitHub issue
+        if: failure()
+        uses: ./.github/actions/notify-failure

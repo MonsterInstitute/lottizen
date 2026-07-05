@@ -247,6 +247,17 @@ def audit():
             dd_str = ", ".join(g["drawDays"])
             if f"Draw days {dd_str}" not in otxt:
                 add(name, "overview", f"Draw-days row doesn't match config ({dd_str}).", MEDIUM)
+            # The rendered "Next draw" weekday must be one of the game's draw days —
+            # catches a stale/bad scraped date showing a non-draw-day (e.g. a Saturday
+            # game showing Sunday). Daily/nightly games draw every day, so skip them.
+            is_daily = any(re.search(r"daily|night", d, re.I) for d in g["drawDays"]) or len(g["drawDays"]) >= 7
+            nd = re.search(r"Next draw\s+(Mon|Tue|Wed|Thu|Fri|Sat|Sun)\b", otxt)
+            if nd and not is_daily:
+                wd = {"Mon": "Monday", "Tue": "Tuesday", "Wed": "Wednesday", "Thu": "Thursday",
+                      "Fri": "Friday", "Sat": "Saturday", "Sun": "Sunday"}[nd.group(1)]
+                if wd not in g["drawDays"]:
+                    add(name, "overview",
+                        f"Next-draw date falls on a {wd}, but {name} only draws {'/'.join(g['drawDays'])}.", HIGH)
             # operator-name truncation in the disclaimer
             op = operator_name(g, agency_op)
             if op and "not affiliated with" in otxt and op not in otxt:

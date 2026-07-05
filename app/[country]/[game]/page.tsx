@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { countryName, operatorName } from "@/config/games";
 import { resolveGame, countryGameParams, getDraws, getStats, liveGameCard } from "@/lib/draws";
-import { drawDate, money, nextDrawDate, nDraws, priceAmount } from "@/lib/format";
+import { drawDate, money, resolveNextDraw, nDraws, priceAmount } from "@/lib/format";
 import { absUrl } from "@/lib/site";
 import { Balls } from "@/components/draws/Balls";
 import { GameTabs } from "@/components/draws/GameTabs";
@@ -41,7 +41,7 @@ export default function GamePage({ params }: { params: { country: string; game: 
   // else shows the next draw date and hides the jackpot row (never a stale "TBA").
   const showJackpot = g.progressive && card.latest?.nextJackpot != null;
   const jackpotStr = showJackpot ? money(card.latest!.nextJackpot!, { compact: true, currency: g.currency }) : null;
-  const nextDraw = card.latest?.nextDraw ?? nextDrawDate(g.drawDays);
+  const nextDraw = resolveNextDraw(card.latest?.nextDraw, g.drawDays);
 
   return (
     <>

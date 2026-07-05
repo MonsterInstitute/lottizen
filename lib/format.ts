@@ -101,6 +101,33 @@ export function nextDrawDate(drawDays: string[], now: Date = new Date()): string
   return new Date(base).toISOString().slice(0, 10);
 }
 
+/** The next-draw date to display. Trust a stored/scraped date only if its weekday
+ *  is one of the game's draw days AND it is not in the past; otherwise fall back to
+ *  the schedule-computed date. Guards against a stale or bad feed value rendering a
+ *  non-draw-day (e.g. a Saturday-only game showing a Sunday). */
+export function resolveNextDraw(
+  stored: string | null | undefined,
+  drawDays: string[],
+  now: Date = new Date(),
+): string {
+  const computed = nextDrawDate(drawDays, now);
+  if (!stored) return computed;
+  const [y, m, d] = stored.split("-").map(Number);
+  if (!y || !m || !d) return computed;
+  const s = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Toronto", year: "numeric", month: "2-digit", day: "2-digit",
+  }).format(now);
+  const [ty, tm, td] = s.split(/\D+/).filter(Boolean).map(Number);
+  const today = `${ty}-${String(tm).padStart(2, "0")}-${String(td).padStart(2, "0")}`;
+  const isDaily = drawDays.some((x) => /daily|night/i.test(x)) || drawDays.length >= 7;
+  const wanted = new Set(
+    drawDays.map((x) => WEEKDAY[x]).filter((n): n is number => n !== undefined),
+  );
+  const wd = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+  const weekdayOk = isDaily || wanted.has(wd);
+  return weekdayOk && stored >= today ? stored : computed;
+}
+
 export function humanDateTime(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleString("en-CA", {

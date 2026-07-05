@@ -1,0 +1,24 @@
+name: Notify failure
+description: >-
+  Open (or comment on the existing) GitHub issue when a data workflow fails, so a
+  failure is always visible in the repo — not only in email. Idempotent: at most
+  one open issue per workflow; subsequent failures add a comment.
+
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        title="CI failure: ${GITHUB_WORKFLOW}"
+        run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+        body=$(printf '`%s` failed on %s.\n\nFailed run: %s\n\nOpened automatically by the workflow failure handler. Fix the cause, re-run the workflow (Actions tab → Run workflow), then close this issue.' \
+          "${GITHUB_WORKFLOW}" "$(date -u '+%Y-%m-%d %H:%M UTC')" "$run_url")
+        existing=$(gh issue list --state open --search "$title in:title" \
+          --json number,title --jq "map(select(.title==\"$title\")) | .[0].number // empty" 2>/dev/null || true)
+        if [ -n "$existing" ]; then
+          gh issue comment "$existing" --body "$body" && echo "Commented on existing issue #$existing"
+        else
+          gh issue create --title "$title" --body "$body" && echo "Opened a new failure issue"
+        fi
