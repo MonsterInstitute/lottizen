@@ -15,7 +15,10 @@ runs:
         run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
         body=$(printf '`%s` failed on %s.\n\nFailed run: %s\n\nOpened automatically by the workflow failure handler. Fix the cause, re-run the workflow (Actions tab → Run workflow), then close this issue.' \
           "${GITHUB_WORKFLOW}" "$(date -u '+%Y-%m-%d %H:%M UTC')" "$run_url")
-        existing=$(gh issue list --state open --search "$title in:title" \
+        # List open issues directly (NOT --search: the search index lags several
+        # seconds behind creation, which would spawn duplicates). Filter by exact
+        # title in jq instead.
+        existing=$(gh issue list --state open --limit 100 \
           --json number,title --jq "map(select(.title==\"$title\")) | .[0].number // empty" 2>/dev/null || true)
         if [ -n "$existing" ]; then
           gh issue comment "$existing" --body "$body" && echo "Commented on existing issue #$existing"
