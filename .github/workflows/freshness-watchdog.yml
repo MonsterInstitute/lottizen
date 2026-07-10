@@ -1,0 +1,65 @@
+name: Data freshness watchdog
+
+# The real safety net for stale data. Runs a few hours AFTER the data workflows
+# and judges freshness by what is *actually* in the committed DB — it never
+# trusts a scrape exit code, so it catches every failure mode uniformly: a job
+# that never acquired a runner, a scrape that silently fetched nothing, or a
+# push that didn't land. For any live game whose newest draw is behind its own
+# schedule it opens (or updates) a per-game GitHub issue, and it re-dispatches
+# the data workflows so a transient miss self-heals by the next cycle instead of
+# waiting for a human to notice. Games that recover get their issue auto-closed.
+#
+# Being a *separate* scheduled run is the whole point: an in-job freshness check
+# dies with the job when GitHub fails to hand it a runner (exactly what happened
+# on Jul 9). This run is independent of that.
+on:
+  schedule:
+    # 14:00 UTC (~10:00 ET) — after daily.yml (10:00), draws-daily (10:10) and
+    # usa-daily (10:30) UTC have had time to run, commit, and push.
+    - cron: "0 14 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write # open/close staleness issues
+  actions: write # re-dispatch the data workflows to self-heal
+
+concurrency:
+  group: freshness-watchdog
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Compute freshness from committed data
+        id: fresh
+        run: |
+          python scripts/audit_site.py --freshness            # human-readable log
+          python scripts/audit_site.py --freshness --json > freshness.json
+          count=$(python -c "import json; print(len(json.load(open('freshness.json'))['stale']))")
+          echo "count=$count" >> "$GITHUB_OUTPUT"
+          echo "Stale games: $count"
+
+      - name: Open / update / close staleness issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/freshness_issues.sh freshness.json
+
+      - name: Re-dispatch data workflows to self-heal
+        if: ${{ steps.fresh.outputs.count != '0' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "Stale data detected — re-dispatching data workflows to recover."
+          for wf in daily.yml draws-daily.yml usa-daily.yml europe-daily.yml; do
+            gh workflow run "$wf" --repo "$GITHUB_REPOSITORY" \
+              && echo "re-dispatched $wf" \
+              || echo "could not dispatch $wf (continuing)"
+          done

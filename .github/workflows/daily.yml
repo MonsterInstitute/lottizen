@@ -58,7 +58,9 @@ jobs:
           bash scripts/commit_and_push.sh
 
       # Vercel's Git integration auto-deploys on push.
-
-      - name: Report failure as a GitHub issue
-        if: failure()
-        uses: ./.github/actions/notify-failure
+      #
+      # Failure alerting is handled out-of-band by ci-failure-alert.yml
+      # (on: workflow_run), which fires even when this job never acquires a
+      # runner — an in-job `if: failure()` step cannot, since no steps run and
+      # `failure()` doesn't trigger on a `cancelled` conclusion. Data staleness
+      # from any cause is separately caught by freshness-watchdog.yml.

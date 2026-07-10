@@ -1,0 +1,54 @@
+name: CI failure alert
+
+# Robust failure alerting for the four data workflows. This fires as its OWN run
+# *after* a data workflow completes (via workflow_run), so it works even when the
+# data job never acquired a runner — the conclusion is then `cancelled` with zero
+# steps, which an in-job `if: failure()` step can NEVER catch (no runner = no
+# steps run; and `failure()` doesn't trigger on `cancelled` anyway). That exact
+# mode hit us on Jul 9 and produced no alert. This replaces the old in-job
+# notify-failure step. Opens (or comments on) one issue per failing workflow.
+on:
+  workflow_run:
+    workflows:
+      - "Daily OLG refresh"
+      - "Daily draw results"
+      - "Daily US draw results"
+      - "Daily European draw results"
+    types: [completed]
+
+permissions:
+  issues: write
+
+jobs:
+  alert:
+    # Alert on anything that isn't a clean success: failure, cancelled (incl.
+    # runner-not-acquired), or timed_out. `skipped` is excluded defensively.
+    if: >-
+      ${{ github.event.workflow_run.conclusion != 'success' &&
+          github.event.workflow_run.conclusion != 'skipped' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Open or update failure issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WF_NAME: ${{ github.event.workflow_run.name }}
+          WF_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          RUN_STARTED: ${{ github.event.workflow_run.run_started_at }}
+        run: |
+          set -euo pipefail
+          title="CI failure: ${WF_NAME}"
+          body=$(printf '`%s` concluded **%s** (not success).\n\nFailed run: %s\nStarted: %s\n\nOpened automatically by the CI failure alerter (`workflow_run`). A `cancelled` conclusion with zero steps almost always means GitHub could not acquire a hosted runner that morning — just re-run the workflow (Actions → the workflow → Run workflow). Fix the cause, then close this issue. The freshness watchdog will also re-dispatch the data workflows automatically if this left the data stale.' \
+            "$WF_NAME" "$WF_CONCLUSION" "$RUN_URL" "$RUN_STARTED")
+          # List open issues directly and match the exact title in jq — NOT
+          # `gh issue list --search`, whose index lags creation by seconds and
+          # would spawn duplicates on rapid successive failures.
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 100 \
+            --json number,title --jq "map(select(.title==\"$title\")) | .[0].number // empty")
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "$body"
+            echo "Commented on existing issue #$existing"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body"
+            echo "Opened a new failure issue"
+          fi

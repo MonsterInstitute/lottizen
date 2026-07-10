@@ -22,8 +22,16 @@ Output: findings grouped by severity as  game -> page -> problem -> severity,
 plus a summary. Exit code is non-zero when any CRITICAL/HIGH finding exists, so a
 CI step can fail the daily workflow and open an issue.
 
-Usage:  python3 scripts/audit_site.py            (human table)
-        python3 scripts/audit_site.py --json      (machine-readable)
+Freshness is handled separately and is NON-blocking: `--freshness` judges each
+live game's newest stored draw against its own schedule (config drawDays), using
+the DB as the source of truth rather than trusting any scrape exit code. Stale
+data drives a GitHub issue via the watchdog workflow, never a deploy block —
+because a stale morning is exactly when we still want to push last-good data.
+
+Usage:  python3 scripts/audit_site.py              (human table, deploy gate)
+        python3 scripts/audit_site.py --json        (machine-readable)
+        python3 scripts/audit_site.py --freshness   (freshness only, non-blocking)
+        python3 scripts/audit_site.py --freshness --json
 """
 from __future__ import annotations
 
@@ -32,7 +40,7 @@ import json
 import re
 import sqlite3
 import sys
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -154,12 +162,85 @@ def sub(g, *parts):
 # Schedule freshness
 # --------------------------------------------------------------------------
 def schedule_gap(draw_days) -> int | None:
-    if any(re.search(r"daily|night", d, re.I) for d in draw_days) or len(draw_days) >= 7:
+    if is_daily(draw_days):
         return 1
     days = sorted(WEEKDAY[d] for d in draw_days if d in WEEKDAY)
     if not days:
         return None
     return max(((days[(i + 1) % len(days)] - days[i]) % 7) or 7 for i in range(len(days)))
+
+
+def is_daily(draw_days) -> bool:
+    return any(re.search(r"daily|night", d, re.I) for d in draw_days) or len(draw_days) >= 7
+
+
+def most_recent_due(draw_days, today: date) -> date | None:
+    """The most recent scheduled draw date *strictly before* today.
+
+    "Strictly before today" is the freshness contract: draws happen in the
+    evening and the scrape runs the next morning, so a draw dated today is not
+    yet due — but yesterday's (or earlier) draw must already be in the data.
+    This gives a natural ~1-day grace and flags anything staler than that.
+    """
+    if is_daily(draw_days):
+        return today - timedelta(days=1)
+    wd = {WEEKDAY[d] for d in draw_days if d in WEEKDAY}
+    if not wd:
+        return None
+    d = today - timedelta(days=1)
+    for _ in range(14):
+        if d.weekday() in wd:
+            return d
+        d -= timedelta(days=1)
+    return None
+
+
+def missing_draw_dates(draw_days, db_latest: date, due: date) -> list[str]:
+    """Scheduled draw dates in (db_latest, due] that are absent from the data —
+    i.e. the draws we should have but don't. Newest first, capped for sanity."""
+    wd = {WEEKDAY[d] for d in draw_days if d in WEEKDAY}
+    out, d = [], due
+    for _ in range(60):
+        if d <= db_latest:
+            break
+        if is_daily(draw_days) or d.weekday() in wd:
+            out.append(d.isoformat())
+        d -= timedelta(days=1)
+    return out
+
+
+def check_freshness(live: list[dict], db_counts: dict, today: date) -> list[dict]:
+    """Per-game staleness judged by *actual data in the DB*, not any scrape exit
+    code. A game is stale when its newest stored draw predates the most recent
+    due draw — meaning the daily scrape silently failed to append a real draw.
+
+    Returns one record per stale game (empty list = everything fresh). This is
+    intentionally NOT part of the deploy-gate blocking set: stale data is exactly
+    when we still want to push (to deliver whatever fresh draws we *did* get and
+    to keep last-good data live) — so it drives an alert/issue, never a block.
+    """
+    stale = []
+    for g in live:
+        cnt, latest = db_counts.get(g["slug"], (0, None))
+        if not latest:
+            continue  # 0-draws is handled as CRITICAL in the deploy-gate audit
+        due = most_recent_due(g["drawDays"], today)
+        if due is None:
+            continue
+        db_latest = date.fromisoformat(latest)
+        if db_latest >= due:
+            continue
+        missing = missing_draw_dates(g["drawDays"], db_latest, due)
+        stale.append({
+            "slug": g["slug"],
+            "name": g["name"],
+            "drawDays": g["drawDays"],
+            "latest": latest,
+            "due": due.isoformat(),
+            "daysLate": (today - db_latest).days,
+            "missing": missing,
+        })
+    return stale
 
 
 # --------------------------------------------------------------------------
@@ -172,15 +253,11 @@ def audit():
     if not APP.exists():
         add("(build)", "-", f"No build output at {APP} — run `npm run build` first.", CRITICAL)
         return
-    conn = sqlite3.connect(DB_PATH)
-    db_counts = {r[0]: (r[1], r[2]) for r in conn.execute(
-        "SELECT game_id, COUNT(*), MAX(draw_date) FROM draws GROUP BY game_id")}
-    conn.close()
-    today = date.today()
+    db_counts = db_draw_counts()
 
     for g in live:
         slug, name = g["slug"], g["name"]
-        cnt, latest = db_counts.get(slug, (0, None))
+        cnt = db_counts.get(slug, (0, None))[0]
         stats_path = STATS_DIR / f"{slug}.json"
         draws_path = DRAWS_DIR / f"{slug}.json"
         stats = json.loads(stats_path.read_text()) if stats_path.exists() else None
@@ -193,14 +270,11 @@ def audit():
             add(name, "data", f"Only {cnt} draw(s) in DB — shallow history (no full backfill source).", MEDIUM)
         if stats is None:
             add(name, "statistics", "No stats JSON generated.", HIGH)
-        if latest:
-            gap = schedule_gap(g["drawDays"])
-            if gap is not None:
-                stale = (today - date.fromisoformat(latest)).days
-                if stale > gap + 2:  # grace for a not-yet-run scrape / late draw
-                    add(name, "data",
-                        f"Latest draw {latest} is {stale}d old; {name} draws every ~{gap}d "
-                        f"({'/'.join(g['drawDays'])}) — daily scrape looks stale.", HIGH)
+        # NOTE: staleness is deliberately NOT flagged here. Blocking the deploy on
+        # stale data is backwards — it would stop us pushing whatever fresh draws
+        # we *did* get and keep last-good data from shipping. Freshness is checked
+        # separately (check_freshness / `--freshness` mode) and drives a GitHub
+        # issue via the watchdog, never a deploy block. See module docstring.
 
         if stats is None:
             continue
@@ -352,7 +426,42 @@ def report_text() -> int:
     return 1 if blocking else 0
 
 
+def db_draw_counts() -> dict:
+    conn = sqlite3.connect(DB_PATH)
+    counts = {r[0]: (r[1], r[2]) for r in conn.execute(
+        "SELECT game_id, COUNT(*), MAX(draw_date) FROM draws GROUP BY game_id")}
+    conn.close()
+    return counts
+
+
+def freshness_main() -> int:
+    """Non-blocking freshness report. Always exits 0 (staleness must never fail a
+    step); the watchdog reads the --json output to open issues. Reads only the DB
+    and config — no site build required, so it can run as a standalone watchdog."""
+    live = [g for g in load_config() if g["live"]]
+    stale = check_freshness(live, db_draw_counts(), date.today())
+    if "--json" in sys.argv:
+        print(json.dumps({"generatedAt": datetime.now().isoformat(), "stale": stale}, indent=2))
+        return 0
+    print("=" * 78)
+    print(f"LOTTIZEN FRESHNESS CHECK — {datetime.now().isoformat(timespec='seconds')}")
+    print("=" * 78)
+    if not stale:
+        print(f"\n✅ All {len(live)} live games are current with their draw schedule.\n")
+        return 0
+    print(f"\n⚠️  {len(stale)} of {len(live)} live games are STALE "
+          f"(newest stored draw is behind the schedule):\n")
+    print(f"{'game':22} {'latest':12} {'due':12} missing")
+    print("-" * 78)
+    for s in stale:
+        print(f"{s['name'][:21]:22} {s['latest']:12} {s['due']:12} {', '.join(s['missing']) or '—'}")
+    print()
+    return 0
+
+
 def main() -> int:
+    if "--freshness" in sys.argv:
+        return freshness_main()
     audit()
     if "--json" in sys.argv:
         print(json.dumps({"generatedAt": datetime.now().isoformat(), "findings": findings}, indent=2))
