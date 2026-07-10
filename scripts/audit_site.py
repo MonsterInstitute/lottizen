@@ -440,6 +440,16 @@ def freshness_main() -> int:
     and config — no site build required, so it can run as a standalone watchdog."""
     live = [g for g in load_config() if g["live"]]
     stale = check_freshness(live, db_draw_counts(), date.today())
+    if "--selftest" in sys.argv:
+        # Fire-drill: inject a synthetic stale game so the watchdog's issue
+        # open/close path can be exercised end-to-end on demand, without touching
+        # real data. The canary disappears on the next normal run, which then
+        # auto-closes its issue — proving recovery too.
+        stale = stale + [{
+            "slug": "selftest-canary", "name": "SELFTEST canary",
+            "drawDays": ["Daily"], "latest": "2000-01-01", "due": "2000-01-02",
+            "daysLate": 9999, "missing": ["2000-01-02"],
+        }]
     if "--json" in sys.argv:
         print(json.dumps({"generatedAt": datetime.now().isoformat(), "stale": stale}, indent=2))
         return 0

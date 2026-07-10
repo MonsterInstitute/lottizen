@@ -17,7 +17,12 @@ on:
     # 14:00 UTC (~10:00 ET) — after daily.yml (10:00), draws-daily (10:10) and
     # usa-daily (10:30) UTC have had time to run, commit, and push.
     - cron: "0 14 * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      selftest:
+        description: "Inject a synthetic stale game to fire-drill the alerting (no real data touched)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -40,9 +45,11 @@ jobs:
 
       - name: Compute freshness from committed data
         id: fresh
+        env:
+          SELFTEST: ${{ github.event.inputs.selftest == 'true' && '--selftest' || '' }}
         run: |
-          python scripts/audit_site.py --freshness            # human-readable log
-          python scripts/audit_site.py --freshness --json > freshness.json
+          python scripts/audit_site.py --freshness $SELFTEST            # human-readable log
+          python scripts/audit_site.py --freshness --json $SELFTEST > freshness.json
           count=$(python -c "import json; print(len(json.load(open('freshness.json'))['stale']))")
           echo "count=$count" >> "$GITHUB_OUTPUT"
           echo "Stale games: $count"
@@ -53,7 +60,9 @@ jobs:
         run: bash scripts/freshness_issues.sh freshness.json
 
       - name: Re-dispatch data workflows to self-heal
-        if: ${{ steps.fresh.outputs.count != '0' }}
+        # Skip during a --selftest fire-drill: the synthetic canary must not spray
+        # real workflow dispatches.
+        if: ${{ steps.fresh.outputs.count != '0' && github.event.inputs.selftest != 'true' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
