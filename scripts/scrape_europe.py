@@ -18,6 +18,10 @@ Sources (verified 2026-07, plain server-rendered HTML unless noted):
     - PRIMARY history  euro-jackpot.net/en/results-archive-YYYY  (2012-03-23 →)
         <tr> …/results/DD-MM-YYYY… <li class="ball"><span>N</span></li> ×5
                                    <li class="euro"><span>N</span></li> ×2
+    - CROSS-CHECK / FRESHNESS  lotto.net/eurojackpot/results/YYYY
+        <div class="date"><span>WD</span> Month Dayth Year</div> then
+        <li class="ball ball"><span>N</span></li> ×5 / <li class="ball euro"> ×2
+        (independent markup — a change on one source can't break both)
   UK Lotto
     - PRIMARY history  lottery.co.uk/lotto/results/archive-YYYY  (1994-11-19 →)
         <div class="result small lotto-ball">N</div> ×6
@@ -53,7 +57,7 @@ UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
 
 # Higher = more trusted when readings conflict. The official national-lottery.co.uk
 # feed wins ties; it also stays current when lottery.co.uk's CDN serves a stale archive.
-SOURCE_PRIORITY = {"nl-xml": 4, "em-history": 3, "ej-net": 3, "lottery-couk": 2}
+SOURCE_PRIORITY = {"nl-xml": 4, "em-history": 3, "ej-net": 3, "lotto-net": 3, "lottery-couk": 2}
 
 # slug -> config. pick/max/sec_max validate parsed rows; `since` bounds the backfill.
 GAMES = {
@@ -135,6 +139,34 @@ def parse_eurojackpot(html: str, cfg) -> list[dict]:
     return out
 
 
+_MONTHS = {m: i for i, m in enumerate(
+    ("January February March April May June July August September October "
+     "November December").split(), 1)}
+
+
+def parse_lotto_net(html: str, cfg) -> list[dict]:
+    """lotto.net EuroJackpot archive — the independent second source. Each draw is a
+    `<div class="date"><span>Weekday</span> Month Dayth Year</div>` block followed by
+    `<li class="ball ball"><span>N</span></li>` ×5 mains and
+    `<li class="ball euro"><span>N</span></li>` ×2 euros. Splitting on the date div
+    scopes each block to one draw. Structurally unlike euro-jackpot.net, so a markup
+    change on one source can't silently break both."""
+    out = []
+    for block in re.split(r'<div class="date">', html)[1:]:
+        dm = re.search(r'</span>\s*([A-Z][a-z]+)\s+(\d{1,2})(?:st|nd|rd|th)\s+(\d{4})', block)
+        if not dm:
+            continue
+        mon = _MONTHS.get(dm.group(1))
+        if not mon:
+            continue
+        d = f"{int(dm.group(3)):04d}-{mon:02d}-{int(dm.group(2)):02d}"
+        main = sorted(int(x) for x in re.findall(r'<li class="ball ball">\s*<span>(\d+)</span>', block))[:cfg["pick"]]
+        euro = sorted(int(x) for x in re.findall(r'<li class="ball euro">\s*<span>(\d+)</span>', block))[:cfg["secs"]]
+        if valid(cfg, main, euro):
+            out.append({"date": d, "main": main, "secs": euro})
+    return out
+
+
 def parse_lottery_couk(html: str, cfg, prefix: str) -> list[dict]:
     """lottery.co.uk archive: rows link to /<game>/results-DD-MM-YYYY, numbers in
     <div class="result small <prefix>-ball"> / -bonus-ball / -lucky-star."""
@@ -185,6 +217,7 @@ def source_plan(slug: str, year: int) -> list[tuple]:
     if slug == "eurojackpot":
         return [
             ("ej-net", f"https://www.euro-jackpot.net/en/results-archive-{year}", parse_eurojackpot, None),
+            ("lotto-net", f"https://www.lotto.net/eurojackpot/results/{year}", parse_lotto_net, None),
         ]
     if slug == "uk-lotto":
         return [

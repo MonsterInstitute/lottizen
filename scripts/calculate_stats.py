@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 import sqlite3
 from collections import Counter, defaultdict
-from datetime import datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from itertools import combinations
 from pathlib import Path
 
@@ -242,9 +242,45 @@ def compute_stats(slug, cfg, draws):
     return out
 
 
+WEEKDAY = {"Monday": 0, "Tuesday": 1, "Wednesday": 2, "Thursday": 3,
+           "Friday": 4, "Saturday": 5, "Sunday": 6}
+
+# Games whose next-draw date is NOT scraped into game_meta (the European scraper
+# only records draw results, not the operator's announced next draw/jackpot). Their
+# schedule is fixed, so derive the next draw from it — mirroring lib/format.ts
+# nextDrawDate/resolveNextDraw so JSON and UI agree. Source of truth: config/games.ts
+# drawDays. Games with scraped meta ignore this and keep their real announced date.
+DRAW_DAYS = {
+    "euromillions": ["Tuesday", "Friday"],
+    "eurojackpot": ["Tuesday", "Friday"],
+    "uk-lotto": ["Wednesday", "Saturday"],
+}
+
+
+def next_scheduled_draw(draw_days, after: str):
+    """First scheduled draw date strictly after `after` (the latest stored draw).
+    'After the most recent draw' rather than 'after today' so a draw already held
+    today isn't shown as upcoming; a stale DB self-corrects on the frontend via
+    resolveNextDraw (which discards a past value)."""
+    wanted = {WEEKDAY[d] for d in draw_days if d in WEEKDAY}
+    if not wanted:
+        return None
+    start = date.fromisoformat(after) + timedelta(days=1)
+    for off in range(8):
+        d = start + timedelta(days=off)
+        if d.weekday() in wanted:
+            return d.isoformat()
+    return None
+
+
 def write_draws(conn, slug, draws):
     m = conn.execute("SELECT next_draw_date, next_jackpot FROM game_meta WHERE game_id=?",
                      (slug,)).fetchone() if table_has(conn, "game_meta") else None
+    # Prefer the scraped next-draw date; for games without one (Europe), compute it
+    # from the fixed schedule so nextDraw is never null.
+    next_draw = m[0] if (m and m[0]) else None
+    if not next_draw and slug in DRAW_DAYS and draws:
+        next_draw = next_scheduled_draw(DRAW_DAYS[slug], draws[-1]["date"])
     # Emit bonus2 only for games that use it, so single-bonus draw JSON stays lean.
     out_draws = []
     for d in reversed(draws):
@@ -253,7 +289,7 @@ def write_draws(conn, slug, draws):
             row["bonus2"] = d["bonus2"]
         out_draws.append(row)
     payload = {"game": slug, "dataSince": draws[0]["date"] if draws else None,
-               "drawCount": len(draws), "nextDraw": m[0] if m else None,
+               "drawCount": len(draws), "nextDraw": next_draw,
                "nextJackpot": m[1] if m else None, "generatedAt": now_iso(),
                "draws": out_draws}
     (DRAWS_DIR / f"{slug}.json").write_text(json.dumps(payload, indent=2) + "\n")
