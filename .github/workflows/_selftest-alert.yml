@@ -1,0 +1,16 @@
+name: Selftest alert
+
+# TEMPORARY — proves ci-failure-alert.yml actually opens a GitHub issue on a real
+# failed run (the mechanism that silently never fired before). Dispatched manually,
+# fails on purpose, and is deleted right after verification. Touches no data.
+on:
+  workflow_dispatch: {}
+
+jobs:
+  fail:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail on purpose
+        run: |
+          echo "Deliberate failure to verify the CI failure alerter opens an issue."
+          exit 1

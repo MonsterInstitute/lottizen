@@ -14,6 +14,7 @@ on:
       - "Daily draw results"
       - "Daily US draw results"
       - "Daily European draw results"
+      - "Selftest alert" # TEMPORARY — remove after verifying the alerter opens an issue
     types: [completed]
 
 permissions:
