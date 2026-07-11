@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 import { COUNTRIES } from "@/config/games";
 import { getActivePricePoints, getAllSlugs, getRankings } from "@/lib/data";
 import { getPlayableSlugs, getResultYears, getStats } from "@/lib/draws";
+import { getAllGuides } from "@/lib/guides";
 import { absUrl } from "@/lib/site";
 
 export const dynamic = "force-static";
@@ -25,6 +26,15 @@ export default function sitemap({ id }: { id: number }): MetadataRoute.Sitemap {
     push("/scratch", 0.8, "daily");
     push("/methodology", 0.5, "monthly");
     push("/responsible-play", 0.3, "yearly");
+    push("/guides", 0.7, "weekly");
+    for (const g of getAllGuides()) {
+      entries.push({
+        url: absUrl(`/guides/${g.slug}`),
+        lastModified: new Date(`${g.updated ?? g.date}T12:00:00`),
+        changeFrequency: "monthly",
+        priority: 0.7,
+      });
+    }
     for (const p of getActivePricePoints()) push(`/scratch/price/${p}`, 0.6, "daily");
     for (const slug of getAllSlugs()) push(`/scratch/${slug}`, 0.6, "daily");
     return entries;

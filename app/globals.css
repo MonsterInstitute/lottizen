@@ -1316,3 +1316,253 @@ a.game-card:hover {
     }
   }
 }
+
+/* ============ GUIDES (long-form editorial) ============ */
+.guide-meta {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-top: 22px;
+  font-family: var(--font-mono), monospace;
+  font-size: 12.5px;
+  letter-spacing: 0.01em;
+  color: var(--ink-3);
+}
+.guide-meta .dot { opacity: 0.5; }
+
+/* Two-column: sticky TOC rail + reading column capped at ~68ch. */
+.guide-layout {
+  display: grid;
+  grid-template-columns: 232px minmax(0, 68ch);
+  gap: 56px;
+  align-items: start;
+}
+.guide-toc {
+  position: sticky;
+  top: 96px;
+  align-self: start;
+}
+.guide-toc-title {
+  font-family: var(--font-sans), sans-serif;
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-bottom: 14px;
+}
+.guide-toc ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-left: 1px solid var(--border);
+}
+.guide-toc li { margin: 0; }
+.guide-toc li.lvl-3 a { padding-left: 30px; font-size: 13px; color: var(--ink-3); }
+.guide-toc a {
+  display: block;
+  padding: 6px 0 6px 16px;
+  margin-left: -1px;
+  border-left: 2px solid transparent;
+  font-family: var(--font-sans), sans-serif;
+  font-size: 13.5px;
+  line-height: 1.4;
+  color: var(--ink-2);
+  text-decoration: none;
+  transition: color 0.15s, border-color 0.15s;
+}
+.guide-toc a:hover {
+  color: var(--brand-deep);
+  border-left-color: var(--brand);
+}
+
+/* Reading column. Reuse .prose, widen to the grid cell, add table/quote styling. */
+.guide-prose { max-width: none; }
+.guide-prose > *:first-child { margin-top: 0; }
+.guide-prose h2 { scroll-margin-top: 96px; }
+.guide-prose h3 { scroll-margin-top: 96px; }
+.guide-prose blockquote {
+  margin: 24px 0;
+  padding: 4px 22px;
+  border-left: 3px solid var(--brand);
+  color: var(--ink-2);
+  font-family: var(--font-serif), serif;
+  font-style: italic;
+}
+.guide-prose blockquote p:last-child { margin-bottom: 0; }
+.table-wrap {
+  margin: 24px 0;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.guide-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14.5px;
+}
+.guide-prose thead th {
+  font-family: var(--font-sans), sans-serif;
+  font-weight: 700;
+  text-align: left;
+  color: var(--ink);
+  background: var(--bg-warm);
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.guide-prose tbody td {
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border);
+  color: var(--ink-2);
+  vertical-align: top;
+}
+.guide-prose tbody tr:last-child td { border-bottom: none; }
+.guide-prose tbody td:first-child { color: var(--ink); font-weight: 500; }
+
+/* In-article ad — full reading width, breathing room, never mid-paragraph. */
+.guide-ad { margin: 40px 0; }
+
+/* Sources block */
+.guide-sources {
+  margin-top: 48px;
+  padding: 26px 28px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+.guide-sources h2 {
+  font-family: var(--font-sans), sans-serif;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin: 0 0 16px;
+}
+.guide-sources ol { margin: 0; padding-left: 20px; }
+.guide-sources li {
+  margin-bottom: 10px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+.guide-sources a { color: var(--brand-deep); text-underline-offset: 2px; }
+.guide-sources .src-host {
+  font-family: var(--font-mono), monospace;
+  font-size: 12px;
+  color: var(--ink-3);
+}
+
+/* Related guides / games at the foot of an article + hub cards */
+.guide-related { margin-top: 12px; }
+.guide-related-title {
+  font-family: var(--font-serif), serif;
+  font-weight: 700;
+  font-size: 22px;
+  color: var(--ink);
+  margin: 0 0 18px;
+}
+.guide-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 18px;
+}
+.guide-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 22px 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  text-decoration: none;
+  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+}
+.guide-card:hover {
+  border-color: var(--brand);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-card);
+}
+.guide-card-eyebrow {
+  font-family: var(--font-sans), sans-serif;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--brand);
+}
+.guide-card-title {
+  font-family: var(--font-serif), serif;
+  font-weight: 700;
+  font-size: 18px;
+  line-height: 1.22;
+  color: var(--ink);
+}
+.guide-card-desc {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+.guide-game-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 6px;
+}
+.guide-game-chip {
+  font-family: var(--font-sans), sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 7px 14px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--ink-2);
+  text-decoration: none;
+  transition: border-color 0.15s, color 0.15s;
+}
+.guide-game-chip:hover { border-color: var(--brand); color: var(--brand-deep); }
+
+/* Related-guides block embedded on game overview / FAQ pages */
+.game-guides { margin-top: 44px; }
+.game-guides-title {
+  font-family: var(--font-sans), sans-serif;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--brand);
+  margin-bottom: 16px;
+}
+
+/* Mobile: collapse the TOC into a <details> above the article. */
+.guide-toc-mobile { display: none; }
+@media (max-width: 900px) {
+  .guide-layout { grid-template-columns: 1fr; gap: 0; }
+  .guide-toc { display: none; }
+  .guide-toc-mobile {
+    display: block;
+    margin-bottom: 32px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--surface);
+  }
+  .guide-toc-mobile > summary {
+    cursor: pointer;
+    padding: 14px 18px;
+    font-family: var(--font-sans), sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .guide-toc-mobile ol { list-style: none; margin: 0; padding: 0 18px 14px; }
+  .guide-toc-mobile a {
+    display: block;
+    padding: 6px 0;
+    font-size: 14px;
+    color: var(--ink-2);
+    text-decoration: none;
+  }
+  .guide-toc-mobile li.lvl-3 a { padding-left: 16px; font-size: 13px; }
+}

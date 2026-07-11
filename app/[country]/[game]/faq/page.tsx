@@ -6,6 +6,7 @@ import { resolveGame, countryGameParams } from "@/lib/draws";
 import { absUrl } from "@/lib/site";
 import { GameTabs } from "@/components/draws/GameTabs";
 import { JsonLd } from "@/components/site/JsonLd";
+import { RelatedGuides } from "@/components/site/RelatedGuides";
 
 export const dynamicParams = false;
 export function generateStaticParams() {
@@ -166,6 +167,8 @@ export default function FaqPage({ params }: { params: { country: string; game: s
                 <Link href="/responsible-play">responsible play resources</Link>.
               </span>
             </div>
+
+            <RelatedGuides slug={g.slug} gameName={g.name} />
           </div>
         </div>
       </section>

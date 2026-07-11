@@ -19,6 +19,7 @@ export function Header() {
           </RegionLink>
           <Link href="/statistics">Statistics</Link>
           <Link href="/generator">Number Tools</Link>
+          <Link href="/guides">Guides</Link>
           <Link href="/scratch">Scratch</Link>
         </nav>
         <div className="nav-right">

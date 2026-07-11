@@ -6,6 +6,7 @@ import { resolveGame, countryGameParams, getDraws, getStats, liveGameCard } from
 import { drawDate, money, resolveNextDraw, nDraws, priceAmount } from "@/lib/format";
 import { absUrl } from "@/lib/site";
 import { Balls } from "@/components/draws/Balls";
+import { RelatedGuides } from "@/components/site/RelatedGuides";
 import { GameTabs } from "@/components/draws/GameTabs";
 import { JsonLd } from "@/components/site/JsonLd";
 import { AdSlot } from "@/components/site/AdSlot";
@@ -185,6 +186,8 @@ export default function GamePage({ params }: { params: { country: string; game: 
               </div>
             </Link>
           </div>
+
+          <RelatedGuides slug={g.slug} gameName={g.name} />
 
           <p style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--ink-3)", marginTop: 32 }}>
             {nDraws(stats.allTimeDrawCount)} on record since{" "}
