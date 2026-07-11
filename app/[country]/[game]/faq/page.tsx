@@ -65,38 +65,44 @@ function faqs(g: GameConfig): FaqItem[] {
   }
   if (g.country === "EU") {
     const uk = g.agency === "UK National Lottery";
-    const taxQ = uk
+    const taxQ: FaqItem = uk
       ? {
           q: `Are ${name} winnings taxed in the UK?`,
           a: `No. UK National Lottery prizes are paid completely tax-free — you keep 100% of the winnings. (Interest later earned on the money is taxable, and large gifts can carry inheritance-tax implications.)`,
+          more: { href: "/guides/uk-lottery-winnings-and-tax", label: "UK winnings and tax" },
         }
       : {
           q: `Are ${name} winnings taxed?`,
           a: `It depends where the ticket was bought. ${name} is a multi-country game and each country taxes prizes differently: the UK and Ireland pay out entirely tax-free, France taxes only the interest earned afterwards, while Spain withholds 20% on the part of a prize above €40,000 and Portugal 20% above €5,000. Your prize is paid and taxed under the rules of the country of purchase.`,
+          more: { href: "/guides/spain-and-portugal-lottery-tax", label: "Tax by country" },
         };
-    const claimQ = uk
+    const claimQ: FaqItem = uk
       ? {
           q: `Where do I claim a ${name} prize?`,
           a: `From The National Lottery (operated by Allwyn) — smaller prizes at retailers or in the app, larger prizes by post or in person. You have 180 days from the draw date to claim.`,
+          more: { href: "/guides/claiming-a-lottery-prize-uk", label: "UK claim guide" },
         }
       : {
           q: `I bought a ${name} ticket abroad — where do I claim?`,
           a: `You claim in the country where you bought the ticket, in that country's currency and under its rules — you can't buy in one country and collect in another. Each participating lottery pays its own winners; the shared prize pool is converted at the draw-day exchange rate.`,
+          more: { href: "/guides/how-euromillions-works-across-countries", label: "How it works across countries" },
         };
-    const anonQ = uk
+    const anonQ: FaqItem = uk
       ? {
           q: `Can I stay anonymous if I win ${name}?`,
           a: `Yes. UK National Lottery winners can choose to stay completely anonymous — your name and details are only ever published if you agree to publicity.`,
+          more: { href: "/guides/staying-anonymous-uk-lottery", label: "Staying anonymous in the UK" },
         }
       : {
           q: `Can I stay anonymous if I win ${name}?`,
           a: `It depends on the country of purchase. UK and Irish winners may remain anonymous; some countries (for example Spain, Portugal and Austria) publish or may publish winner details. Check the rules of the lottery where you bought the ticket.`,
         };
-    const deadlineQ = {
+    const deadlineQ: FaqItem = {
       q: `How long do I have to claim a ${name} prize?`,
       a: uk
         ? `180 days from the draw date for UK National Lottery games.`
         : `Claim deadlines vary by country, typically 90 days to 2 years from the draw (180 days in the UK, 90 days in Ireland). Confirm with the lottery where you purchased.`,
+      ...(uk ? { more: { href: "/guides/claiming-a-lottery-prize-uk", label: "UK claim guide" } } : {}),
     };
     return [taxQ, claimQ, anonQ, deadlineQ, ...common];
   }
