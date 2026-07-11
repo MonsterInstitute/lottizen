@@ -1566,3 +1566,29 @@ a.game-card:hover {
   }
   .guide-toc-mobile li.lvl-3 a { padding-left: 16px; font-size: 13px; }
 }
+
+/* Guide FAQ (rendered from frontmatter; mirrors the FAQPage JSON-LD) */
+.guide-faq { margin-top: 44px; }
+.guide-faq > h2 {
+  font-family: var(--font-serif), serif;
+  font-weight: 800;
+  font-size: clamp(24px, 3vw, 32px);
+  letter-spacing: -0.015em;
+  color: var(--ink);
+  margin: 0 0 8px;
+}
+.guide-faq-item { border-top: 1px solid var(--border); padding: 22px 0; }
+.guide-faq-item:last-child { border-bottom: 1px solid var(--border); }
+.guide-faq-item h3 {
+  font-family: var(--font-serif), serif;
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--ink);
+  margin: 0 0 8px;
+}
+.guide-faq-item p {
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--ink-2);
+  margin: 0;
+}

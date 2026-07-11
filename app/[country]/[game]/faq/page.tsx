@@ -13,7 +13,9 @@ export function generateStaticParams() {
   return countryGameParams();
 }
 
-function faqs(g: GameConfig) {
+type FaqItem = { q: string; a: string; more?: { href: string; label: string } };
+
+function faqs(g: GameConfig): FaqItem[] {
   const name = g.name;
   const days = g.drawDays.join(" and ");
   const common = [
@@ -84,22 +86,36 @@ function faqs(g: GameConfig) {
     };
     return [taxQ, claimQ, anonQ, deadlineQ, ...common];
   }
+  // The regional corporation's step-by-step claim guide, by operating agency.
+  const claimGuide: Record<string, string> = {
+    OLG: "how-to-claim-a-lottery-prize-olg-ontario",
+    WCLC: "how-to-claim-a-lottery-prize-wclc",
+    BCLC: "how-to-claim-a-lottery-prize-bclc",
+    "Loto-Québec": "how-to-claim-a-lottery-prize-loto-quebec",
+    ALC: "how-to-claim-a-lottery-prize-alc",
+  };
+  const claimSlug = claimGuide[g.agency];
   const anon =
     g.agency === "OLG"
-      ? "No. In Ontario, OLG publishes the name and municipality of prize winners — you cannot claim a major prize anonymously."
-      : "Rules vary by province. Most Canadian lottery corporations publish winners' names; check your provincial corporation's rules.";
+      ? `No. OLG posts a winner's name and city for 30 days on any prize of $1,000 or more, and requires a published photo at $10,000 or more — you cannot claim a major ${name} prize anonymously.`
+      : `Generally no. Above a threshold, every Canadian corporation publishes a winner's name, town, and usually a photo; anonymity is granted only rarely, for a substantiated safety reason.`;
   return [
     {
       q: `Are ${name} winnings taxed in Canada?`,
-      a: `No. Lottery winnings are tax-free in Canada — you keep 100% of the prize. Income later earned from investing the winnings can be taxable.`,
+      a: `No. A ${name} prize is a tax-free windfall — you keep 100%, with nothing withheld at either the federal or provincial level. Only the income you later earn by investing it is taxable.`,
+      more: { href: "/guides/are-lottery-winnings-taxable-in-canada", label: "Read the full tax guide" },
     },
     {
       q: `How long do I have to claim a ${name} prize?`,
-      a: `In most Canadian provinces you have 12 months from the draw date to claim. Confirm the deadline and process with ${operatorName(g)}.`,
+      a: `One year from the draw date. ${name} is run by ${operatorName(g)}: smaller prizes are paid at retailers, larger ones through its prize-claim process, and the prize is a single tax-free lump sum.`,
+      more: claimSlug
+        ? { href: `/guides/${claimSlug}`, label: "How to claim, step by step" }
+        : { href: "/guides/what-to-do-if-you-win-the-lottery-in-canada", label: "What to do if you win" },
     },
     {
       q: `Can I stay anonymous if I win ${name}?`,
       a: anon,
+      more: { href: "/guides/lottery-winner-anonymity-canada", label: "Anonymity rules, province by province" },
     },
     ...common,
   ];
@@ -158,6 +174,11 @@ export default function FaqPage({ params }: { params: { country: string; game: s
               <div key={f.q}>
                 <h3>{f.q}</h3>
                 <p>{f.a}</p>
+                {f.more ? (
+                  <p style={{ marginTop: -8 }}>
+                    <Link href={f.more.href}>{f.more.label} →</Link>
+                  </p>
+                ) : null}
               </div>
             ))}
             <div className="notice" style={{ marginTop: 24 }}>

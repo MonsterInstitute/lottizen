@@ -194,6 +194,18 @@ export default function GuidePage({ params }: { params: { slug: string } }) {
                 ))}
               </article>
 
+              {g.faqs?.length ? (
+                <div className="guide-faq">
+                  <h2>Frequently asked questions</h2>
+                  {g.faqs.map((f, i) => (
+                    <div key={i} className="guide-faq-item">
+                      <h3>{f.q}</h3>
+                      <p>{f.a}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+
               {g.sources?.length ? (
                 <div className="guide-sources">
                   <h2>Sources</h2>

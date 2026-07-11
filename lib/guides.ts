@@ -77,12 +77,21 @@ function readRaw(slug: string) {
   return parsed;
 }
 
-/** All non-draft guides, newest first. Metadata only (no body render). */
+/** All non-draft guides, newest first. Metadata only (no body render). A single
+ *  file with malformed frontmatter is skipped with a warning rather than thrown —
+ *  this function feeds the sitemap and every game page's related-guides block, so
+ *  one bad file must not break unrelated pages. */
 export function getAllGuides(): GuideMeta[] {
-  return getGuideSlugs()
-    .map((slug) => ({ slug, ...(readRaw(slug).data as GuideFrontmatter) }))
-    .filter((g) => !g.draft)
-    .sort((a, b) => (a.date < b.date ? 1 : -1));
+  const out: GuideMeta[] = [];
+  for (const slug of getGuideSlugs()) {
+    try {
+      const data = readRaw(slug).data as GuideFrontmatter;
+      if (!data.draft) out.push({ slug, ...data });
+    } catch (err) {
+      console.warn(`[guides] skipping ${slug}: ${(err as Error).message}`);
+    }
+  }
+  return out.sort((a, b) => (a.date < b.date ? 1 : -1));
 }
 
 function slugify(text: string): string {
