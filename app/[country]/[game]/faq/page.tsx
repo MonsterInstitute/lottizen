@@ -29,25 +29,39 @@ function faqs(g: GameConfig): FaqItem[] {
     },
   ];
   if (g.country === "US") {
-    return [
+    const nyGame = g.agency === "NY Lottery";
+    const items: FaqItem[] = [
       {
         q: `Are ${name} winnings taxed in the US?`,
-        a: `Yes. Lottery prizes are taxable income. The IRS withholds 24% federally up front and top winners owe up to 37%; most states also tax winnings (a few — including Florida, Texas and California — don't tax state lottery prizes). Consult a tax professional.`,
+        a: `Yes. Lottery prizes are taxable income — the IRS withholds 24% up front and a jackpot ultimately owes up to 37%, and most states tax winnings too (New York is highest at 10.9% plus New York City's local tax; Florida and Texas take nothing).`,
+        more: { href: "/guides/lottery-taxes-us-federal-and-state", label: "Federal + state tax breakdown" },
       },
-      {
+    ];
+    if (g.progressive) {
+      items.push({
         q: `Lump sum or annuity — which should I take for ${name}?`,
-        a: `Jackpot winners choose a reduced immediate cash lump sum or the full advertised amount paid as an annuity over ~29 years. The lump sum is smaller but invested on your terms; the annuity pays more in total and spreads the tax. It's a personal financial decision.`,
-      },
+        a: `Jackpot winners choose a reduced cash lump sum (roughly half the headline amount) or the full advertised jackpot as a 30-payment annuity over 29 years. You usually have just 60 days to elect the cash, or the annuity is paid by default.`,
+        more: { href: "/guides/lump-sum-vs-annuity-lottery", label: "The real math" },
+      });
+    }
+    items.push(
       {
         q: `Can I claim a ${name} prize anonymously?`,
-        a: `It depends on the state you bought in. Some states allow anonymity or claiming via a trust/LLC; others publish winners' names. Check the rules of the lottery where you purchased.`,
+        a: nyGame
+          ? `Not by name — New York publishes the winner's name and city. You can claim through a legally formed trust or LLC so the entity's name appears instead, but you still provide your SSN for tax reporting.`
+          : `It depends on the state where you bought the ticket. Some states allow anonymity or a trust/LLC claim; most publish winners' names.`,
+        more: { href: "/guides/anonymous-lottery-winners-by-state", label: "Anonymity by state" },
       },
       {
         q: `How long do I have to claim a ${name} prize?`,
-        a: `Claim deadlines are set per state, typically 180 days to one year from the draw. Confirm with the lottery where you bought the ticket.`,
+        a: `Deadlines are set by the state where you bought the ticket — typically 90 days to one year from the draw${g.progressive ? ", and you usually have only ~60 days to choose the cash lump sum" : ""}.`,
+        more: nyGame
+          ? { href: "/guides/new-york-lottery-claim-guide", label: "New York claim guide" }
+          : { href: "/guides/how-to-claim-powerball-mega-millions", label: "How to claim, step by step" },
       },
       ...common,
-    ];
+    );
+    return items;
   }
   if (g.country === "EU") {
     const uk = g.agency === "UK National Lottery";
