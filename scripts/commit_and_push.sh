@@ -21,8 +21,13 @@ msg="${COMMIT_MSG:?COMMIT_MSG required}"
 regen="${REGEN_CMD:?REGEN_CMD required}"
 paths="${GIT_ADD_PATHS:?GIT_ADD_PATHS required}"
 
+# Commit as the project owner's Vercel-recognized email. Vercel blocks production
+# deployments whose git author isn't a recognized team member, so commits authored
+# by an unrecognized "bot@lottizen.ca" were created BLOCKED and never built — the
+# live site silently froze between human commits. Keeping the display name as the
+# bot but using the owner's email lets Vercel resolve the author and build.
 git config user.name "lottizen-bot"
-git config user.email "bot@lottizen.ca"
+git config user.email "l3rundong@gmail.com"
 
 git add $paths
 if git diff --staged --quiet; then
