@@ -25,6 +25,16 @@ import ssl
 import sys
 import urllib.request
 from datetime import datetime, timezone
+from pathlib import Path
+
+RANKINGS = Path(__file__).resolve().parent.parent / "data" / "rankings.json"
+
+
+def repo_generated_at() -> datetime:
+    """The generatedAt the deployed site *should* be showing — data/rankings.json
+    is what the sitemap's <lastmod> is stamped from at build time."""
+    d = json.loads(RANKINGS.read_text())
+    return datetime.fromisoformat(d["generatedAt"].replace("Z", "+00:00"))
 
 
 def fetch_deployed_lastmod(site_url: str) -> datetime | None:
@@ -55,8 +65,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--site", default=os.environ.get("SITE_URL", "https://lottizen.com"))
     ap.add_argument("--max-lag-hours", type=float,
-                    default=float(os.environ.get("MAX_DEPLOY_LAG_HOURS", "18")))
-    ap.add_argument("--now", help="override 'now' as ISO 8601, for testing")
+                    default=float(os.environ.get("MAX_DEPLOY_LAG_HOURS", "12")))
     ap.add_argument("--selftest", action="store_true",
                     help="force a synthetic stale verdict to fire-drill the alert")
     ap.add_argument("--json", action="store_true")
@@ -64,37 +73,42 @@ def main() -> int:
 
     if args.selftest:
         result = {"site": args.site, "deployedLastmod": "2000-01-01T00:00:00+00:00",
-                  "checkedAt": datetime.now(timezone.utc).isoformat() if not args.now else args.now,
+                  "repoGeneratedAt": "2000-01-02T00:00:00+00:00",
                   "lagHours": 99999.0, "maxLagHours": args.max_lag_hours,
                   "stale": True, "error": None, "selftest": True}
         print(json.dumps(result, indent=2) if args.json
               else "⚠️  DEPLOYMENT STALE (selftest fire-drill)\n")
         return 0
 
-    now = (datetime.fromisoformat(args.now.replace("Z", "+00:00"))
-           if args.now else datetime.now(timezone.utc))
-
     error = None
     deployed = None
+    repo = None
+    try:
+        repo = repo_generated_at()
+    except Exception as e:
+        error = f"repo rankings unreadable: {type(e).__name__}: {e}"
     try:
         deployed = fetch_deployed_lastmod(args.site)
-        if deployed is None:
+        if deployed is None and error is None:
             error = "sitemap had no parseable <lastmod>"
     except Exception as e:  # network, DNS, HTTP, TLS
-        error = f"{type(e).__name__}: {e}"
+        error = error or f"{type(e).__name__}: {e}"
 
+    # Compare the deployed build's data timestamp to what the repo has committed —
+    # NOT to wall-clock. This is independent of the time of day the check runs
+    # (deployed==repo the moment a build succeeds; the gap only grows when deploys
+    # stop). `now` compares would false-positive on off-hours runs because the
+    # sitemap's <lastmod> (rankings.generatedAt) only advances once per day.
     lag_hours = None
-    if deployed is not None:
-        lag_hours = (now - deployed).total_seconds() / 3600.0
+    if deployed is not None and repo is not None:
+        lag_hours = (repo - deployed).total_seconds() / 3600.0
 
-    # Stale if the deployed build is older than the threshold, OR the site is
-    # unreachable (a down/erroring site is also a deployment problem worth an alert).
     stale = error is not None or (lag_hours is not None and lag_hours > args.max_lag_hours)
 
     result = {
         "site": args.site,
         "deployedLastmod": deployed.isoformat() if deployed else None,
-        "checkedAt": now.isoformat(),
+        "repoGeneratedAt": repo.isoformat() if repo else None,
         "lagHours": round(lag_hours, 1) if lag_hours is not None else None,
         "maxLagHours": args.max_lag_hours,
         "stale": stale,
@@ -109,12 +123,12 @@ def main() -> int:
     print(f"DEPLOY FRESHNESS — {args.site}")
     print("=" * 70)
     if error:
-        print(f"\n⚠️  Could not read deployed freshness: {error}")
+        print(f"\n⚠️  {error}")
     else:
-        print(f"\nDeployed build (sitemap lastmod): {deployed.isoformat()}")
-        print(f"Now:                              {now.isoformat()}")
-        print(f"Deployed build age:               {lag_hours:.1f}h (threshold {args.max_lag_hours}h)")
-    print(f"\n{'⚠️  DEPLOYMENT STALE — live site is not rebuilding' if stale else '✅ Deployment is current'}\n")
+        print(f"\nRepo committed data (rankings.generatedAt): {repo.isoformat()}")
+        print(f"Deployed build (sitemap lastmod):           {deployed.isoformat()}")
+        print(f"Deploy trails committed data by:            {lag_hours:.1f}h (threshold {args.max_lag_hours}h)")
+    print(f"\n{'⚠️  DEPLOYMENT STALE — live site is behind committed data' if stale else '✅ Deployment is current'}\n")
     return 0
 
 
