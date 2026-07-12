@@ -434,12 +434,24 @@ def db_draw_counts() -> dict:
     return counts
 
 
+def local_today() -> date:
+    """Today's date in America/Toronto — the timezone the site uses for draw dates
+    (see lib/format.ts nextDrawDate). Using UTC would, in the evening across the
+    Americas (after 00:00 UTC), treat a game's not-yet-published same-day draw as
+    already overdue and false-positive. Falls back to UTC if tz data is missing."""
+    try:
+        from zoneinfo import ZoneInfo
+        return datetime.now(ZoneInfo("America/Toronto")).date()
+    except Exception:
+        return date.today()
+
+
 def freshness_main() -> int:
     """Non-blocking freshness report. Always exits 0 (staleness must never fail a
     step); the watchdog reads the --json output to open issues. Reads only the DB
     and config — no site build required, so it can run as a standalone watchdog."""
     live = [g for g in load_config() if g["live"]]
-    stale = check_freshness(live, db_draw_counts(), date.today())
+    stale = check_freshness(live, db_draw_counts(), local_today())
     if "--selftest" in sys.argv:
         # Fire-drill: inject a synthetic stale game so the watchdog's issue
         # open/close path can be exercised end-to-end on demand, without touching
