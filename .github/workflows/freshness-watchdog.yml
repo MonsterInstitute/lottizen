@@ -12,6 +12,13 @@ name: Data freshness watchdog
 # Being a *separate* scheduled run is the whole point: an in-job freshness check
 # dies with the job when GitHub fails to hand it a runner (exactly what happened
 # on Jul 9). This run is independent of that.
+#
+# It ALSO checks the DEPLOYED site, not just committed data. On Jul 11 the data
+# was fresh in git but Vercel had stopped completing builds, so the live site sat
+# on a two-day-old snapshot — invisible to every data-only check. The deploy step
+# below compares the live sitemap's build timestamp to now and opens a
+# "Deployment stale" issue (and pings the Vercel deploy hook, if configured) when
+# the site stops rebuilding.
 on:
   schedule:
     # 14:00 UTC (~10:00 ET) — after daily.yml (10:00), draws-daily (10:10) and
@@ -72,3 +79,51 @@ jobs:
               && echo "re-dispatched $wf" \
               || echo "could not dispatch $wf (continuing)"
           done
+
+      # ---- Deployment layer: is the LIVE site actually rebuilding? ----
+      - name: Check deployed-site freshness
+        id: deploy
+        env:
+          SITE_URL: ${{ vars.SITE_URL || 'https://lottizen.com' }}
+          SELFTEST: ${{ github.event.inputs.selftest == 'true' && '--selftest' || '' }}
+        run: |
+          python scripts/check_deploy_freshness.py $SELFTEST                 # human log
+          python scripts/check_deploy_freshness.py $SELFTEST --json > deploy.json
+          stale=$(python -c "import json; print('1' if json.load(open('deploy.json'))['stale'] else '0')")
+          echo "stale=$stale" >> "$GITHUB_OUTPUT"
+
+      - name: Open or close the deployment-stale issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEPLOY_STALE: ${{ steps.deploy.outputs.stale }}
+        run: |
+          set -euo pipefail
+          title="Deployment stale: live site not updating"
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 100 \
+            --json number,title --jq "map(select(.title==\"$title\")) | .[0].number // empty")
+          if [ "$DEPLOY_STALE" = "1" ]; then
+            body=$(jq -r '"The committed data is fresh, but the **live site is not rebuilding**.\n\n- Site: `\(.site)`\n- Deployed build (sitemap lastmod): `\(.deployedLastmod)`\n- Age at check: **\(.lagHours)h** (threshold \(.maxLagHours)h)\n- Error: \(.error)\n\nEvery data-side check reads the committed repo, so a broken deployment is invisible to them — the data pipeline is healthy but builds have stopped completing. Check the Vercel dashboard (Deployments / Usage & Billing) for failed or paused builds, then trigger a redeploy. Auto-closes once the live site rebuilds."' deploy.json)
+            if [ -n "$existing" ]; then
+              gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "$body" && echo "updated #$existing"
+            else
+              gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body" && echo "opened deployment-stale issue"
+            fi
+          elif [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "✅ Live site is rebuilding again — deployed build timestamp is current. Auto-closing." >/dev/null
+            gh issue close "$existing" --repo "$GITHUB_REPOSITORY" && echo "closed #$existing (recovered)"
+          fi
+
+      - name: Ping Vercel deploy hook to self-heal (if configured)
+        # Optional auto-heal: set the VERCEL_DEPLOY_HOOK secret to a Vercel Deploy
+        # Hook URL and a stale deployment triggers a fresh production build. No-op
+        # if the secret is unset. Skipped during --selftest.
+        if: ${{ steps.deploy.outputs.stale == '1' && github.event.inputs.selftest != 'true' }}
+        env:
+          HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
+        run: |
+          if [ -z "${HOOK:-}" ]; then
+            echo "VERCEL_DEPLOY_HOOK not set — skipping deploy-hook auto-heal."
+            exit 0
+          fi
+          echo "Deployment stale — pinging Vercel deploy hook to trigger a rebuild."
+          curl -fsS -X POST "$HOOK" && echo "deploy hook triggered" || echo "deploy hook failed (continuing)"
