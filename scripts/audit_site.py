@@ -48,6 +48,7 @@ DB_PATH = ROOT / "data" / "lottizen.db"
 STATS_DIR = ROOT / "data" / "stats"
 DRAWS_DIR = ROOT / "data" / "draws"
 CONFIG = ROOT / "config" / "games.ts"
+GUIDES_CONTENT = ROOT / "content" / "guides"
 APP = ROOT / ".next" / "server" / "app"
 
 CRITICAL, HIGH, MEDIUM, LOW = "CRITICAL", "HIGH", "MEDIUM", "LOW"
@@ -395,6 +396,62 @@ def audit():
         if re.search(r"\$\d{4,}(\.\d+)?[KMB]\b", t):
             bad = re.search(r"\$\d{4,}(?:\.\d+)?[KMB]\b", t).group(0)
             add("(home)", "/", f"Malformed compact money value '{bad}'.", MEDIUM)
+
+    audit_guides()
+
+
+# --------------------------------------------------------------------------
+# Guides (long-form content layer)
+# --------------------------------------------------------------------------
+def guide_slugs() -> list[str]:
+    """Non-draft guide slugs from content/guides/*.md (frontmatter `draft: true`
+    is excluded, matching lib/guides.ts)."""
+    if not GUIDES_CONTENT.exists():
+        return []
+    out = []
+    for f in sorted(GUIDES_CONTENT.glob("*.md")):
+        if re.search(r"^draft:\s*true\b", f.read_text(), re.M):
+            continue
+        out.append(f.stem)
+    return out
+
+
+def audit_guides() -> None:
+    """Completeness of the /guides/ layer in the build: hub present and links each
+    guide; every guide page built, non-empty, with Article JSON-LD and no stray
+    render artifacts. A missing/empty guide page fails the deploy gate."""
+    slugs = guide_slugs()
+    if not slugs:
+        return
+
+    hub = APP / "guides.html"
+    if not hub.exists():
+        add("(guides)", "hub", "Guides hub /guides missing from build output.", HIGH)
+    else:
+        raw = hub.read_text(errors="replace")
+        missing = [s for s in slugs if f"/guides/{s}" not in raw]
+        if missing:
+            add("(guides)", "hub",
+                f"Hub doesn't link {len(missing)} guide(s): {', '.join(missing[:4])}"
+                f"{'…' if len(missing) > 4 else ''}.", MEDIUM)
+
+    for slug in slugs:
+        p = APP / "guides" / f"{slug}.html"
+        if not p.exists():
+            add(f"guide:{slug}", "guides", "Guide page missing from build output.", HIGH)
+            continue
+        raw = p.read_text(errors="replace")
+        txt = page_text(p)
+        if len(txt) < 600:
+            add(f"guide:{slug}", "guides",
+                f"Guide renders only {len(txt)} chars of text — build/markdown issue.", HIGH)
+        if '"@type":"Article"' not in raw:
+            add(f"guide:{slug}", "guides", "Guide missing Article JSON-LD.", MEDIUM)
+        if 'class="guide-toc' not in raw:
+            add(f"guide:{slug}", "guides", "Guide missing its table of contents (render issue).", LOW)
+        for tok in ("undefined", "NaN"):
+            if re.search(rf"(^|\s)\b{tok}\b", txt):
+                add(f"guide:{slug}", "guides", f"Stray '{tok}' rendered in guide text.", HIGH)
 
 
 # --------------------------------------------------------------------------
