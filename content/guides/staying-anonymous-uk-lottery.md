@@ -13,6 +13,10 @@ sources:
     url: "https://www.national-lottery.co.uk/privacy-policy"
   - title: "The National Lottery — Winners' stories (publicity is the winner's choice)"
     url: "https://www.national-lottery.co.uk/life-changing"
+  - title: "The National Lottery — How to claim (winners decide whether to go public at the validation meeting)"
+    url: "https://www.national-lottery.co.uk/results/how-to-claim"
+  - title: "ITV News — £170m EuroMillions winner chose to remain anonymous (2019)"
+    url: "https://www.itv.com/news/2019-10-08/brit-wins-170m-euromillions-jackpot-to-become-countrys-biggest-ever-winner"
 faqs:
   - q: Can you stay anonymous if you win the UK lottery?
     a: Yes, completely. The National Lottery only publicises a winner who consents to publicity — anonymity is the default choice, and where a winner opts to stay private, no details about the win are released. Most large UK winners choose to remain anonymous.
@@ -28,9 +32,9 @@ For anyone who's read about American jackpot winners being named in press releas
 
 ## Anonymity is the default
 
-The National Lottery's position is simple: it **only publicises a winner who consents to publicity.** Where you choose to stay private — which you're free to do at any prize level — no details about your win are released at all. There's no threshold above which you lose the right, no public register of winners, and no obligation to appear in a photograph or a press release.
+The National Lottery's position is simple: it **only publicises a winner who consents to publicity.** The decision is made at the **validation meeting** when you claim — the operator says the ticket-holder "can decide whether to go public and share their news," and if they choose to stay anonymous, "no information on whether the ticket-holder is an individual or syndicate winner, or where the ticket was purchased, will be shared." There's no threshold above which you lose the right, no public register of winners, and no obligation to appear in a photograph or a press release; the National Lottery describes it as a "duty of care to protect the anonymity of all National Lottery winners."
 
-In practice, **most large UK winners choose anonymity.** The occasional beaming winner holding an oversized cheque is there because they *opted in* — many more collect life-changing sums and are never named. Whether it's a [UK Lotto](/europe/uk-lotto) or [EuroMillions](/europe/euromillions) win, the choice is entirely yours.
+In practice, **most large UK winners choose anonymity.** The occasional beaming winner holding an oversized cheque is there because they *opted in* — many more collect life-changing sums and are never named. When a single ticket won a UK-record **£170 million** EuroMillions jackpot in 2019, the winner simply chose to remain anonymous, and that was that. Whether it's a [UK Lotto](/europe/uk-lotto) or [EuroMillions](/europe/euromillions) win, the choice is entirely yours.
 
 ## How different this is
 
