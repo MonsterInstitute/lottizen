@@ -53,7 +53,7 @@ jobs:
         uses: ./.github/actions/build-and-audit
 
       - name: Publish JSON to Supabase (site_json)
-        run: python scripts/publish_site_json.py
+        run: python scripts/publish_site_json.py draws stats
 
       - name: Trigger Vercel deploy
         env:

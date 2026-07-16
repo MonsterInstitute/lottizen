@@ -46,7 +46,7 @@ jobs:
       - name: Build & audit (deploy gate)
         uses: ./.github/actions/build-and-audit
       - name: Publish JSON to Supabase (site_json)
-        run: python scripts/publish_site_json.py
+        run: python scripts/publish_site_json.py draws stats
       - name: Trigger Vercel deploy
         env:
           VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}

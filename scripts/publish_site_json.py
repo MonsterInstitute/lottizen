@@ -6,9 +6,14 @@ calculate_rankings.py) have written data/rankings.json, data/draws/*.json and
 data/stats/*.json. Uploads each file's exact text so the Vercel build's Node
 prefetch can materialize them without recomputing anything.
 
-    python scripts/calculate_rankings.py
     python scripts/calculate_stats.py
-    python scripts/publish_site_json.py     # -> site_json table
+    python scripts/publish_site_json.py draws stats   # publish ONLY these categories
+
+Category arguments restrict what gets published so a workflow only uploads the
+files IT generated — never the other slices it merely prefetched from Supabase to
+build. Without them, the draws/US/Europe workflows would re-upload (and race on)
+rankings.json that the scratch workflow owns. Valid categories: `rankings.json`,
+`draws`, `stats`. No arguments = publish everything (local `npm run data:refresh`).
 """
 from __future__ import annotations
 
@@ -23,15 +28,17 @@ ROOT = Path(__file__).resolve().parent.parent
 DATA = ROOT / "data"
 
 
-def collect() -> list[tuple[str, Path]]:
-    """(path-relative-to-data, absolute file) for every file the site imports."""
+def collect(categories: set[str]) -> list[tuple[str, Path]]:
+    """(path-relative-to-data, absolute file) for the requested categories.
+    Empty `categories` means all."""
+    want = lambda c: not categories or c in categories  # noqa: E731
     items: list[tuple[str, Path]] = []
     rankings = DATA / "rankings.json"
-    if rankings.exists():
+    if want("rankings.json") and rankings.exists():
         items.append(("rankings.json", rankings))
     for sub in ("draws", "stats"):
         d = DATA / sub
-        if d.is_dir():
+        if want(sub) and d.is_dir():
             for f in sorted(d.glob("*.json")):
                 items.append((f"{sub}/{f.name}", f))
     return items
@@ -39,9 +46,11 @@ def collect() -> list[tuple[str, Path]]:
 
 def main() -> int:
     now = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
-    items = collect()
+    categories = set(sys.argv[1:])  # e.g. {"draws","stats"} or {"rankings.json"}
+    items = collect(categories)
     if not items:
-        print("✗ no generated JSON found under data/ — run the calculators first.")
+        scope = f" for {sorted(categories)}" if categories else ""
+        print(f"✗ no generated JSON found under data/{scope} — run the calculators first.")
         return 1
     # One row per file (contents can be multiple MB, so avoid giant batch bodies).
     for rel, path in items:
