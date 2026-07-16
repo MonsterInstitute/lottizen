@@ -12,7 +12,7 @@ runs:
     - name: Set up Node
       uses: actions/setup-node@v4
       with:
-        node-version: "20"
+        node-version: "22" # Node 20 is deprecated; matches Vercel's runtime
         cache: npm
 
     - name: Install Node dependencies

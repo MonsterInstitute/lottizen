@@ -1,12 +1,13 @@
 // Vercel build prefetch: materialize the site JSON from Supabase to data/ so
 // `next build` can import it. Runs BEFORE gen_data_index.mjs (see package.json
-// prebuild). Pure Node + @supabase/supabase-js — no Python on the Vercel build.
+// prebuild). Pure Node, no Python on the Vercel build.
 //
 // Reads the `site_json` table (populated by the data-refresh workflow) with the
-// service-role key and writes each row's content to data/<path>. Credentials
-// come from the environment (Vercel build env); for local runs it also loads a
-// git-ignored .env.local.
-import { createClient } from "@supabase/supabase-js";
+// service-role key over PostgREST via plain fetch() — deliberately NOT the
+// @supabase/supabase-js client, which eagerly spins up a realtime WebSocket and
+// throws "native WebSocket not found" on Node < 22. A simple SELECT needs none of
+// that. Credentials come from the environment (Vercel build env); for local runs
+// it also loads a git-ignored .env.local.
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -38,17 +39,19 @@ async function main() {
     );
     process.exit(1);
   }
-  const sb = createClient(url, key, { auth: { persistSession: false } });
-
   // Page past PostgREST's 1000-row cap (well above our ~43 files, but safe).
   const rows = [];
   const page = 1000;
+  const rest = url.replace(/\/$/, "") + "/rest/v1/site_json";
   for (let from = 0; ; from += page) {
-    const { data, error } = await sb
-      .from("site_json")
-      .select("path,content")
-      .range(from, from + page - 1);
-    if (error) throw new Error(`site_json read failed: ${error.message}`);
+    const res = await fetch(
+      `${rest}?select=path,content&order=path&offset=${from}&limit=${page}`,
+      { headers: { apikey: key, Authorization: `Bearer ${key}` } },
+    );
+    if (!res.ok) {
+      throw new Error(`site_json read failed: ${res.status} ${await res.text()}`);
+    }
+    const data = await res.json();
     rows.push(...data);
     if (data.length < page) break;
   }
