@@ -4,15 +4,18 @@ name: Daily European draw results
 # (UK Lotto). Run at 23:00 UTC on each of those days — after that evening's draw
 # has settled — to append the latest results. Full history was backfilled once via
 # `scrape_europe.py --backfill`; this only appends (never overwrites reconciled
-# rows) and recomputes stats. Separate from the CA/US workflows so they don't clash.
+# rows). Separate from the CA/US workflows so they don't clash.
+#
+# Data layer: Supabase. Scraper writes the draws table; the calculator renders
+# per-game JSON, published to site_json. No git commit — the Vercel deploy hook
+# rebuilds from Supabase.
 on:
   schedule:
     - cron: "0 23 * * 2,3,5,6"
   workflow_dispatch: {}
 
 permissions:
-  contents: write
-  issues: write
+  contents: read
 
 concurrency:
   group: europe-refresh
@@ -21,6 +24,10 @@ concurrency:
 jobs:
   refresh:
     runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      PREFETCH_FILL_MISSING: "1"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -30,22 +37,20 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r scripts/requirements.txt
-      - name: Fetch latest European draws (append-only)
-        run: python scripts/scrape_europe.py || echo "EU fetch failed; keeping last-good data"
+      - name: Fetch latest European draws -> Supabase (append-only)
+        run: python scripts/scrape_europe.py || echo "EU fetch failed; keeping last-good data in Supabase"
         continue-on-error: true
-      - name: Recompute statistics
+      - name: Recompute statistics (reads Supabase -> data/draws + data/stats)
         run: python scripts/calculate_stats.py
-      # Deploy gate: build + audit before committing; CRITICAL/HIGH findings skip the commit.
+      # Deploy gate: build + audit before publish/deploy; CRITICAL/HIGH skip them.
       - name: Build & audit (deploy gate)
         uses: ./.github/actions/build-and-audit
-      - name: Commit & push refreshed data (race-safe)
+      - name: Publish JSON to Supabase (site_json)
+        run: python scripts/publish_site_json.py
+      - name: Trigger Vercel deploy
         env:
-          REGEN_CMD: "python scripts/scrape_europe.py || true; python scripts/calculate_stats.py"
-          GIT_ADD_PATHS: "data/draws data/stats data/lottizen.db data/conflicts.log"
+          VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
         run: |
-          export COMMIT_MSG="chore(data): daily European draw refresh $(date -u +%Y-%m-%d)"
-          bash scripts/commit_and_push.sh
+          curl -fsS -X POST "$VERCEL_DEPLOY_HOOK" && echo "✓ Vercel deploy triggered"
 
-      # Failure alerting: ci-failure-alert.yml (on: workflow_run) — robust to the
-      # runner-not-acquired case that an in-job failure() step can't catch.
-      # Staleness: freshness-watchdog.yml, judged from the committed DB.
+      # Failure alerting: ci-failure-alert.yml. Staleness: freshness-watchdog.yml.

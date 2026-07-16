@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 scrape_olg.py — Fetch OLG Ontario instant (scratch) games and their remaining
-top-prize data into a local SQLite database (data/lottizen.db).
+top-prize data into Supabase (games + prize_tiers tables).
 
 REAL DATA SOURCE (verified 2026-07):
   https://gateway.www.olg.ca/feeds/instant-unclaimed
@@ -34,7 +34,6 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import sqlite3
 import ssl
 import sys
 import urllib.error
@@ -42,8 +41,10 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import db  # noqa: E402 — shared Supabase data-layer helper (replaces sqlite3)
+
 ROOT = Path(__file__).resolve().parent.parent
-DB_PATH = ROOT / "data" / "lottizen.db"
 
 FEED_URL = "https://gateway.www.olg.ca/feeds/instant-unclaimed"
 RENDER_URL = "https://www.olg.ca/en/winners/unclaimed-instant-prizes.html"
@@ -123,53 +124,28 @@ def clean_name(name: str) -> str:
 
 
 # --------------------------------------------------------------------------
-# SQLite
+# Supabase (schema lives in Postgres; see supabase/migrations/0001_init.sql)
 # --------------------------------------------------------------------------
-def init_db(conn: sqlite3.Connection) -> None:
-    conn.executescript(
-        """
-        CREATE TABLE IF NOT EXISTS games (
-            game_number   TEXT PRIMARY KEY,
-            name          TEXT NOT NULL,
-            slug          TEXT NOT NULL,
-            price         REAL NOT NULL,
-            source        TEXT NOT NULL,
-            scraped_at    TEXT NOT NULL
-        );
-        CREATE TABLE IF NOT EXISTS prize_tiers (
-            id           INTEGER PRIMARY KEY AUTOINCREMENT,
-            game_number  TEXT NOT NULL REFERENCES games(game_number) ON DELETE CASCADE,
-            amount       REAL NOT NULL,
-            label        TEXT NOT NULL,
-            total        INTEGER NOT NULL,
-            remaining    INTEGER NOT NULL,
-            is_top       INTEGER NOT NULL DEFAULT 0,
-            scraped_at   TEXT NOT NULL
-        );
-        CREATE INDEX IF NOT EXISTS idx_tiers_game ON prize_tiers(game_number);
-        """
-    )
-    conn.commit()
+def replace_games(games: list[dict], source: str) -> None:
+    """Full refresh: clear and rewrite so delisted games/tiers disappear.
 
-
-def replace_games(conn: sqlite3.Connection, games: list[dict], source: str) -> None:
-    """Full refresh: clear and rewrite so delisted games/tiers disappear."""
+    Deleting every game cascades to prize_tiers (FK ON DELETE CASCADE), then we
+    bulk-insert fresh rows. prize_tiers ids are auto-generated (identity), so we
+    insert tiers without an id — matching the old AUTOINCREMENT behaviour."""
     ts = now_iso()
-    conn.execute("DELETE FROM prize_tiers")
-    conn.execute("DELETE FROM games")
+    db.delete_all("games", "game_number", "__lottizen_none__")  # cascades to prize_tiers
+    game_rows = [{"game_number": g["game_number"], "name": g["name"],
+                  "slug": slugify(g["name"]), "price": g["price"],
+                  "source": source, "scraped_at": ts} for g in games]
+    tier_rows = []
     for g in games:
-        conn.execute(
-            "INSERT INTO games (game_number,name,slug,price,source,scraped_at) VALUES (?,?,?,?,?,?)",
-            (g["game_number"], g["name"], slugify(g["name"]), g["price"], source, ts),
-        )
         for t in g["prize_tiers"]:
-            conn.execute(
-                "INSERT INTO prize_tiers (game_number,amount,label,total,remaining,is_top,scraped_at) "
-                "VALUES (?,?,?,?,?,?,?)",
-                (g["game_number"], t["amount"], t["label"], t["total"], t["remaining"],
-                 1 if t.get("is_top") else 0, ts),
-            )
-    conn.commit()
+            tier_rows.append({"game_number": g["game_number"], "amount": t["amount"],
+                              "label": t["label"], "total": t["total"],
+                              "remaining": t["remaining"],
+                              "is_top": 1 if t.get("is_top") else 0, "scraped_at": ts})
+    db.insert_rows("games", game_rows)       # parent first (FK)
+    db.insert_rows("prize_tiers", tier_rows)  # children
 
 
 # --------------------------------------------------------------------------
@@ -267,7 +243,7 @@ def parse_feed(data: dict) -> list[dict]:
             if any(t["remaining"] > 0 and t["amount"] > 0 for t in g["prize_tiers"])]
 
 
-def run_live(conn: sqlite3.Connection) -> int:
+def run_live() -> int:
     print("→ fetching OLG unclaimed-instant-prizes feed...")
     data = fetch_feed(DEFAULT_CLIENT_ID)
     if data is None:
@@ -282,9 +258,9 @@ def run_live(conn: sqlite3.Connection) -> int:
     if not games:
         print("✗ feed parsed to zero games.", file=sys.stderr)
         return 0
-    replace_games(conn, games, source="olg-live")
+    replace_games(games, source="olg-live")
     tiers = sum(len(g["prize_tiers"]) for g in games)
-    print(f"✓ stored {len(games)} live games / {tiers} prize tiers -> {DB_PATH}")
+    print(f"✓ stored {len(games)} live games / {tiers} prize tiers")
     return len(games)
 
 
@@ -345,12 +321,12 @@ def sample_games() -> list[dict]:
     ]
 
 
-def run_sample(conn: sqlite3.Connection) -> int:
+def run_sample() -> int:
     games = sample_games()
     for g in games:  # sample tiers already carry is_top on tier 0
         pass
-    replace_games(conn, games, source="sample")
-    print(f"✓ seeded {len(games)} sample games (source='sample') -> {DB_PATH}")
+    replace_games(games, source="sample")
+    print(f"✓ seeded {len(games)} sample games (source='sample')")
     return len(games)
 
 
@@ -364,21 +340,14 @@ def main() -> int:
                     help="live only; non-zero exit on failure (no sample fallback)")
     args = ap.parse_args()
 
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute("PRAGMA foreign_keys = ON")
-    init_db(conn)
-    try:
-        if args.sample:
-            return 0 if run_sample(conn) else 1
-        if args.live:
-            return 0 if run_live(conn) else 1
-        if run_live(conn):
-            return 0
-        print("→ live failed; seeding sample data so the build still runs.")
-        return 0 if run_sample(conn) else 1
-    finally:
-        conn.close()
+    if args.sample:
+        return 0 if run_sample() else 1
+    if args.live:
+        return 0 if run_live() else 1
+    if run_live():
+        return 0
+    print("→ live failed; seeding sample data so the build still runs.")
+    return 0 if run_sample() else 1
 
 
 if __name__ == "__main__":

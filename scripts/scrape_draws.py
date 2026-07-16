@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 scrape_draws.py — Fetch Canadian draw-lottery winning numbers into SQLite
-(data/lottizen.db, table `draws`). Adapter pattern, multi-source with
+(Supabase, table `draws`). Adapter pattern, multi-source with
 cross-validation.
 
 Sources (verified 2026-07):
@@ -35,7 +35,6 @@ import argparse
 import io
 import json
 import re
-import sqlite3
 import ssl
 import sys
 import time
@@ -44,8 +43,10 @@ from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import db  # noqa: E402 — shared Supabase data-layer helper (replaces sqlite3)
+
 ROOT = Path(__file__).resolve().parent.parent
-DB_PATH = ROOT / "data" / "lottizen.db"
 CONFLICTS_LOG = ROOT / "data" / "conflicts.log"
 
 OLG_FEED = "https://gateway.www.olg.ca/feeds/winning-numbers"
@@ -119,60 +120,13 @@ def ssl_ctx() -> ssl.SSLContext:
 
 
 # --------------------------------------------------------------------------
-# SQLite
+# Supabase (schema lives in Postgres; see supabase/migrations/0001_init.sql)
 # --------------------------------------------------------------------------
-def init_db(conn: sqlite3.Connection) -> None:
-    conn.executescript(
-        """
-        CREATE TABLE IF NOT EXISTS draws (
-            game_id    TEXT NOT NULL,
-            draw_date  TEXT NOT NULL,
-            numbers    TEXT NOT NULL,
-            bonus      INTEGER,
-            jackpot    REAL,
-            source     TEXT NOT NULL,
-            verified   INTEGER NOT NULL DEFAULT 0,
-            scraped_at TEXT NOT NULL,
-            PRIMARY KEY (game_id, draw_date)
-        );
-        CREATE TABLE IF NOT EXISTS game_meta (
-            game_id       TEXT PRIMARY KEY,
-            next_draw_date TEXT,
-            next_jackpot  REAL,
-            updated_at    TEXT
-        );
-        """
-    )
-    # add `verified` if the table pre-existed without it
-    cols = {r[1] for r in conn.execute("PRAGMA table_info(draws)")}
-    if "verified" not in cols:
-        conn.execute("ALTER TABLE draws ADD COLUMN verified INTEGER NOT NULL DEFAULT 0")
-    conn.commit()
-
-
-def upsert_one(conn, game_id, date, numbers, bonus, source, verified, jackpot=None):
-    conn.execute(
-        """INSERT INTO draws (game_id, draw_date, numbers, bonus, jackpot, source, verified, scraped_at)
-           VALUES (?,?,?,?,?,?,?,?)
-           ON CONFLICT(game_id, draw_date) DO UPDATE SET
-             numbers=excluded.numbers, bonus=excluded.bonus,
-             jackpot=COALESCE(excluded.jackpot, draws.jackpot),
-             source=excluded.source, verified=excluded.verified,
-             scraped_at=excluded.scraped_at""",
-        (game_id, date, ",".join(str(x) for x in numbers), bonus, jackpot,
-         source, verified, now_iso()),
-    )
-
-
-def set_meta(conn, game_id, next_date, jackpot):
-    conn.execute(
-        """INSERT INTO game_meta (game_id, next_draw_date, next_jackpot, updated_at)
-           VALUES (?,?,?,?)
-           ON CONFLICT(game_id) DO UPDATE SET
-             next_draw_date=excluded.next_draw_date, next_jackpot=excluded.next_jackpot,
-             updated_at=excluded.updated_at""",
-        (game_id, next_date, jackpot, now_iso()),
-    )
+def set_meta(game_id, next_date, jackpot):
+    db.upsert_rows("game_meta", [{
+        "game_id": game_id, "next_draw_date": next_date,
+        "next_jackpot": jackpot, "updated_at": now_iso()}],
+        on_conflict="game_id")
 
 
 # --------------------------------------------------------------------------
@@ -222,7 +176,7 @@ def olg_latest() -> dict[str, dict]:
 OLG_PROGRESSIVE = {"lotto-max", "lotto-6-49", "lottario"}
 
 
-def apply_olg_meta(conn, cfg, latest):
+def apply_olg_meta(cfg, latest):
     """Store the next draw date (+ jackpot for progressive games) from the OLG feed."""
     if not cfg.get("olg_name"):
         return
@@ -231,7 +185,7 @@ def apply_olg_meta(conn, cfg, latest):
         return
     jackpot = l.get("jackpot") if cfg["slug"] in OLG_PROGRESSIVE else None
     if l.get("nextdraw") or jackpot is not None:
-        set_meta(conn, cfg["slug"], l.get("nextdraw"), jackpot)
+        set_meta(cfg["slug"], l.get("nextdraw"), jackpot)
 
 
 DATE_RE = re.compile(r"^([A-Z][a-z]+ \d{1,2}, \d{4})\s+(.+)$")
@@ -334,12 +288,16 @@ def log_conflict(game_id, date, src_a, a, src_b, b) -> None:
         f.write(line)
 
 
-def reconcile(conn, game_id, per_date: dict[str, dict]) -> dict:
+def reconcile(game_id, per_date: dict[str, dict]) -> dict:
     """per_date: {date: {source: (main_list, bonus)}}. Store one reconciled row
-    per date; return stats."""
-    conn.execute("DELETE FROM draws WHERE game_id=?", (game_id,))
+    per date; return stats. Full-refresh: delete the game's rows then bulk-insert
+    the reconciled set (no conflicts after the delete, so jackpot stays NULL just
+    as the old upsert_one left it in the backfill path)."""
+    db.delete_where("draws", "game_id", game_id)
     verified_n = conflict_n = 0
     src_counter = Counter()
+    ts = now_iso()
+    rows = []
     for date, srcs in per_date.items():
         best = max(srcs, key=lambda s: SOURCE_PRIORITY.get(s, 0))
         main, bonus = srcs[best]
@@ -351,16 +309,18 @@ def reconcile(conn, game_id, per_date: dict[str, dict]) -> dict:
         verified = 1 if agree else 0
         verified_n += verified
         src_counter[best] += 1
-        upsert_one(conn, game_id, date, main, bonus, best, verified)
-    conn.commit()
+        rows.append({"game_id": game_id, "draw_date": date,
+                     "numbers": ",".join(str(x) for x in main), "bonus": bonus,
+                     "jackpot": None, "source": best, "verified": verified,
+                     "scraped_at": ts})
+    db.upsert_rows("draws", rows, on_conflict="game_id,draw_date")
     return {"verified": verified_n, "conflicts": conflict_n, "sources": dict(src_counter)}
 
 
-def summarize(conn, game_id: str, pick: int, recon: dict) -> None:
-    rows = conn.execute(
-        "SELECT draw_date FROM draws WHERE game_id=? ORDER BY draw_date", (game_id,)
-    ).fetchall()
-    dates = [r[0] for r in rows]
+def summarize(game_id: str, pick: int, recon: dict) -> None:
+    rows = db.fetch_all("draws", "draw_date",
+                        filters=[("eq", "game_id", game_id)], order="draw_date")
+    dates = [r["draw_date"] for r in rows]
     total = len(dates)
     if not total:
         print(f"  {game_id}: NO DATA")
@@ -368,10 +328,10 @@ def summarize(conn, game_id: str, pick: int, recon: dict) -> None:
     # gap detection: consecutive draws > 10 days apart hint at missing draws
     gaps = []
     for a, b in zip(dates, dates[1:]):
-        da = datetime.fromisoformat(a).date()
-        db = datetime.fromisoformat(b).date()
-        if (db - da).days > 10:
-            gaps.append((a, b, (db - da).days))
+        d_a = datetime.fromisoformat(a).date()
+        d_b = datetime.fromisoformat(b).date()
+        if (d_b - d_a).days > 10:
+            gaps.append((a, b, (d_b - d_a).days))
     gaps.sort(key=lambda g: -g[2])
     print(f"\n  ── {game_id} summary ──")
     print(f"     draws:      {total}")
@@ -395,7 +355,7 @@ def add_source(per_date, source, draws):
             per_date[d["date"]][source] = (d["numbers"], d.get("bonus"))
 
 
-def backfill_game(conn, cfg, latest, delay=1.0):
+def backfill_game(cfg, latest, delay=1.0):
     slug = cfg["slug"]
     per_date: dict[str, dict] = defaultdict(dict)
     print(f"→ backfill {slug}")
@@ -419,26 +379,25 @@ def backfill_game(conn, cfg, latest, delay=1.0):
     if not per_date:
         print(f"  ! no data for {slug}")
         return
-    recon = reconcile(conn, slug, per_date)
-    apply_olg_meta(conn, cfg, latest)
-    summarize(conn, slug, cfg["pick"], recon)
+    recon = reconcile(slug, per_date)
+    apply_olg_meta(cfg, latest)
+    summarize(slug, cfg["pick"], recon)
 
 
-def insert_new(conn, game_id, date, numbers, bonus, source):
+def insert_new(game_id, date, numbers, bonus, source):
     """Insert a draw only if that date isn't already recorded — daily runs must
-    never overwrite the reconciled/verified full-history rows."""
-    conn.execute(
-        """INSERT INTO draws (game_id, draw_date, numbers, bonus, source, verified, scraped_at)
-           VALUES (?,?,?,?,?,0,?)
-           ON CONFLICT(game_id, draw_date) DO NOTHING""",
-        (game_id, date, ",".join(str(x) for x in numbers), bonus, source, now_iso()),
-    )
+    never overwrite the reconciled/verified full-history rows (ON CONFLICT DO
+    NOTHING). jackpot/bonus2 stay NULL on new rows, as before."""
+    db.insert_ignore("draws", [{
+        "game_id": game_id, "draw_date": date,
+        "numbers": ",".join(str(x) for x in numbers), "bonus": bonus,
+        "source": source, "verified": 0, "scraped_at": now_iso()}],
+        on_conflict="game_id,draw_date")
 
 
-def daily_game(conn, cfg, latest):
+def daily_game(cfg, latest):
     slug = cfg["slug"]
-    row = conn.execute("SELECT MAX(draw_date) FROM draws WHERE game_id=?", (slug,)).fetchone()
-    max_date = row[0] if row else None
+    max_date = db.max_draw_date(slug)
 
     # Each source runs independently: one source erroring (site restructure, timeout)
     # must not stop the others for this game from inserting, or the game from committing.
@@ -451,17 +410,17 @@ def daily_game(conn, cfg, latest):
     def _wclc():
         for d in wclc_history(cfg["wclc"]):
             if not max_date or d["date"] > max_date:
-                insert_new(conn, slug, d["date"], d["numbers"], d.get("bonus"), "wclc")
+                insert_new(slug, d["date"], d["numbers"], d.get("bonus"), "wclc")
 
     def _olg():
         l = latest.get(cfg["olg_name"].upper())
         if l and (not max_date or l["date"] > max_date):
-            insert_new(conn, slug, l["date"], l["numbers"], l.get("bonus"), "olg-feed")
+            insert_new(slug, l["date"], l["numbers"], l.get("bonus"), "olg-feed")
 
     def _playnow():
         pn = playnow_latest(cfg["playnow"])
         if pn and (not max_date or pn["date"] > max_date):
-            insert_new(conn, slug, pn["date"], pn["numbers"], pn.get("bonus"), "playnow")
+            insert_new(slug, pn["date"], pn["numbers"], pn.get("bonus"), "playnow")
 
     if cfg.get("wclc"):
         source("wclc", _wclc)
@@ -469,10 +428,13 @@ def daily_game(conn, cfg, latest):
         source("olg-feed", _olg)
     if cfg.get("playnow"):
         source("playnow", _playnow)
-    source("olg-meta", lambda: apply_olg_meta(conn, cfg, latest))
-    conn.commit()
-    cnt = conn.execute("SELECT COUNT(*), MIN(draw_date), MAX(draw_date) FROM draws WHERE game_id=?", (slug,)).fetchone()
-    print(f"  {slug}: {cnt[0]} draws, {cnt[1]} → {cnt[2]}")
+    source("olg-meta", lambda: apply_olg_meta(cfg, latest))
+    dates = [r["draw_date"] for r in
+             db.fetch_all("draws", "draw_date", filters=[("eq", "game_id", slug)])]
+    if dates:
+        print(f"  {slug}: {len(dates)} draws, {min(dates)} → {max(dates)}")
+    else:
+        print(f"  {slug}: 0 draws")
 
 
 def main() -> int:
@@ -481,33 +443,28 @@ def main() -> int:
     ap.add_argument("--game", help="restrict to one live game slug")
     args = ap.parse_args()
 
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
-    init_db(conn)
-    try:
-        print("→ OLG latest feed...")
-        latest = olg_latest()
-        print(f"  got latest for {len(latest)} OLG games")
-        games = [g for g in LIVE if not args.game or g["slug"] == args.game]
-        failures = []
-        for cfg in games:
-            # One game's failure must not abort the others — isolate each so a broken
-            # adapter or a single slow source can't sink the whole daily refresh.
-            try:
-                if args.backfill:
-                    backfill_game(conn, cfg, latest)
-                else:
-                    print(f"→ daily {cfg['slug']}")
-                    daily_game(conn, cfg, latest)
-            except Exception as e:  # noqa: BLE001
-                print(f"  ✗ {cfg['slug']}: {type(e).__name__}: {e}", file=sys.stderr)
-                failures.append(cfg["slug"])
-        if failures:
-            print(f"⚠ {len(failures)} game(s) failed: {', '.join(failures)} "
-                  f"(others still refreshed)", file=sys.stderr)
-        return 0
-    finally:
-        conn.close()
+    CONFLICTS_LOG.parent.mkdir(parents=True, exist_ok=True)
+    print("→ OLG latest feed...")
+    latest = olg_latest()
+    print(f"  got latest for {len(latest)} OLG games")
+    games = [g for g in LIVE if not args.game or g["slug"] == args.game]
+    failures = []
+    for cfg in games:
+        # One game's failure must not abort the others — isolate each so a broken
+        # adapter or a single slow source can't sink the whole daily refresh.
+        try:
+            if args.backfill:
+                backfill_game(cfg, latest)
+            else:
+                print(f"→ daily {cfg['slug']}")
+                daily_game(cfg, latest)
+        except Exception as e:  # noqa: BLE001
+            print(f"  ✗ {cfg['slug']}: {type(e).__name__}: {e}", file=sys.stderr)
+            failures.append(cfg["slug"])
+    if failures:
+        print(f"⚠ {len(failures)} game(s) failed: {', '.join(failures)} "
+              f"(others still refreshed)", file=sys.stderr)
+    return 0
 
 
 if __name__ == "__main__":

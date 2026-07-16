@@ -24,15 +24,16 @@ from __future__ import annotations
 import argparse
 import json
 import re
-import sqlite3
 import ssl
 import sys
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import db  # noqa: E402 — shared Supabase data-layer helper (replaces sqlite3)
+
 ROOT = Path(__file__).resolve().parent.parent
-DB_PATH = ROOT / "data" / "lottizen.db"
 UA = "Mozilla/5.0 (Lottizen data pipeline)"
 
 US = [
@@ -71,34 +72,11 @@ def ssl_ctx() -> ssl.SSLContext:
         return c
 
 
-def init_db(conn):
-    conn.executescript(
-        """
-        CREATE TABLE IF NOT EXISTS draws (
-            game_id TEXT NOT NULL, draw_date TEXT NOT NULL, numbers TEXT NOT NULL,
-            bonus INTEGER, jackpot REAL, source TEXT NOT NULL,
-            verified INTEGER NOT NULL DEFAULT 0, scraped_at TEXT NOT NULL,
-            PRIMARY KEY (game_id, draw_date)
-        );
-        CREATE TABLE IF NOT EXISTS game_meta (
-            game_id TEXT PRIMARY KEY, next_draw_date TEXT,
-            next_jackpot REAL, updated_at TEXT
-        );
-        """
-    )
-    conn.commit()
-
-
-def set_meta(conn, game_id, next_date, jackpot):
-    conn.execute(
-        """INSERT INTO game_meta (game_id, next_draw_date, next_jackpot, updated_at)
-           VALUES (?,?,?,?)
-           ON CONFLICT(game_id) DO UPDATE SET
-             next_draw_date=excluded.next_draw_date, next_jackpot=excluded.next_jackpot,
-             updated_at=excluded.updated_at""",
-        (game_id, next_date, jackpot, now_iso()),
-    )
-    conn.commit()
+def set_meta(game_id, next_date, jackpot):
+    db.upsert_rows("game_meta", [{
+        "game_id": game_id, "next_draw_date": next_date,
+        "next_jackpot": jackpot, "updated_at": now_iso()}],
+        on_conflict="game_id")
 
 
 def http_text(url: str) -> str:
@@ -115,7 +93,7 @@ def http_text(url: str) -> str:
 MM_ENDPOINT = "https://www.megamillions.com/cmspages/utilservice.asmx/GetLatestDrawData"
 
 
-def mega_millions_meta(conn) -> None:
+def mega_millions_meta() -> None:
     try:
         text = http_text(MM_ENDPOINT)
         m = re.search(r'"NextPrizePool":\s*([0-9.]+)', text)
@@ -123,7 +101,7 @@ def mega_millions_meta(conn) -> None:
             print("  ! mega-millions: NextPrizePool not found", file=sys.stderr)
             return
         jackpot = float(m.group(1))
-        set_meta(conn, "mega-millions", None, jackpot)
+        set_meta("mega-millions", None, jackpot)
         print(f"✓ mega-millions next jackpot: ${jackpot:,.0f} (megamillions.com)")
     except Exception as e:  # noqa: BLE001
         print(f"  ! mega-millions jackpot: {e}", file=sys.stderr)
@@ -136,11 +114,12 @@ def fetch_all(ds: str) -> list[dict]:
         return json.loads(r.read())
 
 
-def scrape_game(conn, cfg) -> tuple[int, str, str]:
+def scrape_game(cfg) -> tuple[int, str, str]:
     rows = fetch_all(cfg["ds"])
     ts = now_iso()
     stored = 0
     dates = []
+    out = []
     for r in rows:
         raw = r.get(cfg["field"])
         if not raw:
@@ -161,24 +140,22 @@ def scrape_game(conn, cfg) -> tuple[int, str, str]:
             continue
         date = r["draw_date"][:10]
         dates.append(date)
-        conn.execute(
-            """INSERT INTO draws (game_id, draw_date, numbers, bonus, source, verified, scraped_at)
-               VALUES (?,?,?,?, 'data.ny.gov', 0, ?)
-               ON CONFLICT(game_id, draw_date) DO UPDATE SET
-                 numbers=excluded.numbers, bonus=excluded.bonus, source=excluded.source,
-                 scraped_at=excluded.scraped_at""",
-            (cfg["slug"], date, ",".join(map(str, main)), bonus, ts),
-        )
+        # Omit `verified` so ON CONFLICT leaves any existing verified flag intact
+        # (matches the old "DO UPDATE SET numbers,bonus,source,scraped_at").
+        out.append({"game_id": cfg["slug"], "draw_date": date,
+                    "numbers": ",".join(map(str, main)), "bonus": bonus,
+                    "source": "data.ny.gov", "scraped_at": ts})
         stored += 1
-    conn.commit()
+    db.upsert_rows("draws", out, on_conflict="game_id,draw_date")
     dates.sort()
     return stored, (dates[0] if dates else "?"), (dates[-1] if dates else "?")
 
 
-def scrape_digit(conn, cfg) -> tuple[int, str, str]:
+def scrape_digit(cfg) -> tuple[int, str, str]:
     rows = fetch_all(cfg["ds"])
     ts = now_iso()
     stored, dates = 0, []
+    out = []
     for r in rows:
         raw = r.get(cfg["field"])
         if not raw or not str(raw).strip():
@@ -189,15 +166,13 @@ def scrape_digit(conn, cfg) -> tuple[int, str, str]:
         digits = [int(c) for c in s]
         date = r["draw_date"][:10]
         dates.append(date)
-        conn.execute(
-            """INSERT INTO draws (game_id, draw_date, numbers, bonus, source, verified, scraped_at)
-               VALUES (?,?,?,NULL,'data.ny.gov',0,?)
-               ON CONFLICT(game_id, draw_date) DO UPDATE SET
-                 numbers=excluded.numbers, source=excluded.source, scraped_at=excluded.scraped_at""",
-            (cfg["slug"], date, ",".join(map(str, digits)), ts),
-        )
+        # Omit bonus + verified: on insert both take DB defaults (NULL / 0); on
+        # conflict only numbers/source/scraped_at update (matches the old SQL).
+        out.append({"game_id": cfg["slug"], "draw_date": date,
+                    "numbers": ",".join(map(str, digits)),
+                    "source": "data.ny.gov", "scraped_at": ts})
         stored += 1
-    conn.commit()
+    db.upsert_rows("draws", out, on_conflict="game_id,draw_date")
     dates.sort()
     return stored, (dates[0] if dates else "?"), (dates[-1] if dates else "?")
 
@@ -206,31 +181,25 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--game")
     args = ap.parse_args()
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
-    init_db(conn)
-    try:
-        for cfg in US:
-            if args.game and cfg["slug"] != args.game:
-                continue
-            try:
-                n, lo, hi = scrape_game(conn, cfg)
-                print(f"✓ {cfg['slug']}: {n} draws, {lo} → {hi} (data.ny.gov)")
-            except Exception as e:  # noqa: BLE001
-                print(f"✗ {cfg['slug']}: {e}", file=sys.stderr)
-        for cfg in US_DIGIT:
-            if args.game and cfg["slug"] != args.game:
-                continue
-            try:
-                n, lo, hi = scrape_digit(conn, cfg)
-                print(f"✓ {cfg['slug']}: {n} digit draws, {lo} → {hi} (data.ny.gov)")
-            except Exception as e:  # noqa: BLE001
-                print(f"✗ {cfg['slug']}: {e}", file=sys.stderr)
-        if not args.game or args.game == "mega-millions":
-            mega_millions_meta(conn)
-        return 0
-    finally:
-        conn.close()
+    for cfg in US:
+        if args.game and cfg["slug"] != args.game:
+            continue
+        try:
+            n, lo, hi = scrape_game(cfg)
+            print(f"✓ {cfg['slug']}: {n} draws, {lo} → {hi} (data.ny.gov)")
+        except Exception as e:  # noqa: BLE001
+            print(f"✗ {cfg['slug']}: {e}", file=sys.stderr)
+    for cfg in US_DIGIT:
+        if args.game and cfg["slug"] != args.game:
+            continue
+        try:
+            n, lo, hi = scrape_digit(cfg)
+            print(f"✓ {cfg['slug']}: {n} digit draws, {lo} → {hi} (data.ny.gov)")
+        except Exception as e:  # noqa: BLE001
+            print(f"✗ {cfg['slug']}: {e}", file=sys.stderr)
+    if not args.game or args.game == "mega-millions":
+        mega_millions_meta()
+    return 0
 
 
 if __name__ == "__main__":

@@ -4,7 +4,7 @@ audit_site.py — Whole-site correctness audit for Lottizen.
 
 Cross-checks three sources of truth against each other, with NO human eyeballing:
   * config/games.ts   — declared price / pool / draw days / flags per game
-  * data/lottizen.db  — actual scraped draws (coverage + freshness)
+  * Supabase `draws` table — actual scraped draws (coverage + freshness)
   * data/stats/*.json + data/draws/*.json — the numbers the site renders from
   * .next/server/app/**/*.html — the actually-built static pages
 
@@ -38,13 +38,14 @@ from __future__ import annotations
 import html as _html
 import json
 import re
-import sqlite3
 import sys
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import db  # noqa: E402 — shared Supabase data-layer helper (replaces sqlite3)
+
 ROOT = Path(__file__).resolve().parent.parent
-DB_PATH = ROOT / "data" / "lottizen.db"
 STATS_DIR = ROOT / "data" / "stats"
 DRAWS_DIR = ROOT / "data" / "draws"
 CONFIG = ROOT / "config" / "games.ts"
@@ -484,11 +485,10 @@ def report_text() -> int:
 
 
 def db_draw_counts() -> dict:
-    conn = sqlite3.connect(DB_PATH)
-    counts = {r[0]: (r[1], r[2]) for r in conn.execute(
-        "SELECT game_id, COUNT(*), MAX(draw_date) FROM draws GROUP BY game_id")}
-    conn.close()
-    return counts
+    # Per-game count + latest date via the draw_counts view (~20 rows) instead of
+    # pulling all ~95k draws. See supabase/migrations/0003_draw_counts_view.sql.
+    return {r["game_id"]: (r["cnt"], r["max_date"])
+            for r in db.fetch_all("draw_counts")}
 
 
 def local_today() -> date:

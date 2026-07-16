@@ -12,14 +12,16 @@ statistics reflect the current matrix while the archive keeps every draw.
 from __future__ import annotations
 
 import json
-import sqlite3
+import sys
 from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta, timezone
 from itertools import combinations
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import db  # noqa: E402 — shared Supabase data-layer helper (replaces sqlite3)
+
 ROOT = Path(__file__).resolve().parent.parent
-DB_PATH = ROOT / "data" / "lottizen.db"
 DRAWS_DIR = ROOT / "data" / "draws"
 STATS_DIR = ROOT / "data" / "stats"
 HOT_WINDOW = 50
@@ -113,14 +115,12 @@ def compute_digit_stats(slug, positions, draws):
     }
 
 
-def load_draws(conn, slug):
-    conn.row_factory = sqlite3.Row
-    has_b2 = "bonus2" in {c[1] for c in conn.execute("PRAGMA table_info(draws)")}
-    b2 = "bonus2" if has_b2 else "NULL AS bonus2"
-    rows = conn.execute(
-        f"SELECT draw_date, numbers, bonus, {b2}, jackpot FROM draws WHERE game_id=? ORDER BY draw_date ASC",
-        (slug,),
-    ).fetchall()
+def load_draws(slug):
+    # Postgres text-date ordering is lexicographic = chronological (same as the old
+    # "ORDER BY draw_date ASC"); (game_id, draw_date) is unique so there are no ties.
+    rows = db.fetch_all(
+        "draws", "draw_date,numbers,bonus,bonus2,jackpot",
+        filters=[("eq", "game_id", slug)], order="draw_date")
     return [{"date": r["draw_date"], "numbers": [int(x) for x in r["numbers"].split(",") if x],
              "bonus": r["bonus"], "bonus2": r["bonus2"], "jackpot": r["jackpot"]} for r in rows]
 
@@ -273,12 +273,11 @@ def next_scheduled_draw(draw_days, after: str):
     return None
 
 
-def write_draws(conn, slug, draws):
-    m = conn.execute("SELECT next_draw_date, next_jackpot FROM game_meta WHERE game_id=?",
-                     (slug,)).fetchone() if table_has(conn, "game_meta") else None
+def write_draws(slug, draws, meta):
+    # `meta` is this slug's game_meta row dict (or None).
     # Prefer the scraped next-draw date; for games without one (Europe), compute it
     # from the fixed schedule so nextDraw is never null.
-    next_draw = m[0] if (m and m[0]) else None
+    next_draw = meta["next_draw_date"] if (meta and meta.get("next_draw_date")) else None
     if not next_draw and slug in DRAW_DAYS and draws:
         next_draw = next_scheduled_draw(DRAW_DAYS[slug], draws[-1]["date"])
     # Emit bonus2 only for games that use it, so single-bonus draw JSON stays lean.
@@ -290,57 +289,49 @@ def write_draws(conn, slug, draws):
         out_draws.append(row)
     payload = {"game": slug, "dataSince": draws[0]["date"] if draws else None,
                "drawCount": len(draws), "nextDraw": next_draw,
-               "nextJackpot": m[1] if m else None, "generatedAt": now_iso(),
+               "nextJackpot": meta["next_jackpot"] if meta else None, "generatedAt": now_iso(),
                "draws": out_draws}
     (DRAWS_DIR / f"{slug}.json").write_text(json.dumps(payload, indent=2) + "\n")
     return payload
 
 
-def table_has(conn, name):
-    return conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?",
-                        (name,)).fetchone() is not None
-
-
 def main() -> int:
-    if not DB_PATH.exists():
-        print(f"✗ {DB_PATH} not found."); return 1
     DRAWS_DIR.mkdir(parents=True, exist_ok=True); STATS_DIR.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
+    # One fetch of the tiny game_meta table; look up per slug below.
+    meta_by_game = {m["game_id"]: m for m in db.fetch_all("game_meta")}
     latest_all = []
-    try:
-        for slug, cfg in GAMES.items():
-            draws = load_draws(conn, slug)
-            if not draws:
-                continue
-            payload = write_draws(conn, slug, draws)
-            era = [d for d in draws if not cfg.get("stats_from") or d["date"] >= cfg["stats_from"]]
-            stats = compute_stats(slug, cfg, era)
-            stats["allTimeDrawCount"] = len(draws)
-            (STATS_DIR / f"{slug}.json").write_text(json.dumps(stats, indent=2) + "\n")
-            newest = draws[-1]
-            latest_all.append({"slug": slug, "latestDate": newest["date"], "numbers": newest["numbers"],
-                               "bonus": newest["bonus"], "bonus2": newest.get("bonus2"),
-                               "nextDraw": payload["nextDraw"],
-                               "nextJackpot": payload["nextJackpot"], "drawCount": len(draws),
-                               "dataSince": payload["dataSince"]})
-            era_note = f" (stats era {cfg['stats_from']}+: {len(era)})" if cfg.get("stats_from") else ""
-            print(f"✓ {slug}: {len(draws)} draws{era_note}, hot={stats['aggregate']['hot'][:3]}")
+    for slug, cfg in GAMES.items():
+        draws = load_draws(slug)
+        if not draws:
+            continue
+        payload = write_draws(slug, draws, meta_by_game.get(slug))
+        era = [d for d in draws if not cfg.get("stats_from") or d["date"] >= cfg["stats_from"]]
+        stats = compute_stats(slug, cfg, era)
+        stats["allTimeDrawCount"] = len(draws)
+        (STATS_DIR / f"{slug}.json").write_text(json.dumps(stats, indent=2) + "\n")
+        newest = draws[-1]
+        latest_all.append({"slug": slug, "latestDate": newest["date"], "numbers": newest["numbers"],
+                           "bonus": newest["bonus"], "bonus2": newest.get("bonus2"),
+                           "nextDraw": payload["nextDraw"],
+                           "nextJackpot": payload["nextJackpot"], "drawCount": len(draws),
+                           "dataSince": payload["dataSince"]})
+        era_note = f" (stats era {cfg['stats_from']}+: {len(era)})" if cfg.get("stats_from") else ""
+        print(f"✓ {slug}: {len(draws)} draws{era_note}, hot={stats['aggregate']['hot'][:3]}")
 
-        # positional digit games (separate stats shape)
-        for slug, positions in DIGIT_GAMES.items():
-            draws = load_draws(conn, slug)
-            if not draws:
-                continue
-            payload = write_draws(conn, slug, draws)
-            stats = compute_digit_stats(slug, positions, draws)
-            (STATS_DIR / f"{slug}.json").write_text(json.dumps(stats, indent=2) + "\n")
-            newest = draws[-1]
-            latest_all.append({"slug": slug, "latestDate": newest["date"], "numbers": newest["numbers"],
-                               "bonus": None, "nextDraw": payload["nextDraw"], "nextJackpot": None,
-                               "drawCount": len(draws), "dataSince": payload["dataSince"]})
-            print(f"✓ {slug}: {len(draws)} digit draws, hot digits={stats['hotDigits']}")
-    finally:
-        conn.close()
+    # positional digit games (separate stats shape)
+    for slug, positions in DIGIT_GAMES.items():
+        draws = load_draws(slug)
+        if not draws:
+            continue
+        payload = write_draws(slug, draws, meta_by_game.get(slug))
+        stats = compute_digit_stats(slug, positions, draws)
+        (STATS_DIR / f"{slug}.json").write_text(json.dumps(stats, indent=2) + "\n")
+        newest = draws[-1]
+        latest_all.append({"slug": slug, "latestDate": newest["date"], "numbers": newest["numbers"],
+                           "bonus": None, "nextDraw": payload["nextDraw"], "nextJackpot": None,
+                           "drawCount": len(draws), "dataSince": payload["dataSince"]})
+        print(f"✓ {slug}: {len(draws)} digit draws, hot digits={stats['hotDigits']}")
+
     (DRAWS_DIR / "_latest.json").write_text(json.dumps(
         {"generatedAt": now_iso(), "games": latest_all}, indent=2) + "\n")
     print(f"✓ _latest.json ({len(latest_all)} games)")

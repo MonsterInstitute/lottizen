@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import sqlite3
 import ssl
 import sys
 import time
@@ -28,8 +27,10 @@ import urllib.request
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import db  # noqa: E402 — shared Supabase data-layer helper (replaces sqlite3)
+
 ROOT = Path(__file__).resolve().parent.parent
-DB_PATH = ROOT / "data" / "lottizen.db"
 UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
 ENDPOINT = "https://www.playnow.com/services2/lotto/draw/BC49/{date}"
@@ -65,20 +66,22 @@ def fetch(d: str):
             "bonus": int(data["bonusNbr"]) if data.get("bonusNbr") else None}
 
 
-def existing_dates(conn) -> set[str]:
-    return {r[0] for r in conn.execute("SELECT draw_date FROM draws WHERE game_id=?", (GAME,))}
+def existing_dates() -> set[str]:
+    return {r["draw_date"] for r in
+            db.fetch_all("draws", "draw_date", filters=[("eq", "game_id", GAME)])}
 
 
-def upsert(conn, draw):
-    conn.execute(
-        """INSERT INTO draws (game_id, draw_date, numbers, bonus, source, verified, scraped_at)
-           VALUES (?,?,?,?,?,0,?)
-           ON CONFLICT(game_id, draw_date) DO UPDATE SET
-             numbers=excluded.numbers, bonus=excluded.bonus,
-             source=excluded.source, scraped_at=excluded.scraped_at""",
-        (GAME, draw["date"], ",".join(str(x) for x in draw["numbers"]),
-         draw["bonus"], "playnow-history", now_iso()),
-    )
+def draw_row(draw) -> dict:
+    # OMIT `verified`: ON CONFLICT must never reset an existing verified flag;
+    # inserts take the DB default (0).
+    return {
+        "game_id": GAME,
+        "draw_date": draw["date"],
+        "numbers": ",".join(str(x) for x in draw["numbers"]),
+        "bonus": draw["bonus"],
+        "source": "playnow-history",
+        "scraped_at": now_iso(),
+    }
 
 
 def draw_dates(since: date, until: date):
@@ -96,13 +99,13 @@ def main() -> int:
     ap.add_argument("--since", default="1991-09-01")
     args = ap.parse_args()
 
-    conn = sqlite3.connect(DB_PATH)
-    have = existing_dates(conn)
+    have = existing_dates()
     today = date.today()
     todo = [d for d in draw_dates(date.fromisoformat(args.since), today) if d not in have]
     print(f"→ BC/49 backfill: {len(have)} draws already stored; {len(todo)} candidate dates to try "
           f"(delay {args.delay}s). Est ~{len(todo) * args.delay / 60:.0f} min.", flush=True)
 
+    rows: list[dict] = []
     added = misses = 0
     for i, d in enumerate(todo, 1):
         try:
@@ -112,18 +115,20 @@ def main() -> int:
             time.sleep(args.delay * 3)
             continue
         if draw:
-            upsert(conn, draw)
+            rows.append(draw_row(draw))
             added += 1
         else:
             misses += 1
         if i % 100 == 0:
-            conn.commit()
             print(f"  …{i}/{len(todo)} tried · {added} stored · {misses} empty", flush=True)
         time.sleep(args.delay)
-    conn.commit()
-    cnt, lo, hi = conn.execute(
-        "SELECT COUNT(*), MIN(draw_date), MAX(draw_date) FROM draws WHERE game_id=?", (GAME,)).fetchone()
-    conn.close()
+    db.upsert_rows("draws", rows, on_conflict="game_id,draw_date")
+
+    stored = db.fetch_all("draws", "draw_date", filters=[("eq", "game_id", GAME)])
+    dates = [r["draw_date"] for r in stored]
+    cnt = len(dates)
+    lo = min(dates) if dates else None
+    hi = max(dates) if dates else None
     print(f"✓ BC/49 backfill done: +{added} this run · {cnt} total · {lo} → {hi}", flush=True)
     return 0
 

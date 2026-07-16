@@ -23,7 +23,6 @@ from __future__ import annotations
 
 import argparse
 import re
-import sqlite3
 import ssl
 import sys
 import time
@@ -31,8 +30,10 @@ import urllib.request
 from datetime import date, datetime, timezone
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import db  # noqa: E402 — shared Supabase data-layer helper (replaces sqlite3)
+
 ROOT = Path(__file__).resolve().parent.parent
-DB_PATH = ROOT / "data" / "lottizen.db"
 UA = ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) "
       "Chrome/126.0.0.0 Safari/537.36")
 URL = "https://ca.lottonumbers.com/{path}/numbers/{year}"
@@ -101,16 +102,23 @@ def parse_rows(html: str, pick: int, mx: int) -> list[dict]:
     return out
 
 
-def upsert(conn, game, d):
-    conn.execute(
-        """INSERT INTO draws (game_id, draw_date, numbers, bonus, source, verified, scraped_at)
-           VALUES (?,?,?,?,?,0,?)
-           ON CONFLICT(game_id, draw_date) DO UPDATE SET
-             numbers=excluded.numbers, bonus=excluded.bonus,
-             source=excluded.source, scraped_at=excluded.scraped_at""",
-        (game, d["date"], ",".join(str(x) for x in d["numbers"]), d["bonus"],
-         "lottonumbers", now_iso()),
-    )
+def upsert(game, rows):
+    # OMIT "verified": on conflict it is left unchanged (never resets an existing
+    # verified flag); on insert it takes the DB default (0).
+    now = now_iso()
+    payload = [
+        {
+            "game_id": game,
+            "draw_date": d["date"],
+            "numbers": ",".join(str(x) for x in d["numbers"]),
+            "bonus": d["bonus"],
+            "source": "lottonumbers",
+            "scraped_at": now,
+        }
+        for d in rows
+    ]
+    if payload:
+        db.upsert_rows("draws", payload, on_conflict="game_id,draw_date")
 
 
 def main() -> int:
@@ -118,7 +126,6 @@ def main() -> int:
     ap.add_argument("--game", help="restrict to one slug")
     ap.add_argument("--delay", type=float, default=1.5)
     args = ap.parse_args()
-    conn = sqlite3.connect(DB_PATH)
     this_year = date.today().year
     games = {k: v for k, v in GAMES.items() if not args.game or k == args.game}
     for slug, (path, pick, mx, first) in games.items():
@@ -130,17 +137,16 @@ def main() -> int:
                 print(f"    {year}: 404", flush=True)
                 continue
             rows = parse_rows(html, pick, mx)
-            for d in rows:
-                upsert(conn, slug, d)
+            upsert(slug, rows)
             total += len(rows)
             print(f"    {year}: {len(rows)} draws", flush=True)
-            conn.commit()
             time.sleep(args.delay)
-        cnt, lo, hi = conn.execute(
-            "SELECT COUNT(*), MIN(draw_date), MAX(draw_date) FROM draws WHERE game_id=?",
-            (slug,)).fetchone()
+        dates = [r["draw_date"] for r in
+                 db.fetch_all("draws", "draw_date", filters=[("eq", "game_id", slug)])]
+        cnt = len(dates)
+        lo = min(dates) if dates else None
+        hi = max(dates) if dates else None
         print(f"✓ {slug}: +{total} parsed · {cnt} total · {lo} → {hi}\n", flush=True)
-    conn.close()
     return 0
 
 

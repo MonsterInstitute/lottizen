@@ -1,7 +1,7 @@
 name: Data freshness watchdog
 
 # The real safety net for stale data. Runs a few hours AFTER the data workflows
-# and judges freshness by what is *actually* in the committed DB — it never
+# and judges freshness from what is actually in Supabase — it never
 # trusts a scrape exit code, so it catches every failure mode uniformly: a job
 # that never acquired a runner, a scrape that silently fetched nothing, or a
 # push that didn't land. For any live game whose newest draw is behind its own
@@ -43,6 +43,11 @@ concurrency:
 jobs:
   watch:
     runs-on: ubuntu-latest
+    env:
+      # Freshness is now judged from Supabase (draw_counts view) and the deployed
+      # site, not a committed DB. check_deploy_freshness.py reads site_json too.
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
     steps:
       - uses: actions/checkout@v4
 
@@ -50,7 +55,12 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Compute freshness from committed data
+      - name: Install Supabase client
+        # Lightweight: the watchdog only reads Supabase (no scraping/build), so it
+        # needs supabase-py + certifi, not the full scraper toolchain.
+        run: python -m pip install --upgrade pip supabase certifi
+
+      - name: Compute freshness from Supabase
         id: fresh
         env:
           SELFTEST: ${{ github.event.inputs.selftest == 'true' && '--selftest' || '' }}

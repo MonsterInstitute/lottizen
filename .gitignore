@@ -20,8 +20,11 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# env — old Lovable/Supabase keys are intentionally not carried over
+# env — old Lovable/Supabase keys are intentionally not carried over.
+# `.env.*` catches migration/service-key files (.env.migrate) that `.env*.local`
+# would miss — never let a connection string or key become committable.
 .env
+.env.*
 .env*.local
 
 # python
@@ -30,9 +33,12 @@ __pycache__/
 .venv/
 venv/
 
-# scraper raw dumps (SQLite is committed so the site always has data)
+# Generated data layer — everything under data/ is produced at build time from
+# Supabase (scripts/prefetch_supabase.mjs pulls the site_json table). Nothing here
+# is committed: the repo is public and the data lives in Supabase. See
+# supabase/migrations/, scripts/db.py, scripts/publish_site_json.py.
 scripts/.cache/
-/data/raw/
+/data/
 
 # vercel
 .vercel

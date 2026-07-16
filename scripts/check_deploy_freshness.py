@@ -27,13 +27,20 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
-RANKINGS = Path(__file__).resolve().parent.parent / "data" / "rankings.json"
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import db  # noqa: E402 — shared Supabase data-layer helper
 
 
 def repo_generated_at() -> datetime:
-    """The generatedAt the deployed site *should* be showing — data/rankings.json
-    is what the sitemap's <lastmod> is stamped from at build time."""
-    d = json.loads(RANKINGS.read_text())
+    """The generatedAt the deployed site *should* be showing. Post-Supabase the
+    rankings JSON isn't committed — it's published to the site_json table, and the
+    sitemap's <lastmod> is stamped from rankings.generatedAt at build time. So the
+    latest published rankings.generatedAt is the reference the live site must match."""
+    rows = db.fetch_all("site_json", "content",
+                        filters=[("eq", "path", "rankings.json")])
+    if not rows:
+        raise RuntimeError("rankings.json not in site_json (publish hasn't run yet)")
+    d = json.loads(rows[0]["content"])
     return datetime.fromisoformat(d["generatedAt"].replace("Z", "+00:00"))
 
 

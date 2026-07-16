@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-calculate_rankings.py — Read scraped instant-game data from data/lottizen.db,
+calculate_rankings.py — Read scraped instant-game data from Supabase,
 compute each game's Value Score, and write data/rankings.json for the Next.js
 build to read at build time (SSG).
 
@@ -39,12 +39,14 @@ driven entirely by `retention`, i.e. by OLG's own counts. See /methodology.
 from __future__ import annotations
 
 import json
-import sqlite3
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import db  # noqa: E402 — shared Supabase data-layer helper (replaces sqlite3)
+
 ROOT = Path(__file__).resolve().parent.parent
-DB_PATH = ROOT / "data" / "lottizen.db"
 OUT_PATH = ROOT / "data" / "rankings.json"
 
 NOMINAL_RTP = 0.62  # documented display scale; does not affect rank order
@@ -54,18 +56,21 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
-def load_games(conn: sqlite3.Connection) -> tuple[list[dict], str]:
-    conn.row_factory = sqlite3.Row
-    rows = conn.execute("SELECT * FROM games").fetchall()
+def load_games() -> tuple[list[dict], str]:
+    rows = db.fetch_all("games")
+    all_tiers = db.fetch_all(
+        "prize_tiers", "id,game_number,amount,label,total,remaining,is_top")
+    tiers_by_game: dict[str, list[dict]] = {}
+    for t in all_tiers:
+        tiers_by_game.setdefault(t["game_number"], []).append(t)
     sources = set()
     games: list[dict] = []
     for g in rows:
         sources.add(g["source"])
-        tiers = conn.execute(
-            "SELECT amount,label,total,remaining,is_top FROM prize_tiers "
-            "WHERE game_number=? ORDER BY amount DESC",
-            (g["game_number"],),
-        ).fetchall()
+        # Match SQLite's "ORDER BY amount DESC" with a stable id tiebreak so
+        # equal-amount tiers keep their original insertion order.
+        tiers = sorted(tiers_by_game.get(g["game_number"], []),
+                       key=lambda t: (-t["amount"], t["id"]))
         games.append({
             "slug": g["slug"],
             "name": g["name"],
@@ -121,15 +126,7 @@ def compute(game: dict) -> dict | None:
 
 
 def main() -> int:
-    if not DB_PATH.exists():
-        print(f"✗ {DB_PATH} not found. Run scripts/scrape_olg.py first.")
-        return 1
-
-    conn = sqlite3.connect(DB_PATH)
-    try:
-        games, source = load_games(conn)
-    finally:
-        conn.close()
+    games, source = load_games()
 
     ranked = [g for g in (compute(g) for g in games) if g]
     if not ranked:

@@ -41,7 +41,6 @@ from __future__ import annotations
 
 import argparse
 import re
-import sqlite3
 import ssl
 import sys
 import time
@@ -49,8 +48,10 @@ import urllib.request
 from datetime import date, datetime, timezone
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import db  # noqa: E402 — shared Supabase data-layer helper (replaces sqlite3)
+
 ROOT = Path(__file__).resolve().parent.parent
-DB_PATH = ROOT / "data" / "lottizen.db"
 CONFLICTS = ROOT / "data" / "conflicts.log"
 UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
@@ -229,18 +230,13 @@ def source_plan(slug: str, year: int) -> list[tuple]:
 # --------------------------------------------------------------------------
 # DB
 # --------------------------------------------------------------------------
-def ensure_schema(conn):
-    cols = {r[1] for r in conn.execute("PRAGMA table_info(draws)")}
-    if "bonus2" not in cols:
-        conn.execute("ALTER TABLE draws ADD COLUMN bonus2 INTEGER")
-        conn.commit()
-        print("  + added draws.bonus2 column")
-
-
-def existing(conn, slug) -> dict[str, tuple]:
-    """date -> (numbers, bonus, bonus2, source, verified)."""
-    return {r[0]: (r[1], r[2], r[3], r[4], r[5]) for r in conn.execute(
-        "SELECT draw_date, numbers, bonus, bonus2, source, verified FROM draws WHERE game_id=?", (slug,))}
+def existing(slug) -> dict[str, tuple]:
+    """date -> (numbers, bonus, bonus2, source, verified). Fetched once per game;
+    run_game keeps the returned map in sync as it writes, so reconciliation still
+    sees rows inserted earlier in the same run (as the old per-call SELECT did)."""
+    return {r["draw_date"]: (r["numbers"], r["bonus"], r["bonus2"], r["source"], r["verified"])
+            for r in db.fetch_all("draws", "draw_date,numbers,bonus,bonus2,source,verified",
+                                  filters=[("eq", "game_id", slug)])}
 
 
 def log_conflict(slug, dprev, dnew):
@@ -250,33 +246,39 @@ def log_conflict(slug, dprev, dnew):
                 f"{dnew['source']}={','.join(map(str,dnew['main']))}+{'/'.join(map(str,dnew['secs']))}\n")
 
 
-def upsert(conn, slug, d):
+def upsert(slug, d, have_map):
     """Reconcile one reading against what's stored: keep higher-priority source,
-    flag verified when a second independent source agrees, log real conflicts."""
-    have = existing(conn, slug).get(d["date"])
+    flag verified when a second independent source agrees, log real conflicts.
+    `have_map` is the in-memory {date: (...)} cache; kept in sync after each write."""
+    have = have_map.get(d["date"])
     b1 = d["secs"][0] if d["secs"] else None
     b2 = d["secs"][1] if len(d["secs"]) > 1 else None
     nums = ",".join(str(x) for x in d["main"])
     if have is None:
-        conn.execute(
-            "INSERT INTO draws (game_id, draw_date, numbers, bonus, bonus2, source, verified, scraped_at) "
-            "VALUES (?,?,?,?,?,?,0,?)",
-            (slug, d["date"], nums, b1, b2, d["source"], now_iso()))
+        db.upsert_rows("draws", [{
+            "game_id": slug, "draw_date": d["date"], "numbers": nums,
+            "bonus": b1, "bonus2": b2, "source": d["source"],
+            "verified": 0, "scraped_at": now_iso()}],
+            on_conflict="game_id,draw_date")
+        have_map[d["date"]] = (nums, b1, b2, d["source"], 0)
         return "new"
     prev_nums, prev_b1, prev_b2, prev_src, prev_ver = have
     agree = (prev_nums == nums and prev_b1 == b1 and prev_b2 == b2)
     if agree:
         if prev_src != d["source"] and not prev_ver:  # confirmed by a second source
-            conn.execute("UPDATE draws SET verified=1 WHERE game_id=? AND draw_date=?", (slug, d["date"]))
+            db.update_row("draws", {"verified": 1},
+                          {"game_id": slug, "draw_date": d["date"]})
+            have_map[d["date"]] = (prev_nums, prev_b1, prev_b2, prev_src, 1)
             return "verified"
         return "dup"
     # disagreement — log it, keep the higher-priority reading
     log_conflict(slug, have, d)
     if SOURCE_PRIORITY.get(d["source"], 0) > SOURCE_PRIORITY.get(prev_src, 0):
-        conn.execute(
-            "UPDATE draws SET numbers=?, bonus=?, bonus2=?, source=?, verified=0, scraped_at=? "
-            "WHERE game_id=? AND draw_date=?",
-            (nums, b1, b2, d["source"], now_iso(), slug, d["date"]))
+        db.update_row("draws",
+                      {"numbers": nums, "bonus": b1, "bonus2": b2,
+                       "source": d["source"], "verified": 0, "scraped_at": now_iso()},
+                      {"game_id": slug, "draw_date": d["date"]})
+        have_map[d["date"]] = (nums, b1, b2, d["source"], 0)
         return "override"
     return "conflict"
 
@@ -284,8 +286,9 @@ def upsert(conn, slug, d):
 # --------------------------------------------------------------------------
 # Driver
 # --------------------------------------------------------------------------
-def run_game(conn, slug, cfg, years, delay):
+def run_game(slug, cfg, years, delay):
     tally = {"new": 0, "verified": 0, "dup": 0, "override": 0, "conflict": 0}
+    have_map = existing(slug)  # fetch once; upsert keeps it in sync as it writes
     for year in years:
         for src, url, parser, extra in source_plan(slug, year):
             html = fetch(url)
@@ -294,8 +297,7 @@ def run_game(conn, slug, cfg, years, delay):
             rows = parser(html, cfg, extra) if extra is not None else parser(html, cfg)
             for r in rows:
                 r["source"] = src
-                tally[upsert(conn, slug, r)] += 1
-            conn.commit()
+                tally[upsert(slug, r, have_map)] += 1
             print(f"    {year} [{src}]: {len(rows)} parsed", flush=True)
             time.sleep(delay)
     # Freshness + official cross-check: national-lottery.co.uk XML (latest draw only).
@@ -305,12 +307,13 @@ def run_game(conn, slug, cfg, years, delay):
         if xml:
             for r in parse_nl_xml(xml, cfg):
                 r["source"] = "nl-xml"
-                tally[upsert(conn, slug, r)] += 1
-            conn.commit()
-    conn.commit()
-    cnt, lo, hi, ver = conn.execute(
-        "SELECT COUNT(*), MIN(draw_date), MAX(draw_date), SUM(verified) FROM draws WHERE game_id=?",
-        (slug,)).fetchone()
+                tally[upsert(slug, r, have_map)] += 1
+    # Summary from the in-memory map (kept current with every write above).
+    dates = list(have_map)
+    cnt = len(dates)
+    lo = min(dates) if dates else None
+    hi = max(dates) if dates else None
+    ver = sum(v[4] for v in have_map.values())
     print(f"✓ {slug}: {cnt} draws · {lo} → {hi} · {ver or 0} cross-verified · "
           f"(+{tally['new']} new, {tally['verified']} newly-verified, "
           f"{tally['override']} overrides, {tally['conflict']} conflicts)\n", flush=True)
@@ -323,15 +326,13 @@ def main() -> int:
     ap.add_argument("--delay", type=float, default=1.0)
     args = ap.parse_args()
 
-    conn = sqlite3.connect(DB_PATH)
-    ensure_schema(conn)
+    CONFLICTS.parent.mkdir(parents=True, exist_ok=True)
     this_year = date.today().year
     games = {k: v for k, v in GAMES.items() if not args.game or k == args.game}
     for slug, cfg in games.items():
         years = range(cfg["since"], this_year + 1) if args.backfill else [this_year]
         print(f"→ {slug} ({'backfill ' + str(cfg['since']) if args.backfill else 'latest'}–{this_year})", flush=True)
-        run_game(conn, slug, cfg, years, args.delay)
-    conn.close()
+        run_game(slug, cfg, years, args.delay)
     return 0
 
 
