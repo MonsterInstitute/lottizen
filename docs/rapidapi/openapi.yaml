@@ -1,0 +1,429 @@
+openapi: 3.0.3
+info:
+  title: Lottizen Data API
+  version: "1.0.0"
+  description: >-
+    Lottery data for Canada, the US and Europe: winning numbers, 40+ years of
+    draw history, hot/cold/overdue number statistics, and the only Ontario
+    scratch-ticket remaining-prize tracker in Canada. Every dataset refreshes
+    daily from official lottery-operator sources. Japan coverage is coming
+    soon.
+  contact:
+    name: Lottizen
+    url: https://lottizen.com/api
+  license:
+    name: Proprietary — see https://lottizen.com/methodology
+servers:
+  - url: https://lottizen.com/api/v1
+    description: Production (subscribe via RapidAPI; requests are proxied and billed there)
+tags:
+  - name: Games
+    description: Draw-lottery games — Canada, US, Europe.
+  - name: Scratch — Ontario
+    description: >-
+      Exclusive: Ontario (OLG) scratch tickets ranked by remaining prize
+      value. No other lottery API tracks this.
+
+paths:
+  /games:
+    get:
+      operationId: listGames
+      summary: List all games
+      description: >-
+        Every live, data-backed draw-lottery game across Canada, the US and
+        Europe — country, agency, number-pool rules, ticket price, and draw
+        days.
+      tags: [Games]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Game" }
+                  meta:
+                    type: object
+                    properties:
+                      total: { type: integer, example: 19 }
+              example:
+                data:
+                  - slug: lotto-max
+                    name: Lotto Max
+                    country: CA
+                    countryName: Canada
+                    agency: National
+                    operator: the Interprovincial Lottery Corporation
+                    region: Canada-wide
+                    format: lotto
+                    pick: 7
+                    max: 52
+                    hasBonus: true
+                    bonusLabel: Bonus
+                    bonusMax: 52
+                    bonusCount: 1
+                    drawDays: [Tuesday, Friday]
+                    price: 6
+                    currency: CAD
+                    blurb: >-
+                      Canada's biggest jackpot game — pick 7 of 52, with
+                      jackpots to $90M plus Max Millions.
+                    progressive: true
+                    drawCount: 753
+                    dataSince: "2019-05-14"
+                meta: { total: 19 }
+
+  /games/{slug}:
+    get:
+      operationId: getGame
+      summary: Get a single game
+      tags: [Games]
+      parameters:
+        - $ref: "#/components/parameters/GameSlug"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Game" }
+                  meta: { nullable: true }
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /games/{slug}/latest:
+    get:
+      operationId: getLatestDraw
+      summary: Latest draw
+      description: The most recent draw, plus the next scheduled draw date and jackpot estimate where available.
+      tags: [Games]
+      parameters:
+        - $ref: "#/components/parameters/GameSlug"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/LatestDraw" }
+                  meta: { nullable: true }
+              example:
+                data:
+                  slug: lotto-max
+                  latestDate: "2026-08-04"
+                  numbers: [1, 13, 24, 34, 46, 50, 51]
+                  bonus: 36
+                  bonus2: null
+                  nextDraw: "2026-08-07"
+                  nextJackpot: 25000000
+                  drawCount: 1255
+                  dataSince: "2009-09-25"
+                meta: null
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /games/{slug}/draws:
+    get:
+      operationId: listDraws
+      summary: Draw history
+      description: >-
+        Historical draws, newest first. Some games go back over 40 years —
+        Lotto 6/49 draw history starts 1982-06-12.
+      tags: [Games]
+      parameters:
+        - $ref: "#/components/parameters/GameSlug"
+        - name: from
+          in: query
+          description: Inclusive start date, YYYY-MM-DD.
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          description: Inclusive end date, YYYY-MM-DD.
+          schema: { type: string, format: date }
+        - name: limit
+          in: query
+          description: Results per page.
+          schema: { type: integer, default: 50, minimum: 1, maximum: 500 }
+        - name: offset
+          in: query
+          description: Pagination offset.
+          schema: { type: integer, default: 0, minimum: 0 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Draw" }
+                  meta:
+                    type: object
+                    properties:
+                      game: { type: string, example: lotto-max }
+                      from: { type: string, nullable: true, format: date }
+                      to: { type: string, nullable: true, format: date }
+                      limit: { type: integer, example: 5 }
+                      offset: { type: integer, example: 0 }
+                      total: { type: integer, example: 1255 }
+                      hasMore: { type: boolean, example: true }
+        "400":
+          description: Invalid `from`/`to` query parameter.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /games/{slug}/statistics:
+    get:
+      operationId: getStatistics
+      summary: Number statistics
+      description: >-
+        Frequency, hot/cold classification, current & max gap (overdue
+        tracking), common partner pairs, and aggregate breakdowns (odd/even,
+        high/low, sum distribution) for a game's full number pool.
+      tags: [Games]
+      parameters:
+        - $ref: "#/components/parameters/GameSlug"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/Statistics" }
+                  meta: { nullable: true }
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /scratch/ontario:
+    get:
+      operationId: listScratchOntario
+      summary: Ontario scratch tickets — ranked
+      description: >-
+        Every current OLG scratch ticket ranked by Value Score, with the full
+        prize-tier breakdown and how many of each prize are still unclaimed.
+        Exclusive to Lottizen — no other lottery API tracks remaining
+        scratch-ticket prizes in Canada.
+      tags: [Scratch — Ontario]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/ScratchGame" }
+                  meta:
+                    type: object
+                    properties:
+                      generatedAt: { type: string, format: date-time }
+                      source: { type: string, enum: [olg-live, sample] }
+                      currency: { type: string, example: CAD }
+                      province: { type: string, example: ON }
+                      gameCount: { type: integer, example: 50 }
+
+  /scratch/ontario/{slug}:
+    get:
+      operationId: getScratchOntario
+      summary: Ontario scratch ticket detail
+      tags: [Scratch — Ontario]
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          description: Scratch ticket slug, as returned by GET /scratch/ontario.
+          schema: { type: string, example: bingo-multip }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/ScratchGame" }
+                  meta: { nullable: true }
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+components:
+  parameters:
+    GameSlug:
+      name: slug
+      in: path
+      required: true
+      description: Game slug, as returned by GET /games.
+      schema: { type: string, example: lotto-max }
+
+  responses:
+    NotFound:
+      description: No matching game found.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+          example:
+            error:
+              code: GAME_NOT_FOUND
+              message: "No live game found for slug 'foo'."
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code: { type: string, example: GAME_NOT_FOUND }
+            message: { type: string }
+
+    Game:
+      type: object
+      properties:
+        slug: { type: string, example: lotto-max }
+        name: { type: string, example: Lotto Max }
+        country: { type: string, enum: [CA, US, EU] }
+        countryName: { type: string, example: Canada }
+        agency: { type: string, example: National }
+        operator: { type: string, example: the Interprovincial Lottery Corporation }
+        region: { type: string, example: Canada-wide }
+        format: { type: string, enum: [lotto, keno, digit, special] }
+        pick: { type: integer, example: 7 }
+        max: { type: integer, example: 52 }
+        hasBonus: { type: boolean }
+        bonusLabel: { type: string, nullable: true, example: Bonus }
+        bonusMax: { type: integer, nullable: true, example: 52 }
+        bonusCount: { type: integer, example: 1 }
+        drawDays:
+          type: array
+          items: { type: string }
+          example: [Tuesday, Friday]
+        price: { type: number, example: 6 }
+        currency: { type: string, enum: [CAD, USD, EUR, GBP] }
+        blurb: { type: string }
+        progressive: { type: boolean }
+        drawCount: { type: integer, example: 753 }
+        dataSince: { type: string, format: date, nullable: true }
+
+    Draw:
+      type: object
+      properties:
+        date: { type: string, format: date }
+        numbers:
+          type: array
+          items: { type: integer }
+        bonus: { type: integer, nullable: true }
+        bonus2: { type: integer, nullable: true }
+        jackpot: { type: number, nullable: true }
+
+    LatestDraw:
+      type: object
+      properties:
+        slug: { type: string }
+        latestDate: { type: string, format: date }
+        numbers:
+          type: array
+          items: { type: integer }
+        bonus: { type: integer, nullable: true }
+        bonus2: { type: integer, nullable: true }
+        nextDraw: { type: string, format: date, nullable: true }
+        nextJackpot: { type: number, nullable: true }
+        drawCount: { type: integer }
+        dataSince: { type: string, format: date, nullable: true }
+
+    NumberStat:
+      type: object
+      properties:
+        n: { type: integer }
+        count: { type: integer }
+        frequency: { type: number }
+        lastDate: { type: string, format: date, nullable: true }
+        drawsAgo: { type: integer }
+        currentGap: { type: integer }
+        maxGap: { type: integer }
+        hot: { type: boolean }
+        cold: { type: boolean }
+        newSince: { type: string, format: date }
+        partners:
+          type: array
+          items:
+            type: object
+            properties:
+              n: { type: integer }
+              count: { type: integer }
+
+    Statistics:
+      type: object
+      description: >-
+        Digit games (Pick 3/4, Numbers, Win 4) return a different shape —
+        `format: "digit"` with `positional`/`overall` digit distributions
+        instead of `numbers`/`aggregate`.
+      properties:
+        game: { type: string }
+        dataSince: { type: string, format: date, nullable: true }
+        drawCount: { type: integer }
+        allTimeDrawCount: { type: integer }
+        statsFrom: { type: string, format: date, nullable: true }
+        pick: { type: integer }
+        max: { type: integer }
+        generatedAt: { type: string, format: date-time }
+        numbers:
+          type: array
+          items: { $ref: "#/components/schemas/NumberStat" }
+        aggregate:
+          type: object
+          description: hot/cold lists, mostFrequent/leastFrequent pairs, oddEven, highLow, sum distribution, consecutive-run rate, topPairs, frequency/window charts.
+          additionalProperties: true
+        poolAdded:
+          type: object
+          nullable: true
+          description: Set only for games with a mid-era pool expansion (e.g. Lotto Max 51/52).
+          properties:
+            since: { type: string, format: date }
+            numbers: { type: array, items: { type: integer } }
+
+    PrizeTier:
+      type: object
+      properties:
+        amount: { type: number, example: 250000 }
+        label: { type: string, example: "$250,000.00" }
+        total: { type: integer, example: 5 }
+        remaining: { type: integer, example: 4 }
+        isTop: { type: boolean }
+
+    ScratchGame:
+      type: object
+      properties:
+        slug: { type: string, example: bingo-multip }
+        name: { type: string, example: Bingo Multip }
+        gameNumber: { type: string, example: "3088" }
+        price: { type: number, example: 10 }
+        prizeTiers:
+          type: array
+          items: { $ref: "#/components/schemas/PrizeTier" }
+        topPrizeLabel: { type: string }
+        topPrizeAmount: { type: number }
+        topPrizesTotal: { type: integer }
+        topPrizesRemaining: { type: integer }
+        prizeTierCount: { type: integer }
+        remainingPrizePool: { type: number, description: "Σ (remaining × amount) across valued tiers, CAD." }
+        printedPrizePool: { type: number, description: "Σ (total × amount) across valued tiers, CAD (launch pool)." }
+        valueRetention: { type: number, description: "(remaining_pool/printed_pool) ÷ (count_remaining/count_total); >1 = good value left." }
+        valueScore: { type: number, description: "Value Score = 0.62 × valueRetention × 100. Higher = more prize value left per dollar." }
+        rank: { type: integer }
+        scrapedAt: { type: string, format: date-time }

@@ -51,6 +51,9 @@ export function Footer() {
                 <Link href="/scratch">Scratch Value Tracker</Link>
               </li>
               <li>
+                <Link href="/api">Data API</Link>
+              </li>
+              <li>
                 <Link href="/methodology">Scratch Methodology</Link>
               </li>
               <li>

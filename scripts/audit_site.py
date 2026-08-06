@@ -28,17 +28,34 @@ the DB as the source of truth rather than trusting any scrape exit code. Stale
 data drives a GitHub issue via the watchdog workflow, never a deploy block —
 because a stale morning is exactly when we still want to push last-good data.
 
+The /api docs page (app/api/page.tsx) gets the same build-completeness
+treatment as /guides: audit_api_docs() checks it exists, renders real content,
+and documents every v1 endpoint — blocking, part of the main deploy gate.
+The v1 endpoints themselves (app/api/v1/**/route.ts) are request-time route
+handlers, not build output, so they can't be checked from .next/server/app —
+`--api-health` instead curls a live site (local dev/start or production) and
+reports pass/fail per endpoint. Like --freshness, it's NON-blocking: a
+reachability blip shouldn't fail the build, it should just be visible.
+
 Usage:  python3 scripts/audit_site.py              (human table, deploy gate)
         python3 scripts/audit_site.py --json        (machine-readable)
         python3 scripts/audit_site.py --freshness   (freshness only, non-blocking)
         python3 scripts/audit_site.py --freshness --json
+        python3 scripts/audit_site.py --api-health                  (checks https://lottizen.com)
+        python3 scripts/audit_site.py --api-health --site http://localhost:3000
+        python3 scripts/audit_site.py --api-health --json
 """
 from __future__ import annotations
 
 import html as _html
 import json
+import os
 import re
+import ssl
 import sys
+import time
+import urllib.error
+import urllib.request
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -51,6 +68,11 @@ DRAWS_DIR = ROOT / "data" / "draws"
 CONFIG = ROOT / "config" / "games.ts"
 GUIDES_CONTENT = ROOT / "content" / "guides"
 APP = ROOT / ".next" / "server" / "app"
+API_DOCS_PAGE = APP / "api.html"
+API_ENDPOINT_ANCHORS = [
+    "get-games", "get-game", "get-latest", "get-draws",
+    "get-statistics", "get-scratch-ontario", "get-scratch-ontario-slug",
+]
 
 CRITICAL, HIGH, MEDIUM, LOW = "CRITICAL", "HIGH", "MEDIUM", "LOW"
 SEV_ORDER = {CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3}
@@ -399,6 +421,7 @@ def audit():
             add("(home)", "/", f"Malformed compact money value '{bad}'.", MEDIUM)
 
     audit_guides()
+    audit_api_docs()
 
 
 # --------------------------------------------------------------------------
@@ -453,6 +476,133 @@ def audit_guides() -> None:
         for tok in ("undefined", "NaN"):
             if re.search(rf"(^|\s)\b{tok}\b", txt):
                 add(f"guide:{slug}", "guides", f"Stray '{tok}' rendered in guide text.", HIGH)
+
+
+# --------------------------------------------------------------------------
+# /api developer docs page (app/api/page.tsx)
+# --------------------------------------------------------------------------
+def audit_api_docs() -> None:
+    """Completeness of the /api docs page in the build: the page exists,
+    renders substantial content, documents every v1 endpoint (by anchor id),
+    and links out to RapidAPI. Mirrors audit_guides()'s pattern for a single
+    hand-written page rather than a content-driven collection.
+
+    Note: "null" is deliberately NOT flagged as a stray token here (unlike
+    the per-game DISPLAY ANOMALIES check) — the page's response-envelope and
+    JSON examples legitimately render the literal text `null` (e.g.
+    `"meta": null`). audit_guides() makes the same exception for prose."""
+    if not API_DOCS_PAGE.exists():
+        add("(api-docs)", "page", "/api docs page missing from build output.", HIGH)
+        return
+    raw = API_DOCS_PAGE.read_text(errors="replace")
+    txt = page_text(API_DOCS_PAGE)
+    if len(txt) < 1500:
+        add("(api-docs)", "page", f"/api renders only {len(txt)} chars of text — build/content issue.", HIGH)
+    missing = [a for a in API_ENDPOINT_ANCHORS if f'id="{a}"' not in raw]
+    if missing:
+        add("(api-docs)", "page",
+            f"/api doesn't document {len(missing)} endpoint(s): {', '.join(missing)}.", HIGH)
+    if "RapidAPI" not in txt:
+        add("(api-docs)", "page", "/api doesn't mention RapidAPI (missing CTA/auth section).", MEDIUM)
+    for tok in ("undefined", "NaN"):
+        if re.search(rf"(^|\s)\b{tok}\b", txt):
+            add("(api-docs)", "page", f"Stray '{tok}' rendered on /api.", HIGH)
+
+
+# --------------------------------------------------------------------------
+# Live endpoint health (app/api/v1/**) — NOT build output, so it curls a
+# running site (local dev/start, or production) instead of reading .next/.
+# --------------------------------------------------------------------------
+def _api_get(site: str, path: str) -> tuple[int | None, dict | None, str | None, int | None]:
+    """GET site+path, parsed as JSON. Returns (status, body, error, elapsed_ms)."""
+    url = site.rstrip("/") + path
+    req = urllib.request.Request(url, headers={"User-Agent": "lottizen-api-health/1.0"})
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    t0 = time.time()
+    try:
+        with urllib.request.urlopen(req, timeout=15, context=ctx) as r:
+            status, raw = r.status, r.read()
+        return status, json.loads(raw.decode("utf-8", "replace")), None, round((time.time() - t0) * 1000)
+    except urllib.error.HTTPError as e:
+        ms = round((time.time() - t0) * 1000)
+        try:
+            body = json.loads(e.read().decode("utf-8", "replace"))
+        except Exception:
+            body = None
+        return e.code, body, None, ms
+    except Exception as e:  # network, DNS, TLS, timeout, bad JSON
+        return None, None, f"{type(e).__name__}: {e}", round((time.time() - t0) * 1000)
+
+
+def api_health_main() -> int:
+    """Curl every v1 endpoint against a live site and report pass/fail. Slugs
+    for the per-game endpoints are taken from the live /games and
+    /scratch/ontario responses themselves (not hardcoded) so this doesn't
+    silently go stale if the game lineup changes. Always exits 0 — like
+    --freshness, a reachability blip should be visible, not block CI."""
+    site = os.environ.get("API_HEALTH_SITE", "https://lottizen.com")
+    if "--site" in sys.argv:
+        site = sys.argv[sys.argv.index("--site") + 1]
+    as_json = "--json" in sys.argv
+
+    checks: list[dict] = []
+
+    def record(path: str, status, body, error, ms, expect_key="data") -> dict | None:
+        ok = error is None and status == 200 and isinstance(body, dict) and expect_key in body
+        checks.append({"path": path, "status": status, "ok": ok, "ms": ms, "error": error})
+        return body
+
+    body = record("/api/v1/games", *_api_get(site, "/api/v1/games"))
+    game_slug = body["data"][0]["slug"] if body and body.get("data") else None
+    if game_slug:
+        for path in (
+            f"/api/v1/games/{game_slug}",
+            f"/api/v1/games/{game_slug}/latest",
+            f"/api/v1/games/{game_slug}/draws?limit=5",
+            f"/api/v1/games/{game_slug}/statistics",
+        ):
+            record(path, *_api_get(site, path))
+    else:
+        checks.append({"path": "/api/v1/games/{slug}/*", "status": None, "ok": False, "ms": None,
+                        "error": "skipped — /api/v1/games returned no games to chain a slug from"})
+
+    body = record("/api/v1/scratch/ontario", *_api_get(site, "/api/v1/scratch/ontario"))
+    scratch_slug = body["data"][0]["slug"] if body and body.get("data") else None
+    if scratch_slug:
+        record(f"/api/v1/scratch/ontario/{scratch_slug}",
+               *_api_get(site, f"/api/v1/scratch/ontario/{scratch_slug}"))
+    else:
+        checks.append({"path": "/api/v1/scratch/ontario/{slug}", "status": None, "ok": False, "ms": None,
+                        "error": "skipped — /api/v1/scratch/ontario returned no games to chain a slug from"})
+
+    status, body, error, ms = _api_get(site, "/api/v1/games/not-a-real-game-xyz")
+    checks.append({"path": "/api/v1/games/{invalid} (expect 404)", "status": status,
+                    "ok": error is None and status == 404, "ms": ms, "error": error})
+
+    failed = [c for c in checks if not c["ok"]]
+    result = {"site": site, "generatedAt": datetime.now().isoformat(), "checks": checks, "failed": len(failed)}
+
+    if as_json:
+        print(json.dumps(result, indent=2))
+        return 0
+
+    print("=" * 78)
+    print(f"LOTTIZEN API HEALTH — {site}")
+    print("=" * 78)
+    print(f"\n{'path':46} {'status':7} {'ms':6} result")
+    print("-" * 78)
+    for c in checks:
+        mark = "OK" if c["ok"] else "FAIL"
+        tail = f" — {c['error']}" if c["error"] else ""
+        print(f"{c['path'][:45]:46} {str(c['status']):7} {str(c['ms'] or ''):6} {mark}{tail}")
+    print()
+    if failed:
+        print(f"⚠️  {len(failed)} of {len(checks)} endpoint checks failed against {site}.\n")
+    else:
+        print(f"✅ All {len(checks)} endpoint checks passed against {site}.\n")
+    return 0
 
 
 # --------------------------------------------------------------------------
@@ -541,6 +691,8 @@ def freshness_main() -> int:
 def main() -> int:
     if "--freshness" in sys.argv:
         return freshness_main()
+    if "--api-health" in sys.argv:
+        return api_health_main()
     audit()
     if "--json" in sys.argv:
         print(json.dumps({"generatedAt": datetime.now().isoformat(), "findings": findings}, indent=2))
