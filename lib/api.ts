@@ -12,8 +12,18 @@ import { countryName, getGame, operatorName } from "@/config/games";
 import { getStats, hasData } from "@/lib/draws";
 
 /** Data refreshes once a day (daily scrape + rebuild), so a 1h edge cache
- *  with a 24h stale-while-revalidate window is safe and cheap. */
+ *  with a 24h stale-while-revalidate window is safe and cheap — but ONLY
+ *  while every caller sees the same response. Once the RapidAPI proxy-secret
+ *  gate is enabled (checkRapidApiSecret below), a shared/public cache
+ *  becomes a bypass: Vercel's edge cache key is the URL alone, not request
+ *  headers, so a single authorized 200 response gets served back to every
+ *  subsequent caller for the cache's lifetime — headerless or wrong-secret
+ *  requests included. apiOk() switches to `private, no-store` whenever the
+ *  gate is on, so every request re-runs checkRapidApiSecret with nothing
+ *  cached in between. (Found by curling prod right after enabling the gate:
+ *  one proxied test request poisoned the public cache for the next hour.) */
 export const API_CACHE_CONTROL = "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400";
+const API_CACHE_CONTROL_GATED = "private, no-store";
 
 const CORS_HEADERS: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -22,9 +32,11 @@ const CORS_HEADERS: Record<string, string> = {
 };
 
 export function apiOk<T>(data: T, meta: Record<string, unknown> | null = null, status = 200) {
+  const cacheControl =
+    process.env.API_REQUIRE_RAPIDAPI_SECRET === "true" ? API_CACHE_CONTROL_GATED : API_CACHE_CONTROL;
   return NextResponse.json(
     { data, meta },
-    { status, headers: { "Cache-Control": API_CACHE_CONTROL, ...CORS_HEADERS } },
+    { status, headers: { "Cache-Control": cacheControl, ...CORS_HEADERS } },
   );
 }
 
