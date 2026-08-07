@@ -1592,3 +1592,98 @@ a.game-card:hover {
   color: var(--ink-2);
   margin: 0;
 }
+
+/* ============ FORMS (subscribe) — first interactive forms on the site,
+   so these are new; every value reuses the existing design tokens. ============ */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+.field label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.field-hint {
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+.field input[type="email"],
+.field input[type="text"],
+.field input[type="number"],
+.field select {
+  font-family: var(--font-sans), sans-serif;
+  font-size: 15px;
+  padding: 11px 14px;
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  outline: none;
+  transition: border-color 0.15s;
+  width: 100%;
+}
+.field input:focus,
+.field select:focus {
+  border-color: var(--brand);
+}
+.inline-form {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+.inline-form .field {
+  flex: 1;
+  min-width: 220px;
+  margin-bottom: 0;
+}
+.checkbox-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+}
+.checkbox-item,
+.radio-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: var(--ink-2);
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  cursor: pointer;
+}
+.checkbox-item input,
+.radio-item input {
+  accent-color: var(--brand);
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+.form-notice {
+  font-size: 13.5px;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  margin-top: 12px;
+}
+.form-notice.success {
+  background: var(--green-bg);
+  color: var(--green-ink);
+}
+.form-notice.error {
+  background: #f7e6e2;
+  color: #9a3a2a;
+}
+.field-group-title {
+  font-size: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-3);
+  margin: 20px 0 10px;
+}

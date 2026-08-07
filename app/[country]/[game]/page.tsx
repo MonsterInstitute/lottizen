@@ -5,11 +5,13 @@ import { countryName, operatorName } from "@/config/games";
 import { resolveGame, countryGameParams, getDraws, getStats, liveGameCard } from "@/lib/draws";
 import { drawDate, money, resolveNextDraw, nDraws, priceAmount } from "@/lib/format";
 import { absUrl } from "@/lib/site";
+import { bucketFor } from "@/lib/subscribe";
 import { Balls } from "@/components/draws/Balls";
 import { RelatedGuides } from "@/components/site/RelatedGuides";
 import { GameTabs } from "@/components/draws/GameTabs";
 import { JsonLd } from "@/components/site/JsonLd";
 import { AdSlot } from "@/components/site/AdSlot";
+import { SubscribeForm } from "@/components/site/SubscribeForm";
 
 export const dynamicParams = false;
 export function generateStaticParams() {
@@ -185,6 +187,18 @@ export default function GamePage({ params }: { params: { country: string; game: 
                 Cut-off, claim deadlines, taxes &amp; anonymity.
               </div>
             </Link>
+          </div>
+
+          <div className="card" style={{ padding: 28, marginTop: 40 }}>
+            <div className="section-eyebrow">Free newsletter</div>
+            <h2 className="section-headline" style={{ fontSize: "clamp(22px,2.6vw,30px)", marginBottom: 8 }}>
+              Get {g.name} numbers <em>by email.</em>
+            </h2>
+            <p className="section-lede" style={{ marginBottom: 16, fontSize: 15 }}>
+              We&rsquo;ll email you the moment {g.name} draws, with a data insight and — if you save
+              your numbers — an automatic check.
+            </p>
+            <SubscribeForm defaultCountry={bucketFor(g)} />
           </div>
 
           <RelatedGuides slug={g.slug} gameName={g.name} />

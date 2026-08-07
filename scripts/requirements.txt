@@ -5,4 +5,5 @@ beautifulsoup4>=4.12  # DOM parser (WCLC winning-numbers pages)
 pdfplumber>=0.11      # WCLC "since inception" full-history PDF extraction
 certifi>=2024.0       # CA bundle for HTTPS in venvs without system certs
 supabase>=2.0         # Postgres data layer (read/write via service-role key)
+pyyaml>=6.0           # guide frontmatter parsing (send_weekly_digest.py)
 # After install, run once: playwright install chromium

@@ -1,0 +1,47 @@
+name: Weekly digest email
+
+# Sundays at 15:00 UTC (~11am ET / 10am CT / after the regular daily draw
+# workflows have run) — send the weekly digest to subscribers with
+# frequency 'weekly' or 'both'. Doesn't scrape or build anything: just pulls
+# the already-published site_json into data/ (same prefetch the Vercel build
+# uses) and reads it, so this never touches the deploy gate or Vercel.
+on:
+  schedule:
+    - cron: "0 15 * * 0"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: weekly-digest
+  cancel-in-progress: false
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Prefetch published site data (draws + stats + rankings)
+        run: node scripts/prefetch_supabase.mjs
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install script dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r scripts/requirements.txt
+
+      - name: Send weekly digest
+        run: python scripts/send_weekly_digest.py

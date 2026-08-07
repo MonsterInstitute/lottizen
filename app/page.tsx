@@ -13,6 +13,7 @@ import { SITE, absUrl } from "@/lib/site";
 import { Balls } from "@/components/draws/Balls";
 import { AdSlot } from "@/components/site/AdSlot";
 import { JsonLd } from "@/components/site/JsonLd";
+import { SubscribeForm } from "@/components/site/SubscribeForm";
 
 export default function HomePage() {
   const latest = new Map(getLatestAll().map((l) => [l.slug, l]));
@@ -212,6 +213,26 @@ export default function HomePage() {
                 <Link href="/scratch" style={{ color: "var(--brand-deep)", textDecoration: "none" }}>See all →</Link>
               </div>
             </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ============ SUBSCRIBE ============ */}
+      <section className="section">
+        <div className="container">
+          <div className="card" style={{ padding: 36, textAlign: "center", maxWidth: 640, margin: "0 auto" }}>
+            <div className="section-eyebrow" style={{ justifyContent: "center" }}>
+              Free newsletter
+            </div>
+            <h2 className="section-headline" style={{ fontSize: "clamp(26px,3vw,38px)", marginBottom: 10 }}>
+              Get winning numbers <em>by email.</em>
+            </h2>
+            <p className="section-lede" style={{ marginBottom: 20 }}>
+              Follow the games you play — we&rsquo;ll email you the numbers the moment they draw,
+              check your saved picks automatically, and send a Sunday digest. No spam, unsubscribe
+              anytime.
+            </p>
+            <SubscribeForm />
           </div>
         </div>
       </section>

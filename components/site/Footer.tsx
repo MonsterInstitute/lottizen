@@ -3,6 +3,7 @@ import { Logo } from "@/components/site/Logo";
 import { gamesForCountry, countrySlug } from "@/config/games";
 import { hasData } from "@/lib/draws";
 import { SITE } from "@/lib/site";
+import { SubscribeForm } from "@/components/site/SubscribeForm";
 
 export function Footer() {
   const top = (code: "CA" | "US") =>
@@ -17,6 +18,10 @@ export function Footer() {
               Canadian &amp; US lottery winning numbers, statistics, and number tools — plus a
               scratch-ticket value tracker. Independent, rebuilt daily.
             </p>
+          </div>
+          <div className="footer-col" style={{ minWidth: 240 }}>
+            <h5>Get numbers by email</h5>
+            <SubscribeForm />
           </div>
           <div className="footer-col">
             <h5>USA</h5>

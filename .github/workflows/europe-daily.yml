@@ -53,4 +53,13 @@ jobs:
         run: |
           curl -fsS -X POST "$VERCEL_DEPLOY_HOOK" && echo "✓ Vercel deploy triggered"
 
+      # Instant draw-result emails — see draws-daily.yml for the full note.
+      - name: Send draw-result emails
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: python scripts/send_draw_emails.py
+        continue-on-error: true
+
       # Failure alerting: ci-failure-alert.yml. Staleness: freshness-watchdog.yml.

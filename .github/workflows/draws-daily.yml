@@ -61,4 +61,17 @@ jobs:
         run: |
           curl -fsS -X POST "$VERCEL_DEPLOY_HOOK" && echo "✓ Vercel deploy triggered"
 
+      # Instant draw-result emails for subscribers following a game that drew
+      # today (see supabase/migrations/0004_subscribers.sql). Reads the
+      # data/draws + data/stats + data/rankings.json already on disk from the
+      # build step above. Never fails the workflow: send_draw_emails.py logs
+      # and no-ops per-send if RESEND_API_KEY isn't set yet.
+      - name: Send draw-result emails
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: python scripts/send_draw_emails.py
+        continue-on-error: true
+
       # Failure alerting: ci-failure-alert.yml. Staleness: freshness-watchdog.yml.

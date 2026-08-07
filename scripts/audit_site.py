@@ -79,6 +79,15 @@ API_ENDPOINT_ANCHORS = [
     "get-statistics", "get-scratch-ontario", "get-scratch-ontario-slug",
 ]
 
+# /subscribe/preferences is a client-rendered shell (fetches with a ?token=
+# after mount), so it has little server-rendered text by design — unlike the
+# other two, its min_chars is 0 and it's checked for presence only.
+SUBSCRIBE_PAGES = {
+    "subscribe": {"min_chars": 400, "must_contain": ["subscribe"]},
+    "subscribe/preferences": {"min_chars": 0, "must_contain": []},
+    "subscribe/unsubscribed": {"min_chars": 100, "must_contain": ["unsubscribed"]},
+}
+
 CRITICAL, HIGH, MEDIUM, LOW = "CRITICAL", "HIGH", "MEDIUM", "LOW"
 SEV_ORDER = {CRITICAL: 0, HIGH: 1, MEDIUM: 2, LOW: 3}
 WEEKDAY = {"Monday": 0, "Tuesday": 1, "Wednesday": 2, "Thursday": 3,
@@ -427,6 +436,7 @@ def audit():
 
     audit_guides()
     audit_api_docs()
+    audit_subscribe_pages()
 
 
 # --------------------------------------------------------------------------
@@ -512,6 +522,31 @@ def audit_api_docs() -> None:
     for tok in ("undefined", "NaN"):
         if re.search(rf"(^|\s)\b{tok}\b", txt):
             add("(api-docs)", "page", f"Stray '{tok}' rendered on /api.", HIGH)
+
+
+# --------------------------------------------------------------------------
+# /subscribe pages (app/subscribe/**)
+# --------------------------------------------------------------------------
+def audit_subscribe_pages() -> None:
+    """Build-completeness for the subscription flow's static pages. The API
+    routes behind them (app/api/subscribe/**) are request-time route
+    handlers like app/api/v1/**, not build output — no equivalent local
+    check exists for those yet; verify manually (create → confirm →
+    preferences → unsubscribe) after each deploy."""
+    for slug, rule in SUBSCRIBE_PAGES.items():
+        p = APP / f"{slug}.html"
+        if not p.exists():
+            add("(subscribe)", slug, "Page missing from build output.", HIGH)
+            continue
+        txt = page_text(p)
+        if len(txt) < rule["min_chars"]:
+            add("(subscribe)", slug, f"Renders only {len(txt)} chars of text — build/content issue.", HIGH)
+        for phrase in rule["must_contain"]:
+            if phrase.lower() not in txt.lower():
+                add("(subscribe)", slug, f"Missing expected content: '{phrase}'.", MEDIUM)
+        for tok in ("undefined", "NaN"):
+            if re.search(rf"(^|\s)\b{tok}\b", txt):
+                add("(subscribe)", slug, f"Stray '{tok}' rendered.", HIGH)
 
 
 # --------------------------------------------------------------------------

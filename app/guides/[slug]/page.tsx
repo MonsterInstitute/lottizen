@@ -12,8 +12,10 @@ import {
 import { getGame, gamePath, type Country } from "@/config/games";
 import { SITE, absUrl } from "@/lib/site";
 import { humanDate } from "@/lib/format";
+import { isValidCountry } from "@/lib/subscribe";
 import { AdSlot } from "@/components/site/AdSlot";
 import { JsonLd } from "@/components/site/JsonLd";
+import { SubscribeForm } from "@/components/site/SubscribeForm";
 
 export const dynamicParams = false;
 export function generateStaticParams() {
@@ -221,6 +223,18 @@ export default function GuidePage({ params }: { params: { slug: string } }) {
                   </ol>
                 </div>
               ) : null}
+
+              <div className="card" style={{ padding: 28, marginTop: 32 }}>
+                <div className="section-eyebrow">Free newsletter</div>
+                <h2 className="section-headline" style={{ fontSize: "clamp(22px,2.6vw,28px)", marginBottom: 8 }}>
+                  Get winning numbers <em>by email.</em>
+                </h2>
+                <p className="section-lede" style={{ marginBottom: 16, fontSize: 15 }}>
+                  Follow the games you play — instant results, saved-number checks, and a Sunday
+                  digest.
+                </p>
+                <SubscribeForm defaultCountry={isValidCountry(g.country) ? g.country : undefined} />
+              </div>
 
               <div className="notice" style={{ marginTop: 32 }}>
                 <span className="notice-tag">{g.country === "CA" ? "19+" : "18+"}</span>
