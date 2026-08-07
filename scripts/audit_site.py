@@ -34,8 +34,12 @@ and documents every v1 endpoint — blocking, part of the main deploy gate.
 The v1 endpoints themselves (app/api/v1/**/route.ts) are request-time route
 handlers, not build output, so they can't be checked from .next/server/app —
 `--api-health` instead curls a live site (local dev/start or production) and
-reports pass/fail per endpoint. Like --freshness, it's NON-blocking: a
-reachability blip shouldn't fail the build, it should just be visible.
+reports pass/fail per endpoint. Once the RapidAPI proxy-secret gate is on in
+production (see docs/rapidapi/rapidapi-secret.md), a direct/unauthenticated
+`401` is the *healthy* result, not a failure; pass `--secret <value>` to
+instead simulate the RapidAPI proxy and expect real `200`s. Like
+--freshness, it's NON-blocking: a reachability blip shouldn't fail the
+build, it should just be visible.
 
 Usage:  python3 scripts/audit_site.py              (human table, deploy gate)
         python3 scripts/audit_site.py --json        (machine-readable)
@@ -43,6 +47,7 @@ Usage:  python3 scripts/audit_site.py              (human table, deploy gate)
         python3 scripts/audit_site.py --freshness --json
         python3 scripts/audit_site.py --api-health                  (checks https://lottizen.com)
         python3 scripts/audit_site.py --api-health --site http://localhost:3000
+        python3 scripts/audit_site.py --api-health --secret <RAPIDAPI_PROXY_SECRET>  (simulates the RapidAPI proxy; expects 200s)
         python3 scripts/audit_site.py --api-health --json
 """
 from __future__ import annotations
@@ -513,10 +518,16 @@ def audit_api_docs() -> None:
 # Live endpoint health (app/api/v1/**) — NOT build output, so it curls a
 # running site (local dev/start, or production) instead of reading .next/.
 # --------------------------------------------------------------------------
-def _api_get(site: str, path: str) -> tuple[int | None, dict | None, str | None, int | None]:
-    """GET site+path, parsed as JSON. Returns (status, body, error, elapsed_ms)."""
+def _api_get(
+    site: str, path: str, secret: str | None = None
+) -> tuple[int | None, dict | None, str | None, int | None]:
+    """GET site+path, parsed as JSON. Returns (status, body, error, elapsed_ms).
+    Attaches X-RapidAPI-Proxy-Secret when `secret` is given (see rapidapi-secret.md)."""
     url = site.rstrip("/") + path
-    req = urllib.request.Request(url, headers={"User-Agent": "lottizen-api-health/1.0"})
+    headers = {"User-Agent": "lottizen-api-health/1.0"}
+    if secret:
+        headers["X-RapidAPI-Proxy-Secret"] = secret
+    req = urllib.request.Request(url, headers=headers)
     ctx = ssl.create_default_context()
     ctx.check_hostname = False
     ctx.verify_mode = ssl.CERT_NONE
@@ -536,26 +547,63 @@ def _api_get(site: str, path: str) -> tuple[int | None, dict | None, str | None,
         return None, None, f"{type(e).__name__}: {e}", round((time.time() - t0) * 1000)
 
 
+FALLBACK_GAME_SLUG = "lotto-max"
+FALLBACK_SCRATCH_SLUG = "bingo-multip"
+
+
 def api_health_main() -> int:
-    """Curl every v1 endpoint against a live site and report pass/fail. Slugs
-    for the per-game endpoints are taken from the live /games and
-    /scratch/ontario responses themselves (not hardcoded) so this doesn't
-    silently go stale if the game lineup changes. Always exits 0 — like
-    --freshness, a reachability blip should be visible, not block CI."""
+    """Curl every v1 endpoint against a live site and report pass/fail.
+
+    Two modes, selected by whether a RapidAPI proxy secret is supplied:
+
+    - No `--secret`: this is a direct, non-proxied caller — exactly what
+      `checkRapidApiSecret` (lib/api.ts) is designed to reject once
+      API_REQUIRE_RAPIDAPI_SECRET=true. So once the gate is live, a
+      `401 UNAUTHORIZED` is the *healthy* result here, not a failure — see
+      rapidapi-secret.md step 5. Slugs for the per-game/per-scratch checks
+      then fall back to FALLBACK_GAME_SLUG/FALLBACK_SCRATCH_SLUG (can't
+      chain a real slug from a body we're not authorized to read), so those
+      routes still get exercised and checked for the same 401 behavior.
+    - `--secret <value>` (or env RAPIDAPI_PROXY_SECRET): simulates the
+      RapidAPI proxy itself — attaches X-RapidAPI-Proxy-Secret to every
+      request, so every check expects a real `200` with data, and slugs are
+      chained from the live response bodies as before.
+
+    Before the gate is enabled (or against local dev/start, where it's off
+    by default), plain `200` is what's expected either way — `--secret` is
+    simply unnecessary, not wrong, in that case.
+
+    Always exits 0 — like --freshness, a reachability blip should be
+    visible, not block CI."""
     site = os.environ.get("API_HEALTH_SITE", "https://lottizen.com")
     if "--site" in sys.argv:
         site = sys.argv[sys.argv.index("--site") + 1]
+    secret = os.environ.get("RAPIDAPI_PROXY_SECRET")
+    if "--secret" in sys.argv:
+        secret = sys.argv[sys.argv.index("--secret") + 1]
     as_json = "--json" in sys.argv
 
     checks: list[dict] = []
 
-    def record(path: str, status, body, error, ms, expect_key="data") -> dict | None:
-        ok = error is None and status == 200 and isinstance(body, dict) and expect_key in body
-        checks.append({"path": path, "status": status, "ok": ok, "ms": ms, "error": error})
-        return body
+    def get(path: str):
+        return _api_get(site, path, secret)
 
-    body = record("/api/v1/games", *_api_get(site, "/api/v1/games"))
-    game_slug = body["data"][0]["slug"] if body and body.get("data") else None
+    def record(path: str, status, body, error, ms, expect_key="data") -> dict | None:
+        ok_200 = error is None and status == 200 and isinstance(body, dict) and expect_key in body
+        ok_gated = (
+            not secret
+            and error is None
+            and status == 401
+            and isinstance(body, dict)
+            and isinstance(body.get("error"), dict)
+            and body["error"].get("code") == "UNAUTHORIZED"
+        )
+        checks.append({"path": path, "status": status, "ok": ok_200 or ok_gated,
+                        "ms": ms, "gated": ok_gated, "error": error})
+        return body if ok_200 else None
+
+    body = record("/api/v1/games", *get("/api/v1/games"))
+    game_slug = body["data"][0]["slug"] if body and body.get("data") else (None if secret else FALLBACK_GAME_SLUG)
     if game_slug:
         for path in (
             f"/api/v1/games/{game_slug}",
@@ -563,38 +611,45 @@ def api_health_main() -> int:
             f"/api/v1/games/{game_slug}/draws?limit=5",
             f"/api/v1/games/{game_slug}/statistics",
         ):
-            record(path, *_api_get(site, path))
+            record(path, *get(path))
     else:
         checks.append({"path": "/api/v1/games/{slug}/*", "status": None, "ok": False, "ms": None,
                         "error": "skipped — /api/v1/games returned no games to chain a slug from"})
 
-    body = record("/api/v1/scratch/ontario", *_api_get(site, "/api/v1/scratch/ontario"))
-    scratch_slug = body["data"][0]["slug"] if body and body.get("data") else None
+    body = record("/api/v1/scratch/ontario", *get("/api/v1/scratch/ontario"))
+    scratch_slug = (
+        body["data"][0]["slug"] if body and body.get("data") else (None if secret else FALLBACK_SCRATCH_SLUG)
+    )
     if scratch_slug:
-        record(f"/api/v1/scratch/ontario/{scratch_slug}",
-               *_api_get(site, f"/api/v1/scratch/ontario/{scratch_slug}"))
+        path = f"/api/v1/scratch/ontario/{scratch_slug}"
+        record(path, *get(path))
     else:
         checks.append({"path": "/api/v1/scratch/ontario/{slug}", "status": None, "ok": False, "ms": None,
                         "error": "skipped — /api/v1/scratch/ontario returned no games to chain a slug from"})
 
-    status, body, error, ms = _api_get(site, "/api/v1/games/not-a-real-game-xyz")
-    checks.append({"path": "/api/v1/games/{invalid} (expect 404)", "status": status,
-                    "ok": error is None and status == 404, "ms": ms, "error": error})
+    status, body, error, ms = get("/api/v1/games/not-a-real-game-xyz")
+    # An invalid slug should 404 when authorized, but if the gate rejects the
+    # request first (no/wrong secret), a 401 is the correct, expected result.
+    ok_invalid = error is None and (status == 404 or (not secret and status == 401))
+    checks.append({"path": "/api/v1/games/{invalid} (expect 404, or 401 if gated)",
+                    "status": status, "ok": ok_invalid, "ms": ms, "error": error})
 
     failed = [c for c in checks if not c["ok"]]
-    result = {"site": site, "generatedAt": datetime.now().isoformat(), "checks": checks, "failed": len(failed)}
+    result = {"site": site, "secretUsed": bool(secret), "generatedAt": datetime.now().isoformat(),
+              "checks": checks, "failed": len(failed)}
 
     if as_json:
         print(json.dumps(result, indent=2))
         return 0
 
     print("=" * 78)
-    print(f"LOTTIZEN API HEALTH — {site}")
+    mode = "authenticated (--secret provided)" if secret else "direct / unauthenticated"
+    print(f"LOTTIZEN API HEALTH — {site}  [{mode}]")
     print("=" * 78)
     print(f"\n{'path':46} {'status':7} {'ms':6} result")
     print("-" * 78)
     for c in checks:
-        mark = "OK" if c["ok"] else "FAIL"
+        mark = "OK (gated)" if c.get("gated") else ("OK" if c["ok"] else "FAIL")
         tail = f" — {c['error']}" if c["error"] else ""
         print(f"{c['path'][:45]:46} {str(c['status']):7} {str(c['ms'] or ''):6} {mark}{tail}")
     print()
