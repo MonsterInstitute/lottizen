@@ -3,8 +3,7 @@ import Link from "next/link";
 import { SITE, absUrl } from "@/lib/site";
 import { JsonLd } from "@/components/site/JsonLd";
 
-// TODO: swap for the real RapidAPI listing URL once Lottizen Data API is approved.
-const RAPIDAPI_URL = "https://rapidapi.com/";
+const RAPIDAPI_URL = "https://rapidapi.com/l3rundong/api/lottizen-data-api";
 
 export const metadata: Metadata = {
   title: "Lottizen Data API — Canada, US & Europe Lottery Data (REST/JSON)",
