@@ -44,14 +44,29 @@ export async function POST(req: Request) {
       const { subject, html } = renderManageLinkEmail({ preferencesUrl, unsubscribeUrl });
       const result = await sendEmail(subscriber.email, subject, html);
       if (result.ok) await logEmail(subscriber.id, "manage_link");
-      return NextResponse.json({ ok: true, status: "already_subscribed" });
+      else console.error("[subscribe] manage-link send failed:", result.error);
+      return NextResponse.json({
+        ok: true,
+        status: "already_subscribed",
+        emailSent: result.ok,
+        emailSkipped: result.skipped ?? false,
+      });
     }
 
     const confirmUrl = absUrl(`/api/subscribe/confirm?token=${subscriber.magic_token}`);
     const { subject, html } = renderConfirmationEmail({ confirmUrl, preferencesUrl, unsubscribeUrl });
     const result = await sendEmail(subscriber.email, subject, html);
     if (result.ok) await logEmail(subscriber.id, "confirmation");
-    return NextResponse.json({ ok: true, status: "confirmation_sent", emailSkipped: result.skipped ?? false });
+    else console.error("[subscribe] confirmation send failed:", result.error);
+    // emailSent distinguishes "actually delivered to Resend" from emailSkipped
+    // (no RESEND_API_KEY yet) — a send can fail for other reasons (e.g. an
+    // unverified sending domain) and previously both looked identical here.
+    return NextResponse.json({
+      ok: true,
+      status: "confirmation_sent",
+      emailSent: result.ok,
+      emailSkipped: result.skipped ?? false,
+    });
   } catch (e) {
     console.error("[subscribe] error:", e);
     return NextResponse.json({ ok: false, error: "Something went wrong. Try again shortly." }, { status: 500 });

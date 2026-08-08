@@ -55,7 +55,16 @@ def send_email(to: str, subject: str, html: str) -> bool:
     payload = json.dumps({"from": FROM_EMAIL, "to": to, "subject": subject, "html": html}).encode()
     req = urllib.request.Request(
         RESEND_API_URL, data=payload, method="POST",
-        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+        # A real User-Agent matters here: Cloudflare (in front of api.resend.com)
+        # returns a bare 403 (error code 1010) for Python's default
+        # "Python-urllib/x.y" UA, with no indication it's a UA block — found
+        # during manual QA. Discovered live: without this, api.resend.com
+        # rejects every send with an opaque Cloudflare 403, not a Resend error.
+        headers={
+            "Authorization": f"Bearer {key}",
+            "Content-Type": "application/json",
+            "User-Agent": "lottizen-mailer/1.0",
+        },
     )
     try:
         with urllib.request.urlopen(req, timeout=20) as r:

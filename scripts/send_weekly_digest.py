@@ -60,7 +60,14 @@ def send_email(to: str, subject: str, html: str) -> bool:
     payload = json.dumps({"from": FROM_EMAIL, "to": to, "subject": subject, "html": html}).encode()
     req = urllib.request.Request(
         RESEND_API_URL, data=payload, method="POST",
-        headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+        # See the matching comment in send_draw_emails.py: Cloudflare (in
+        # front of api.resend.com) blocks Python's default UA with an opaque
+        # 403, found during manual QA.
+        headers={
+            "Authorization": f"Bearer {key}",
+            "Content-Type": "application/json",
+            "User-Agent": "lottizen-mailer/1.0",
+        },
     )
     try:
         with urllib.request.urlopen(req, timeout=20) as r:
