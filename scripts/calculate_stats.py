@@ -273,6 +273,25 @@ def next_scheduled_draw(draw_days, after: str):
     return None
 
 
+def snapshot_jackpot(slug: str, amount) -> None:
+    """One row/day in jackpot_snapshots for a game's current next-jackpot
+    estimate (see supabase/migrations/0005_jackpot_snapshots.sql) — feeds a
+    real trend into the weekly digest / news once a few weeks accumulate.
+    Runs multiple times a day (each regional workflow's calculate_stats.py
+    sees the full game_meta table); the unique (game_slug, captured_date)
+    index + ignore_duplicates makes repeats a no-op. Never fails the stats
+    run — a snapshot miss just costs one day of trend data."""
+    if amount is None:
+        return
+    try:
+        db.get_client().table("jackpot_snapshots").upsert(
+            {"game_slug": slug, "amount": amount},
+            on_conflict="game_slug,captured_date", ignore_duplicates=True,
+        ).execute()
+    except Exception as e:  # noqa: BLE001
+        print(f"  [warn] jackpot snapshot failed for {slug}: {e}")
+
+
 def write_draws(slug, draws, meta):
     # `meta` is this slug's game_meta row dict (or None).
     # Prefer the scraped next-draw date; for games without one (Europe), compute it
@@ -305,6 +324,7 @@ def main() -> int:
         if not draws:
             continue
         payload = write_draws(slug, draws, meta_by_game.get(slug))
+        snapshot_jackpot(slug, payload["nextJackpot"])
         era = [d for d in draws if not cfg.get("stats_from") or d["date"] >= cfg["stats_from"]]
         stats = compute_stats(slug, cfg, era)
         stats["allTimeDrawCount"] = len(draws)
