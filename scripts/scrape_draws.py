@@ -244,7 +244,14 @@ def wclc_history(wclc_slug: str) -> list[dict]:
                           if li.get_text(strip=True).isdigit())
             if not nums:
                 continue
-            bt = ul.select_one("li.pastWinNumberBonus")
+            # Daily Grand's WCLC page uses a game-specific class
+            # ("winNumHomeNumberBonusDG") for the Grand Number ball instead
+            # of the generic pastWinNumberBonus every other WCLC game uses —
+            # found 2026-08-10: bonus had been null for every daily-grand
+            # draw scraped live since the historical PDF backfill ran out
+            # (2026-06-08+), because this selector never matched. The
+            # substring fallback covers both without needing a per-game list.
+            bt = ul.select_one("li.pastWinNumberBonus") or ul.select_one('li[class*="Bonus"]')
             bonus = int(re.search(r"(\d+)", bt.get_text()).group(1)) if bt and re.search(r"\d", bt.get_text()) else None
             try:
                 dt = datetime.strptime(d.get_text(" ", strip=True), "%A, %B %d, %Y").date().isoformat()
