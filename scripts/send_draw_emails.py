@@ -43,7 +43,7 @@ STATS_DIR = ROOT / "data" / "stats"
 RANKINGS_PATH = ROOT / "data" / "rankings.json"
 SITE_URL = "https://lottizen.com"
 RESEND_API_URL = "https://api.resend.com/emails"
-FROM_EMAIL = os.environ.get("RESEND_FROM_EMAIL", "Lottizen <newsletter@lottizen.com>")
+FROM_EMAIL = os.environ.get("RESEND_FROM_EMAIL", "Lottizen <newsletter@mail.lottizen.com>")
 
 COUNTRY_SLUG = {"CA": "canada", "US": "usa", "EU": "europe"}
 

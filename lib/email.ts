@@ -12,7 +12,7 @@
 import { SITE } from "@/lib/site";
 
 const RESEND_API_URL = "https://api.resend.com/emails";
-const FROM = process.env.RESEND_FROM_EMAIL || `Lottizen <newsletter@lottizen.com>`;
+const FROM = process.env.RESEND_FROM_EMAIL || `Lottizen <newsletter@mail.lottizen.com>`;
 
 export interface SendResult {
   ok: boolean;
