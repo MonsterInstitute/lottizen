@@ -229,7 +229,11 @@ def main() -> int:
         f"\nDone: {sent} sent, {skipped} already sent this week, "
         f"{no_games} skipped (no followed games), {failed} failed/no-key."
     )
-    return 0
+    # See the matching comment in send_draw_emails.py: continue-on-error on
+    # the workflow step already keeps a bad send from blocking anything, but
+    # a real failure (not just "no key yet") needs to surface as a failed
+    # step in the Actions UI, not disappear behind an always-0 exit code.
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":

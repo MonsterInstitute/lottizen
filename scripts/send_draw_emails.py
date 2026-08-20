@@ -13,8 +13,13 @@ CONFLICT DO NOTHING against email_log BEFORE calling Resend (claim_send), so
 a workflow re-run never double-sends — a crash after claiming but before the
 Resend call just costs that one subscriber a day's email, never a duplicate.
 
-Never fails the workflow: RESEND_API_KEY unset just logs "would send" and
-exits 0 (see send_email), so this is safe to wire in before the key exists.
+RESEND_API_KEY unset just logs "would send" and doesn't count as a failure,
+so this is safe to wire in before the key exists. But a real send error
+(e.g. an unverified Resend sending domain — this happened for two weeks
+before anyone noticed, see git blame) makes main() exit 1, so it shows up as
+a failed step in the Actions UI. That never blocks the pipeline itself —
+`continue-on-error: true` on the workflow step already guarantees that —
+it's purely so the failure is visible instead of invisible.
 """
 from __future__ import annotations
 
@@ -200,7 +205,16 @@ def main() -> int:
                 failed += 1
 
     print(f"\nDone: {sent} sent, {skipped} already sent today, {failed} failed/skipped (no RESEND_API_KEY).")
-    return 0
+    # continue-on-error: true on the workflow step already keeps a bad send
+    # from blocking the deploy pipeline — but a real Resend failure (e.g. an
+    # unverified sending domain) needs to be VISIBLE, not swallowed. Before
+    # this, the step's own exit code was always 0, so a 100%-failing send
+    # path looked identical to a quiet day with nothing to send: found only
+    # by manually reading workflow logs after a user reported never getting
+    # a confirmation email, despite email_log showing "sent" rows the whole
+    # time (claim_send() logs the attempt before the Resend call, by design,
+    # to make retries idempotent — it was never a delivery record).
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":
