@@ -24,8 +24,11 @@ export function Header() {
           <Link href="/api">API</Link>
         </nav>
         <div className="nav-right">
-          <Link href="/usa" className="nav-cta">
+          <Link href="/usa" className="nav-signin">
             All games
+          </Link>
+          <Link href="/subscribe" className="nav-cta">
+            Subscribe
           </Link>
         </div>
       </div>
