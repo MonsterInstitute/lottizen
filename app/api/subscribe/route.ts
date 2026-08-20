@@ -1,16 +1,29 @@
 import { NextResponse } from "next/server";
 import { absUrl } from "@/lib/site";
-import { createSubscriber, findSubscriberByEmail, logEmail, resetForResubscribe } from "@/lib/supabase-admin";
-import { renderConfirmationEmail, renderManageLinkEmail, sendEmail } from "@/lib/email";
+import {
+  createLoginToken,
+  createSubscriber,
+  findSubscriberByEmail,
+  logEmail,
+  resetForResubscribe,
+} from "@/lib/supabase-admin";
+import { renderSignInEmail, sendEmail } from "@/lib/email";
 import { isValidCountry } from "@/lib/subscribe";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /**
- * POST /api/subscribe — the only field every entry point on the site
- * collects (homepage, game pages, guide footers, site footer): an email
- * address. No password, no account. Everything else (country, games,
- * frequency) is chosen afterwards on /subscribe/preferences.
+ * POST /api/subscribe — the single low-friction entry point for both email
+ * alerts AND a full "My Lottizen" account: just an email address, no
+ * password. One email address always resolves to the same subscriber row
+ * (the User entity — see lib/supabase-admin.ts's header comment), whether
+ * they're brand new or returning.
+ *
+ * Every case below ends the same way: a single-use, 30-minute sign-in link
+ * (/api/auth/verify) that confirms the email (if new) and opens a session,
+ * landing on /dashboard. This replaced the old two-step "confirm, then
+ * separately dig up your preferences link" flow — clicking the link now
+ * IS signing in.
  */
 export async function POST(req: Request) {
   let body: { email?: string; country?: string };
@@ -28,42 +41,27 @@ export async function POST(req: Request) {
 
   try {
     let subscriber = await findSubscriberByEmail(email);
+    const isNewAccount = !subscriber;
     if (!subscriber) {
       subscriber = await createSubscriber(email, country);
     } else if (subscriber.unsubscribed_at) {
-      // Re-subscribing after opting out: fresh consent, fresh double opt-in.
+      // Re-subscribing after opting out: fresh consent, fresh sign-in.
       subscriber = await resetForResubscribe(subscriber.id);
     }
 
     const preferencesUrl = absUrl(`/subscribe/preferences?token=${subscriber.magic_token}`);
     const unsubscribeUrl = absUrl(`/api/subscribe/unsubscribe?token=${subscriber.magic_token}`);
+    const loginToken = await createLoginToken(subscriber.id);
+    const verifyUrl = absUrl(`/api/auth/verify?token=${loginToken}`);
 
-    if (subscriber.confirmed_at) {
-      // Already an active subscriber — send their existing magic link instead
-      // of confusing them with a second confirmation email.
-      const { subject, html } = renderManageLinkEmail({ preferencesUrl, unsubscribeUrl });
-      const result = await sendEmail(subscriber.email, subject, html);
-      if (result.ok) await logEmail(subscriber.id, "manage_link");
-      else console.error("[subscribe] manage-link send failed:", result.error);
-      return NextResponse.json({
-        ok: true,
-        status: "already_subscribed",
-        emailSent: result.ok,
-        emailSkipped: result.skipped ?? false,
-      });
-    }
-
-    const confirmUrl = absUrl(`/api/subscribe/confirm?token=${subscriber.magic_token}`);
-    const { subject, html } = renderConfirmationEmail({ confirmUrl, preferencesUrl, unsubscribeUrl });
+    const { subject, html } = renderSignInEmail({ verifyUrl, isNewAccount, preferencesUrl, unsubscribeUrl });
     const result = await sendEmail(subscriber.email, subject, html);
-    if (result.ok) await logEmail(subscriber.id, "confirmation");
-    else console.error("[subscribe] confirmation send failed:", result.error);
-    // emailSent distinguishes "actually delivered to Resend" from emailSkipped
-    // (no RESEND_API_KEY yet) — a send can fail for other reasons (e.g. an
-    // unverified sending domain) and previously both looked identical here.
+    if (result.ok) await logEmail(subscriber.id, isNewAccount ? "confirmation" : "sign_in_link");
+    else console.error("[subscribe] sign-in email send failed:", result.error);
+
     return NextResponse.json({
       ok: true,
-      status: "confirmation_sent",
+      status: isNewAccount ? "confirmation_sent" : "already_subscribed",
       emailSent: result.ok,
       emailSkipped: result.skipped ?? false,
     });

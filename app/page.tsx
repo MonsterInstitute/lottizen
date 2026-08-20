@@ -13,7 +13,6 @@ import { SITE, absUrl } from "@/lib/site";
 import { Balls } from "@/components/draws/Balls";
 import { AdSlot } from "@/components/site/AdSlot";
 import { JsonLd } from "@/components/site/JsonLd";
-import { SubscribeForm } from "@/components/site/SubscribeForm";
 
 export default function HomePage() {
   const latest = new Map(getLatestAll().map((l) => [l.slug, l]));
@@ -217,22 +216,28 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ============ SUBSCRIBE ============ */}
+      {/* ============ PRODUCT ENTRY POINT ============ */}
       <section className="section">
         <div className="container">
           <div className="card" style={{ padding: 36, textAlign: "center", maxWidth: 640, margin: "0 auto" }}>
             <div className="section-eyebrow" style={{ justifyContent: "center" }}>
-              Free newsletter
+              My Lottizen
             </div>
             <h2 className="section-headline" style={{ fontSize: "clamp(26px,3vw,38px)", marginBottom: 10 }}>
-              Get winning numbers <em>by email.</em>
+              Keep track of the games <em>you play.</em>
             </h2>
             <p className="section-lede" style={{ marginBottom: 20 }}>
-              Follow the games you play — we&rsquo;ll email you the numbers the moment they draw,
-              check your saved picks automatically, and send a Sunday digest. No spam, unsubscribe
-              anytime.
+              Save your numbers, check results automatically, and see current Ontario
+              scratch-ticket rankings based on public prize data.
             </p>
-            <SubscribeForm />
+            <div className="hero-cta-row" style={{ justifyContent: "center" }}>
+              <Link href="/dashboard" className="btn btn-primary">
+                Start tracking for free
+              </Link>
+              <Link href="/scratch" className="btn btn-secondary">
+                Explore scratch value
+              </Link>
+            </div>
           </div>
         </div>
       </section>

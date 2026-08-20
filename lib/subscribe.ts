@@ -66,3 +66,22 @@ export const FREQUENCY_LABELS: Record<Frequency, string> = {
   weekly: "Sunday weekly digest only",
   both: "Both — instant results and the weekly digest",
 };
+
+/** Shared combination validation: exactly `pick` unique numbers, each
+ *  within 1..max. Used by both /api/account/combinations and
+ *  /api/account/combinations/[id] (create + edit). */
+export function validateCombinationNumbers(
+  numbers: unknown,
+  pick: number,
+  max: number,
+): { ok: true; numbers: number[] } | { ok: false; error: string } {
+  const list = Array.isArray(numbers) ? numbers.map(Number) : [];
+  const inRange = list.every((n) => Number.isInteger(n) && n >= 1 && n <= max);
+  if (list.length !== pick || !inRange) {
+    return { ok: false, error: `Enter exactly ${pick} numbers between 1 and ${max}.` };
+  }
+  if (new Set(list).size !== list.length) {
+    return { ok: false, error: "Numbers must be unique — no repeats." };
+  }
+  return { ok: true, numbers: list };
+}

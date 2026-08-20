@@ -125,6 +125,26 @@ def compute(game: dict) -> dict | None:
     return game
 
 
+def snapshot_rankings(ranked: list[dict]) -> None:
+    """One row per scratch game per day in scratch_rank_snapshots — feeds a
+    real ranking-change history/alert into Lottizen Pro once a few weeks
+    accumulate (see supabase/migrations/0006_lottizen_pro.sql; mirrors the
+    jackpot_snapshots pattern in calculate_stats.py). Never fails the whole
+    rankings run over a snapshot miss."""
+    rows = [
+        {
+            "game_slug": g["slug"], "rank": g["rank"], "value_score": g["valueScore"],
+            "remaining_prize_pool": g["remainingPrizePool"], "top_prizes_remaining": g["topPrizesRemaining"],
+            "price": g["price"],
+        }
+        for g in ranked
+    ]
+    try:
+        db.insert_ignore("scratch_rank_snapshots", rows, on_conflict="game_slug,captured_date")
+    except Exception as e:  # noqa: BLE001
+        print(f"  [warn] scratch rank snapshot failed: {e}")
+
+
 def main() -> int:
     games, source = load_games()
 
@@ -137,6 +157,7 @@ def main() -> int:
     ranked.sort(key=lambda g: (g["valueScore"], g["remainingPrizePool"]), reverse=True)
     for i, g in enumerate(ranked, start=1):
         g["rank"] = i
+    snapshot_rankings(ranked)
 
     payload = {
         "generatedAt": now_iso(),

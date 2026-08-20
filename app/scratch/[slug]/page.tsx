@@ -13,6 +13,8 @@ import { ScoreBadge } from "@/components/ranking/ScoreBadge";
 import { RankingTable } from "@/components/ranking/RankingTable";
 import { AdSlot } from "@/components/site/AdSlot";
 import { DemoNotice } from "@/components/site/DemoNotice";
+import { ScratchDisclaimer } from "@/components/site/ScratchDisclaimer";
+import { FollowButton } from "@/components/site/FollowButton";
 import { JsonLd } from "@/components/site/JsonLd";
 
 export const dynamicParams = false;
@@ -178,6 +180,10 @@ export default function ScratchPage({ params }: { params: { slug: string } }) {
             <DemoNotice />
           </div>
 
+          <div style={{ marginTop: 20 }}>
+            <FollowButton kind="scratch" slug={g.slug} label="Follow this scratch ticket" />
+          </div>
+
           {/* Prize table */}
           <h2
             className="section-headline"
@@ -234,6 +240,8 @@ export default function ScratchPage({ params }: { params: { slug: string } }) {
             </Link>
             .
           </p>
+
+          <ScratchDisclaimer />
 
           <div style={{ height: 40 }} />
           <AdSlot slot="detail-mid" format="leaderboard" />

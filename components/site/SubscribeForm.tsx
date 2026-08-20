@@ -10,9 +10,10 @@ interface SubscribeFormProps {
   defaultCountry?: PrefCountry;
   title?: string;
   description?: string;
+  buttonLabel?: string;
 }
 
-export function SubscribeForm({ defaultCountry, title, description }: SubscribeFormProps) {
+export function SubscribeForm({ defaultCountry, title, description, buttonLabel = "Subscribe" }: SubscribeFormProps) {
   const [email, setEmail] = useState("");
   const [state, setState] = useState<"idle" | "submitting" | "sent" | "already" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
@@ -44,8 +45,8 @@ export function SubscribeForm({ defaultCountry, title, description }: SubscribeF
     return (
       <div className="form-notice success">
         {state === "sent"
-          ? "Check your inbox — click the confirmation link to start choosing which games to follow."
-          : "You're already subscribed — check your inbox for a link to manage your preferences."}
+          ? "Check your inbox — click the link to confirm your email and open My Lottizen."
+          : "Check your inbox for a sign-in link to My Lottizen."}
       </div>
     );
   }
@@ -66,7 +67,7 @@ export function SubscribeForm({ defaultCountry, title, description }: SubscribeF
         {description ? <span className="field-hint">{description}</span> : null}
       </div>
       <button type="submit" className="btn btn-primary" disabled={state === "submitting"}>
-        {state === "submitting" ? "Sending…" : "Subscribe"}
+        {state === "submitting" ? "Sending…" : buttonLabel}
       </button>
       {error ? <div className="form-notice error" style={{ width: "100%" }}>{error}</div> : null}
     </form>

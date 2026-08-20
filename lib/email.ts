@@ -93,30 +93,33 @@ Lottizen is an independent information site — not a lottery operator. You're r
 const btn = (href: string, label: string) =>
   `<a href="${href}" style="display:inline-block;background:#dd8232;color:#ffffff;font-weight:600;font-size:14px;text-decoration:none;padding:12px 22px;border-radius:8px;margin-top:8px;">${label}</a>`;
 
-export function renderConfirmationEmail(opts: { confirmUrl: string; preferencesUrl: string; unsubscribeUrl: string }) {
-  const subject = `Confirm your Lottizen subscription`;
+/**
+ * The one email that gets someone into "My Lottizen" — used both for a
+ * brand-new account (clicking it confirms the email AND signs in) and a
+ * returning visitor asking for a fresh sign-in link. Passwordless by design:
+ * this link is the only credential, single-use, 30 minutes (see
+ * createLoginToken in lib/supabase-admin.ts).
+ */
+export function renderSignInEmail(opts: {
+  verifyUrl: string;
+  isNewAccount: boolean;
+  preferencesUrl: string;
+  unsubscribeUrl: string;
+}) {
+  const subject = opts.isNewAccount ? "Confirm your email & start tracking" : "Sign in to My Lottizen";
+  const heading = opts.isNewAccount ? "One click to start tracking" : "Sign in to My Lottizen";
+  const lede = opts.isNewAccount
+    ? "Thanks for creating a Lottizen account. Click below to confirm your email and open your dashboard — no password needed."
+    : "Click below to sign in to your dashboard. No password needed — this link is your key.";
   const body = `
-<h1 style="font-family:Georgia,'Times New Roman',serif;font-size:24px;font-weight:700;color:#1a1815;margin:0 0 14px;">One click to confirm</h1>
-<p style="margin:0 0 18px;">Thanks for subscribing to Lottizen. Confirm your email to start choosing which games you want winning numbers and stats for — nothing sends until you do.</p>
-${btn(opts.confirmUrl, "Confirm my email")}
-<p style="margin:22px 0 0;font-size:13px;color:#6d685f;">If you didn't request this, you can ignore this email — nothing is sent unless it's confirmed.</p>`;
+<h1 style="font-family:Georgia,'Times New Roman',serif;font-size:24px;font-weight:700;color:#1a1815;margin:0 0 14px;">${heading}</h1>
+<p style="margin:0 0 18px;">${lede}</p>
+${btn(opts.verifyUrl, opts.isNewAccount ? "Confirm & open my dashboard" : "Sign in")}
+<p style="margin:22px 0 0;font-size:13px;color:#6d685f;">This link expires in 30 minutes and can only be used once. If you didn't request this, you can ignore this email.</p>`;
   const html = emailShell({
-    previewText: "Confirm your email to start choosing which lottery games to follow.",
-    bodyHtml: body,
-    preferencesUrl: opts.preferencesUrl,
-    unsubscribeUrl: opts.unsubscribeUrl,
-  });
-  return { subject, html };
-}
-
-export function renderManageLinkEmail(opts: { preferencesUrl: string; unsubscribeUrl: string }) {
-  const subject = `Your Lottizen subscription link`;
-  const body = `
-<h1 style="font-family:Georgia,'Times New Roman',serif;font-size:24px;font-weight:700;color:#1a1815;margin:0 0 14px;">You're already subscribed</h1>
-<p style="margin:0 0 18px;">This email is already on the list. Use the link below to change which games you follow, your email frequency, or your saved numbers.</p>
-${btn(opts.preferencesUrl, "Manage my subscription")}`;
-  const html = emailShell({
-    previewText: "Manage which games you follow and how often you hear from us.",
+    previewText: opts.isNewAccount
+      ? "Confirm your email to start tracking your games and numbers."
+      : "Your sign-in link for My Lottizen.",
     bodyHtml: body,
     preferencesUrl: opts.preferencesUrl,
     unsubscribeUrl: opts.unsubscribeUrl,

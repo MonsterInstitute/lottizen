@@ -3,12 +3,23 @@ import Link from "next/link";
 import { getRankings, getTopPick } from "@/lib/data";
 import { money, humanDate } from "@/lib/format";
 import { SITE, absUrl } from "@/lib/site";
+import { getCurrentSubscriber } from "@/lib/auth";
+import { getSubscription, listScratchFavourites } from "@/lib/supabase-admin";
+import { effectiveTier } from "@/lib/entitlements";
+import { PLANS } from "@/lib/plans";
 import { RankingTable } from "@/components/ranking/RankingTable";
+import { ProRankingBoard } from "@/components/ranking/ProRankingBoard";
 import { PriceNav } from "@/components/ranking/PriceNav";
 import { TopPickCard } from "@/components/ranking/TopPickCard";
 import { DemoNotice } from "@/components/site/DemoNotice";
+import { ScratchDisclaimer } from "@/components/site/ScratchDisclaimer";
 import { AdSlot } from "@/components/site/AdSlot";
 import { JsonLd } from "@/components/site/JsonLd";
+
+// Per-visitor entitlement gate (free top-3 teaser vs the full Pro board) —
+// necessarily dynamic, unlike the individual /scratch/[slug] pages (kept
+// static; FollowButton there self-fetches its state client-side instead).
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
   title: "Scratch Value Tracker — Best Ontario Scratch Tickets Today",
@@ -24,10 +35,16 @@ export const metadata: Metadata = {
   },
 };
 
-export default function ScratchHome() {
+export default async function ScratchHome() {
   const { games, generatedAt } = getRankings();
   const top = getTopPick();
   const totalPrizePool = games.reduce((s, g) => s + g.remainingPrizePool, 0);
+
+  const subscriber = await getCurrentSubscriber();
+  const [subscription, favourites] = subscriber
+    ? await Promise.all([getSubscription(subscriber.id), listScratchFavourites(subscriber.id)])
+    : [null, [] as string[]];
+  const isPro = subscriber ? effectiveTier(subscription) === "pro" : false;
 
   const itemListJsonLd = {
     "@context": "https://schema.org",
@@ -122,9 +139,38 @@ export default function ScratchHome() {
           </div>
           <div style={{ marginTop: 28, display: "flex", flexDirection: "column", gap: 20 }}>
             <DemoNotice />
-            <PriceNav />
-            <AdSlot slot="rankings-top" format="leaderboard" />
-            <RankingTable games={games} />
+            {isPro ? (
+              <>
+                <AdSlot slot="rankings-top" format="leaderboard" />
+                <ProRankingBoard games={games} initialFavourites={favourites} />
+              </>
+            ) : (
+              <>
+                <PriceNav />
+                <AdSlot slot="rankings-top" format="leaderboard" />
+                <RankingTable games={games.slice(0, 3)} />
+                <div className="card" style={{ padding: 32, textAlign: "center" }}>
+                  <div className="section-eyebrow" style={{ justifyContent: "center" }}>
+                    Lottizen Pro
+                  </div>
+                  <h2 className="section-headline" style={{ fontSize: "clamp(24px,3vw,34px)", marginBottom: 10 }}>
+                    See the full Ontario scratch board
+                  </h2>
+                  <p className="section-lede" style={{ marginBottom: 18 }}>
+                    Compare every active game, filter by price, and follow the tickets you care
+                    about with Lottizen Pro — {PLANS.pro.priceMonthlyLabel}.
+                  </p>
+                  <Link href="/dashboard" className="btn btn-primary">
+                    Explore Lottizen Pro
+                  </Link>
+                </div>
+                <p className="field-hint">
+                  Free plan shows the top 3 highest current Value Score tickets. Rankings are based
+                  on remaining-prize data published by OLG.
+                </p>
+              </>
+            )}
+            <ScratchDisclaimer />
             <AdSlot slot="rankings-bottom" format="leaderboard" />
           </div>
         </div>

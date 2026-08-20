@@ -11,6 +11,7 @@ import { SITE, absUrl } from "@/lib/site";
 import { RankingTable } from "@/components/ranking/RankingTable";
 import { PriceNav } from "@/components/ranking/PriceNav";
 import { DemoNotice } from "@/components/site/DemoNotice";
+import { ScratchDisclaimer } from "@/components/site/ScratchDisclaimer";
 import { AdSlot } from "@/components/site/AdSlot";
 import { JsonLd } from "@/components/site/JsonLd";
 
@@ -99,6 +100,7 @@ export default function PricePage({ params }: { params: { price: string } }) {
             ) : (
               <p className="section-lede">No games at this price right now.</p>
             )}
+            <ScratchDisclaimer />
           </div>
           <div style={{ marginTop: 40 }}>
             <Link href="/scratch" className="btn btn-secondary">

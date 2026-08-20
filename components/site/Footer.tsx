@@ -53,6 +53,9 @@ export function Footer() {
             <h5>More</h5>
             <ul>
               <li>
+                <Link href="/dashboard">My Lottizen</Link>
+              </li>
+              <li>
                 <Link href="/scratch">Scratch Value Tracker</Link>
               </li>
               <li>

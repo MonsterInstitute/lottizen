@@ -37,6 +37,10 @@ import db  # noqa: E402 — shared Supabase data-layer helper
 from game_meta import GAME_META  # noqa: E402
 from email_templates import check_saved_numbers, draw_result_email, pick_insight  # noqa: E402
 
+# Free tier's weekly instant-alert cap — see lib/entitlements.ts's
+# FREE_WEEKLY_ALERT_LIMIT (kept in sync by hand; small, stable number).
+FREE_WEEKLY_ALERT_LIMIT = 7
+
 ROOT = Path(__file__).resolve().parent.parent
 DRAWS_DIR = ROOT / "data" / "draws"
 STATS_DIR = ROOT / "data" / "stats"
@@ -132,13 +136,45 @@ def subscribers_following(slug: str) -> list[dict]:
     ]
 
 
-def saved_numbers_for(subscriber_id: str, slug: str) -> list[int] | None:
-    rows = db.fetch_all(
+def combinations_for(subscriber_id: str, slug: str) -> list[dict]:
+    """All saved combinations (Pro: possibly several) for this subscriber+game."""
+    return db.fetch_all(
         "subscriber_numbers",
-        "numbers",
+        "id,numbers,label",
         filters=[("eq", "subscriber_id", subscriber_id), ("eq", "game_slug", slug)],
     )
-    return rows[0]["numbers"] if rows else None
+
+
+def record_check(subscriber_id: str, combination_id: int, slug: str, draw_date: str, matched: int, pick: int, bonus_matched: bool | None) -> None:
+    """Persist the check result so the dashboard's 'recently checked results'
+    reflects it without recomputing. possible_prize is deliberately never a
+    dollar amount/tier guess — see lib/prize-language.ts's docstring for why.
+    Deduped per (combination_id, draw_date): a re-run never double-writes."""
+    possible_prize = "requires_confirmation" if (matched >= 2 or bonus_matched is True or matched == pick) else None
+    db.insert_ignore(
+        "combination_checks",
+        [{
+            "subscriber_id": subscriber_id, "combination_id": combination_id, "game_slug": slug,
+            "draw_date": draw_date, "matched_main": matched, "pick": pick,
+            "bonus_matched": bonus_matched, "possible_prize": possible_prize,
+        }],
+        on_conflict="combination_id,draw_date",
+    )
+
+
+def weekly_alert_count(subscriber_id: str) -> int:
+    """draw_result emails logged for this subscriber in the last 7 days —
+    free tier's weekly alert cap (see lib/entitlements.ts's
+    FREE_WEEKLY_ALERT_LIMIT). email_log rows are written by claim_send()
+    regardless of actual delivery, which is exactly what we want to count
+    here: attempts against the cap, not just successful sends."""
+    from datetime import timedelta
+    since = (datetime.now(ZoneInfo("America/Toronto")).date() - timedelta(days=7)).isoformat()
+    rows = db.fetch_all(
+        "email_log", "id",
+        filters=[("eq", "subscriber_id", subscriber_id), ("eq", "type", "draw_result"), ("gte", "sent_date", since)],
+    )
+    return len(rows)
 
 
 def main() -> int:
@@ -170,14 +206,24 @@ def main() -> int:
                 skipped += 1
                 continue
 
-            saved_numbers = None
-            saved_match = None
+            is_pro = sub.get("tier") == "pro"
+            if not is_pro and weekly_alert_count(sub["id"]) > FREE_WEEKLY_ALERT_LIMIT:
+                print(f"  [capped] {sub['email']} hit the free weekly alert limit — skipping send (not the claim).")
+                skipped += 1
+                continue
+
+            saved_combinations: list[dict] = []
             try:
-                saved_numbers = saved_numbers_for(sub["id"], slug)
-                if saved_numbers:
-                    saved_match = check_saved_numbers(saved_numbers, numbers, len(numbers))
+                for combo in combinations_for(sub["id"], slug):
+                    match = check_saved_numbers(combo["numbers"], numbers, len(numbers))
+                    # Saved combinations track main numbers only (see
+                    # /api/account/combinations — no bonus-number pick field
+                    # yet), so there's nothing to compare the drawn bonus
+                    # against. None (not applicable), never a guessed value.
+                    record_check(sub["id"], combo["id"], slug, latest["date"], match[0], len(numbers), None)
+                    saved_combinations.append({"numbers": combo["numbers"], "label": combo.get("label"), "match": match})
             except Exception as e:  # noqa: BLE001 — don't let this block the send
-                print(f"  [warn] saved-numbers lookup failed for {sub['email']}: {e}")
+                print(f"  [warn] combination check failed for {sub['email']}: {e}")
 
             preferences_url = f"{SITE_URL}/subscribe/preferences?token={sub['magic_token']}"
             unsubscribe_url = f"{SITE_URL}/api/subscribe/unsubscribe?token={sub['magic_token']}"
@@ -193,9 +239,10 @@ def main() -> int:
                 next_jackpot=draws_file.get("nextJackpot") if meta.get("progressive") else None,
                 currency=meta["currency"],
                 insight=insight,
-                saved_numbers=saved_numbers,
-                saved_match=saved_match,
+                is_pro=is_pro,
+                saved_combinations=saved_combinations or None,
                 scratch_top3=top3 if sub.get("country") == "CA" else None,
+                dashboard_url=f"{SITE_URL}/dashboard",
                 preferences_url=preferences_url,
                 unsubscribe_url=unsubscribe_url,
             )

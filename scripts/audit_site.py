@@ -585,6 +585,35 @@ def _api_get(
 FALLBACK_GAME_SLUG = "lotto-max"
 FALLBACK_SCRATCH_SLUG = "bingo-multip"
 
+# (path, required substring, description) — pages that became dynamic for
+# Lottizen Pro's per-visitor gating (/dashboard, /scratch) and so have no
+# static .html to check the way audit()/audit_subscribe_pages() do; these
+# are checked live instead, same reasoning as the /api/v1 endpoint checks.
+PAGE_HEALTH_CHECKS = [
+    ("/dashboard", "My Lottizen", "anonymous visitor should see the sign-in prompt, not an error"),
+    ("/scratch", "Rankings are based on publicly available remaining-prize data", "required disclaimer must render"),
+    ("/subscribe", "Winning numbers", "newsletter/account landing page"),
+]
+
+
+def _html_get(site: str, path: str) -> tuple[int | None, str | None, str | None, int | None]:
+    """Plain GET returning (status, text, error, elapsed_ms) — for HTML page
+    checks, as opposed to _api_get's JSON parsing."""
+    url = site.rstrip("/") + path
+    req = urllib.request.Request(url, headers={"User-Agent": "lottizen-api-health/1.0"})
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    t0 = time.time()
+    try:
+        with urllib.request.urlopen(req, timeout=15, context=ctx) as r:
+            status, raw = r.status, r.read()
+        return status, raw.decode("utf-8", "replace"), None, round((time.time() - t0) * 1000)
+    except urllib.error.HTTPError as e:
+        return e.code, e.read().decode("utf-8", "replace"), None, round((time.time() - t0) * 1000)
+    except Exception as e:  # noqa: BLE001
+        return None, None, f"{type(e).__name__}: {e}", round((time.time() - t0) * 1000)
+
 
 def api_health_main() -> int:
     """Curl every v1 endpoint against a live site and report pass/fail.
@@ -668,6 +697,11 @@ def api_health_main() -> int:
     ok_invalid = error is None and (status == 404 or (not secret and status == 401))
     checks.append({"path": "/api/v1/games/{invalid} (expect 404, or 401 if gated)",
                     "status": status, "ok": ok_invalid, "ms": ms, "error": error})
+
+    for path, needle, _desc in PAGE_HEALTH_CHECKS:
+        status, text, error, ms = _html_get(site, path)
+        ok = error is None and status == 200 and text is not None and needle in text
+        checks.append({"path": f"{path} (page)", "status": status, "ok": ok, "ms": ms, "error": error})
 
     failed = [c for c in checks if not c["ok"]]
     result = {"site": site, "secretUsed": bool(secret), "generatedAt": datetime.now().isoformat(),
