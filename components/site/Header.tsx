@@ -17,17 +17,13 @@ export function Header() {
           <RegionLink region="EU" href="/europe">
             Europe
           </RegionLink>
-          <Link href="/dashboard">Track my numbers</Link>
           <Link href="/statistics">Statistics</Link>
-          <Link href="/generator">Number Tools</Link>
+          <Link href="/generator">Tools</Link>
           <Link href="/guides">Guides</Link>
           <Link href="/scratch">Scratch value</Link>
           <Link href="/api">API</Link>
         </nav>
         <div className="nav-right">
-          <Link href="/usa" className="nav-signin">
-            All games
-          </Link>
           <Link href="/dashboard" className="nav-cta">
             My Lottizen
           </Link>
