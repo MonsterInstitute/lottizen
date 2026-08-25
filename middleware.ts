@@ -1,26 +1,28 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 /**
- * Geo-routing + geo hint.
+ * Geo hint only — no redirects.
  *
- * On `/`: redirect Canadian visitors to /canada, US visitors to /usa, and
- * European visitors (GB/IE/FR/ES/PT/AT/BE/CH/LU — the EuroMillions/EuroJackpot/
- * UK Lotto footprint) to /europe (307, uncached); other countries stay on the
- * landing page. Precedence: lottizen_region cookie (nav country switch) >
- * x-vercel-ip-country > DEV_GEO_COUNTRY > CA in dev.
+ * `/` used to 307-redirect by IP country (CA → /canada, US → /usa, EU → /europe).
+ * Removed: Googlebot crawls primarily from US-tagged IPs, so it never saw the
+ * real homepage — only a redirect response — which is very likely why GSC showed
+ * ~50/2019 pages indexed despite a clean sitemap. A User-Agent allowlist for
+ * crawlers was considered and rejected: serving different content (a real page
+ * vs. a redirect) to bots vs. humans on the same URL is cloaking by Google's own
+ * definition, even when well-intentioned, and risks a trust/manual-action penalty.
+ * The homepage already has real multi-country content (hero CTAs + per-country
+ * game blocks for every entry in COUNTRIES), so instead of redirecting we now
+ * only reorder those blocks client-side — see components/site/HomeGeoSort.tsx,
+ * the same non-redirect pattern already used on /statistics and /generator.
  *
- * On every matched path we also write a lightweight, non-httpOnly cookie
+ * On every matched path we write a lightweight, non-httpOnly cookie
  * `lottizen_geo` = "<country>-<region>" (e.g. "CA-ON", "US-NY") from Vercel's
- * geo headers. The /statistics and /generator hubs read it client-side to sort
- * the user's province/state games to the top — the pages stay fully static.
+ * geo headers, read client-side to sort the user's country/province/state
+ * content to the top. The pages stay fully static/crawlable either way.
  */
 export const config = { matcher: ["/", "/statistics", "/generator"] };
 
 const YEAR = 60 * 60 * 24 * 365;
-
-// Countries whose players play the European games we cover (EuroMillions is sold
-// across these; UK Lotto in GB). IP country in this set → /europe.
-const EU_COUNTRIES = new Set(["GB", "IE", "FR", "ES", "PT", "AT", "BE", "CH", "LU"]);
 
 export function middleware(req: NextRequest) {
   const isDev = process.env.NODE_ENV !== "production";
@@ -34,25 +36,7 @@ export function middleware(req: NextRequest) {
     devGeo ||
     (isDev ? "CA-ON" : undefined);
 
-  const withGeo = (res: NextResponse) => {
-    if (geo) res.cookies.set("lottizen_geo", geo, { path: "/", maxAge: YEAR, sameSite: "lax" });
-    return res;
-  };
-
-  // Only the root path redirects by country.
-  if (req.nextUrl.pathname === "/") {
-    const chosen =
-      req.cookies.get("lottizen_region")?.value?.toUpperCase() ||
-      country ||
-      process.env.DEV_GEO_COUNTRY?.toUpperCase() ||
-      (isDev ? "CA" : undefined);
-    if (chosen === "CA") return withGeo(NextResponse.redirect(new URL("/canada", req.url), 307));
-    if (chosen === "US") return withGeo(NextResponse.redirect(new URL("/usa", req.url), 307));
-    if (chosen === "EU" || (chosen && EU_COUNTRIES.has(chosen)))
-      return withGeo(NextResponse.redirect(new URL("/europe", req.url), 307));
-    return withGeo(NextResponse.next());
-  }
-
-  // Hub pages: just set the geo hint.
-  return withGeo(NextResponse.next());
+  const res = NextResponse.next();
+  if (geo) res.cookies.set("lottizen_geo", geo, { path: "/", maxAge: YEAR, sameSite: "lax" });
+  return res;
 }

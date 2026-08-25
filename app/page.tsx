@@ -14,6 +14,7 @@ import { PLANS } from "@/lib/plans";
 import { Balls } from "@/components/draws/Balls";
 import { AdSlot } from "@/components/site/AdSlot";
 import { JsonLd } from "@/components/site/JsonLd";
+import { HomeGeoSort } from "@/components/site/HomeGeoSort";
 
 export default function HomePage() {
   const latest = new Map(getLatestAll().map((l) => [l.slug, l]));
@@ -114,11 +115,13 @@ export default function HomePage() {
       </section>
 
       {/* ============ COUNTRY BLOCKS ============ */}
+      <HomeGeoSort />
+      <div id="country-blocks">
       {COUNTRIES.map((c) => {
         const games = liveGames(c.code).slice(0, 6);
         if (!games.length) return null;
         return (
-          <section className="section" key={c.code} style={{ paddingTop: 40, paddingBottom: 40 }}>
+          <section className="section" data-country-block={c.code} key={c.code} style={{ paddingTop: 40, paddingBottom: 40 }}>
             <div className="container">
               <div className="section-eyebrow">{c.name}</div>
               <div className="section-head-row">
@@ -160,6 +163,7 @@ export default function HomePage() {
           </section>
         );
       })}
+      </div>
 
       <section className="container">
         <AdSlot slot="home-mid" format="leaderboard" />
