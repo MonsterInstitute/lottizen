@@ -30,7 +30,7 @@ import os
 import sys
 import urllib.error
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -56,6 +56,10 @@ COUNTRY_SLUG = {"CA": "canada", "US": "usa", "EU": "europe"}
 
 def today_toronto() -> str:
     return datetime.now(ZoneInfo("America/Toronto")).date().isoformat()
+
+
+def yesterday_toronto() -> str:
+    return (datetime.now(ZoneInfo("America/Toronto")).date() - timedelta(days=1)).isoformat()
 
 
 def send_email(to: str, subject: str, html: str) -> bool:
@@ -105,7 +109,18 @@ def claim_send(subscriber_id: str, type_: str, game_slug: str = "") -> bool:
     return bool(res.data)
 
 
-def games_drawn_today(today: str) -> list[dict]:
+def games_drawn_today(today: str, yesterday: str) -> list[dict]:
+    """Matches `today` OR `yesterday` — NOT just `today`. This workflow's three
+    callers check at different times relative to the actual draw: draws-daily.yml
+    and usa-daily.yml run the next MORNING (draw was yesterday evening, Toronto
+    time), while europe-daily.yml runs the SAME evening (23:00 UTC, after a
+    European evening draw that's still "today" in UTC). A `today`-only check
+    silently matched neither the CA/US morning-after case nor almost any real
+    draw — send_email() was essentially never reached in production. Widening
+    to `today OR yesterday` is still safe against duplicate sends: claim_send()
+    already dedupes per (subscriber, type, game, day-of-send), and a stale
+    draws[0] naturally ages out of BOTH the today and yesterday window after one
+    more day passes, so a scraper that misses a day never causes a stale re-send."""
     out = []
     for slug, meta in GAME_META.items():
         path = DRAWS_DIR / f"{slug}.json"
@@ -113,7 +128,7 @@ def games_drawn_today(today: str) -> list[dict]:
             continue
         d = json.loads(path.read_text())
         draws = d.get("draws") or []
-        if draws and draws[0]["date"] == today:
+        if draws and draws[0]["date"] in (today, yesterday):
             out.append({"slug": slug, "meta": meta, "draws_file": d, "latest": draws[0]})
     return out
 
@@ -181,9 +196,10 @@ def weekly_alert_count(subscriber_id: str) -> int:
 
 def main() -> int:
     today = today_toronto()
-    drawn = games_drawn_today(today)
+    yesterday = yesterday_toronto()
+    drawn = games_drawn_today(today, yesterday)
     if not drawn:
-        print(f"No live games drew on {today} (Toronto). Nothing to send.")
+        print(f"No live games drew on {today} or {yesterday} (Toronto). Nothing to send.")
         return 0
 
     top3 = scratch_top3()
