@@ -41,8 +41,7 @@ export default function HomePage() {
     "@type": "WebSite",
     name: SITE.name,
     url: SITE.url,
-    description:
-      "Canadian and US lottery winning numbers, results and number statistics — Powerball, Mega Millions, Lotto Max, Lotto 6/49 and more.",
+    description: SITE.description,
   };
 
   return (
@@ -281,8 +280,8 @@ export default function HomePage() {
               Keep track of the games <em>you play.</em>
             </h2>
             <p className="section-lede" style={{ marginBottom: 20 }}>
-              Save your numbers, check results automatically, and see current Ontario
-              scratch-ticket rankings based on public prize data.
+              Save your numbers, check results automatically, and see current scratch-ticket
+              rankings across all 5 Canadian provinces, based on public prize data.
             </p>
             <div className="hero-cta-row" style={{ justifyContent: "center" }}>
               <Link href="/dashboard" className="btn btn-primary">

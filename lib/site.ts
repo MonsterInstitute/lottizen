@@ -1,9 +1,13 @@
 /** Site-wide constants used by metadata, SEO, and chrome. */
 export const SITE = {
   name: "Lottizen",
-  tagline: "Smarter Scratch. Better Odds.",
+  // Was "Smarter Scratch. Better Odds." — accurate only while the site was
+  // Ontario-scratch-only (its original July launch scope). The site's core
+  // is draw-lottery numbers/stats now, with scratch as one part; this
+  // covers both without overclaiming either.
+  tagline: "Smarter Numbers. Real Value.",
   description:
-    "Canadian lottery winning numbers, results, and number statistics — Lotto Max, Lotto 6/49, Ontario 49 and more — plus a scratch-ticket value tracker.",
+    "Winning numbers, results, and number statistics for major lotteries across Canada, the US, and Europe — plus the only scratch-ticket value tracker covering all 5 Canadian provincial lottery agencies.",
   // Set NEXT_PUBLIC_SITE_URL in the environment for canonical/OG/sitemap URLs.
   url: (process.env.NEXT_PUBLIC_SITE_URL || "https://lottizen.com").replace(/\/$/, ""),
   locale: "en_CA",

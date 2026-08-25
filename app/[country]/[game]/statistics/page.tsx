@@ -55,6 +55,16 @@ export default function StatisticsPage({ params }: { params: { country: string; 
     if (!ds) notFound();
     return (
       <>
+        <JsonLd
+          data={{
+            "@context": "https://schema.org",
+            "@type": "Dataset",
+            name: `${g.name} digit-position statistics`,
+            description: `Per-position frequency and gap statistics computed from ${ds.drawCount} ${g.name} draws.`,
+            url: absUrl(`${base}/statistics`),
+            creator: { "@type": "Organization", name: "Lottizen" },
+          }}
+        />
         <div className="page-head">
           <div className="container">
             <div className="breadcrumb">

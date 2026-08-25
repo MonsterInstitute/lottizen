@@ -4,7 +4,7 @@ import "./globals.css";
 import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
 import { JsonLd } from "@/components/site/JsonLd";
-import { SITE } from "@/lib/site";
+import { SITE, absUrl } from "@/lib/site";
 
 const serif = Playfair_Display({
   subsets: ["latin"],
@@ -35,8 +35,8 @@ export const metadata: Metadata = {
   description: SITE.description,
   applicationName: SITE.name,
   keywords: [
-    "Ontario scratch tickets",
-    "OLG instant games",
+    "Canadian scratch tickets",
+    "scratch ticket value tracker",
     "best scratch ticket to buy",
     "scratch ticket odds",
     "remaining top prizes",
@@ -70,7 +70,33 @@ const orgJsonLd = {
   url: SITE.url,
   description: SITE.description,
   slogan: SITE.tagline,
-  areaServed: { "@type": "AdministrativeArea", name: "Ontario, Canada" },
+  logo: absUrl("/apple-icon.png"),
+  // Repo's first commit (2026-07-02) — the only real "site went live" date
+  // on record; not a guess.
+  foundingDate: "2026-07-02",
+  // Was hardcoded to a single "Ontario, Canada" AdministrativeArea — wrong
+  // on every /usa and /europe page too, a self-contradictory geo signal to
+  // search engines. Real coverage: all of Canada (5 provincial scratch
+  // agencies + national/regional draw games), the US, and the European
+  // countries EuroMillions/EuroJackpot/UK Lotto actually serve (kept in
+  // sync by hand with middleware.ts's EU_COUNTRIES geo-routing set).
+  areaServed: [
+    { "@type": "Country", name: "Canada" },
+    { "@type": "Country", name: "United States" },
+    { "@type": "Country", name: "United Kingdom" },
+    { "@type": "Country", name: "Ireland" },
+    { "@type": "Country", name: "France" },
+    { "@type": "Country", name: "Spain" },
+    { "@type": "Country", name: "Portugal" },
+    { "@type": "Country", name: "Austria" },
+    { "@type": "Country", name: "Belgium" },
+    { "@type": "Country", name: "Switzerland" },
+    { "@type": "Country", name: "Luxembourg" },
+  ],
+  // sameAs (official social profiles) intentionally omitted — SITE.twitter
+  // ("@lottizen") is only ever used for the twitter:site meta tag, with no
+  // link anywhere confirming it's a real, owned, live account. Flagged to
+  // the user rather than guessed; add real profile URLs here once confirmed.
 };
 
 export default function RootLayout({

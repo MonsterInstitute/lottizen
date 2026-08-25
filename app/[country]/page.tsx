@@ -38,6 +38,7 @@ export default function CountryOverview({ params }: { params: { country: string 
   const name = countryName(code);
   const groups = gamesByAgency(code);
   const latest = new Map(getLatestAll().map((g) => [g.slug, g]));
+  const liveGames = groups.flatMap((grp) => grp.games).filter((g) => g.live && hasData(g.slug));
 
   return (
     <>
@@ -46,7 +47,18 @@ export default function CountryOverview({ params }: { params: { country: string 
           "@context": "https://schema.org",
           "@type": "CollectionPage",
           name: `${name} Lottery Games`,
+          description: `Winning numbers, results, and statistics for every live ${name} draw lottery — organized by the agency that runs it.`,
           url: absUrl(`/${params.country}`),
+          mainEntity: {
+            "@type": "ItemList",
+            numberOfItems: liveGames.length,
+            itemListElement: liveGames.map((g, i) => ({
+              "@type": "ListItem",
+              position: i + 1,
+              name: g.name,
+              url: absUrl(`/${params.country}/${g.slug}`),
+            })),
+          },
         }}
       />
       <div className="page-head">

@@ -7,6 +7,7 @@ import { absUrl } from "@/lib/site";
 import { GameTabs } from "@/components/draws/GameTabs";
 import { GameSwitcher } from "@/components/draws/GameSwitcher";
 import { Generator } from "@/components/draws/Generator";
+import { JsonLd } from "@/components/site/JsonLd";
 
 export const dynamicParams = false;
 export function generateStaticParams() {
@@ -35,6 +36,19 @@ export default function GeneratorPage({ params }: { params: { country: string; g
 
   return (
     <>
+      <JsonLd
+        data={{
+          "@context": "https://schema.org",
+          "@type": "WebApplication",
+          name: `${g.name} Number Generator`,
+          applicationCategory: "UtilitiesApplication",
+          operatingSystem: "Any (web browser)",
+          url: absUrl(`${base}/generator`),
+          description: `Generate ${g.name} numbers: pure Quick Pick, statistics-weighted, or birthday-seeded.`,
+          isAccessibleForFree: true,
+          offers: { "@type": "Offer", price: "0", priceCurrency: g.currency },
+        }}
+      />
       <div className="page-head">
         <div className="container">
           <div className="breadcrumb">

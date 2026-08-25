@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SITE, absUrl } from "@/lib/site";
+import { getAllRankings } from "@/lib/data";
 import { JsonLd } from "@/components/site/JsonLd";
 
 const RAPIDAPI_URL = "https://rapidapi.com/l3rundong/api/lottizen-data-api";
@@ -8,20 +9,20 @@ const RAPIDAPI_URL = "https://rapidapi.com/l3rundong/api/lottizen-data-api";
 export const metadata: Metadata = {
   title: "Lottizen Data API — Canada, US & Europe Lottery Data (REST/JSON)",
   description:
-    "A REST/JSON API for North American and European lottery data: winning numbers, 40+ years of draw history, hot/cold/overdue number statistics, and the only Ontario scratch-ticket remaining-prize tracker in Canada. Free tier on RapidAPI.",
+    "A REST/JSON API for North American and European lottery data: winning numbers, 40+ years of draw history, hot/cold/overdue number statistics, and the only scratch-ticket remaining-prize tracker covering all 5 Canadian provincial lottery agencies. Free tier on RapidAPI.",
   keywords: [
     "canada lottery api",
     "lottery data api",
     "lotto max api",
     "lottery numbers api",
-    "ontario scratch ticket api",
+    "scratch ticket api",
     "lottery statistics api",
   ],
   alternates: { canonical: "/api" },
   openGraph: {
     title: "Lottizen Data API",
     description:
-      "REST/JSON lottery data for Canada, the US and Europe — winning numbers, draw history, number statistics, and an exclusive Ontario scratch-ticket remaining-prize tracker.",
+      "REST/JSON lottery data for Canada, the US and Europe — winning numbers, draw history, number statistics, and an exclusive scratch-ticket remaining-prize tracker across all 5 Canadian provinces.",
     url: absUrl("/api"),
     type: "website",
   },
@@ -384,6 +385,11 @@ const TOC: { id: string; text: string; level: 2 | 3 }[] = [
 ];
 
 export default function ApiDocsPage() {
+  // Computed at build time, not hardcoded — the count actually changes
+  // daily as games launch/retire (this exact page previously said "50
+  // Ontario (OLG) scratch tickets" long after the API grew to 5 provinces).
+  const totalScratchGames = getAllRankings().reduce((s, r) => s + r.gameCount, 0);
+
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "WebAPI",
@@ -408,7 +414,7 @@ export default function ApiDocsPage() {
           <p className="section-lede">
             REST/JSON access to Lottizen&rsquo;s Canada, US and Europe lottery data: winning
             numbers, 40+ years of draw history, hot/cold/overdue number statistics — and the only
-            Ontario scratch-ticket remaining-prize tracker in Canada. Rebuilt daily.
+            scratch-ticket remaining-prize tracker covering all 5 Canadian provinces. Rebuilt daily.
           </p>
           <div className="hero-cta-row" style={{ marginTop: 8 }}>
             <a href={RAPIDAPI_URL} target="_blank" rel="noopener noreferrer" className="btn btn-primary">
@@ -442,16 +448,18 @@ export default function ApiDocsPage() {
                   The Lottizen Data API covers <strong>19 live draw-lottery games</strong> across
                   Canada, the US and Europe — Lotto Max, Lotto 6/49, Powerball, Mega Millions,
                   EuroMillions, EuroJackpot, UK Lotto and more — plus{" "}
-                  <strong>50 Ontario (OLG) scratch tickets</strong>, ranked by remaining prize
-                  value. Canada is our deepest market: every major national and regional draw game,
-                  draw history back to 1982, and remaining-prize tracking on scratch tickets that
-                  no other lottery API offers. All data refreshes daily from official sources.
+                  <strong>{totalScratchGames} scratch tickets across all 5 Canadian provinces</strong>
+                  {" "}(Ontario, British Columbia, Western Canada, Atlantic Canada, Quebec), ranked
+                  by remaining prize value. Canada is our deepest market: every major national and
+                  regional draw game, draw history back to 1982, and remaining-prize tracking on
+                  scratch tickets that no other lottery API offers, in even one province, let alone
+                  five. All data refreshes daily from official sources.
                 </p>
                 <p>Base URL for every endpoint below:</p>
                 <pre className="formula">{BASE}</pre>
                 <p>
-                  Coverage today: <strong>Canada</strong> (national + OLG/WCLC/BCLC/ALC), the{" "}
-                  <strong>US</strong> (multi-state + New York), and <strong>Europe</strong>{" "}
+                  Coverage today: <strong>Canada</strong> (national + OLG/BCLC/WCLC/ALC/Loto-Québec),
+                  the <strong>US</strong> (multi-state + New York), and <strong>Europe</strong>{" "}
                   (EuroMillions, EuroJackpot, UK Lotto). Japan is next — <strong>coming soon</strong>.
                 </p>
 
@@ -618,9 +626,9 @@ export default function ApiDocsPage() {
                 <span className="notice-tag">Independent</span>
                 <span>
                   Lottizen is an independent data provider — not a lottery operator, and not
-                  affiliated with OLG, WCLC, BCLC, ALC, MUSL, the NY Lottery, EuroMillions,
-                  EuroJackpot, or Allwyn/The National Lottery. Data is collected from public
-                  official sources; see <Link href="/methodology">methodology</Link>.
+                  affiliated with OLG, BCLC, WCLC, ALC, Loto-Québec, MUSL, the NY Lottery,
+                  EuroMillions, EuroJackpot, or Allwyn/The National Lottery. Data is collected from
+                  public official sources; see <Link href="/methodology">methodology</Link>.
                 </span>
               </div>
             </div>
