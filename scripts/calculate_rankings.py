@@ -102,6 +102,10 @@ def load_all_games() -> dict[str, list[dict]]:
             # Lottizen Plus launch-vs-now odds comparison; null everywhere
             # else until a future adapter pass adds it (see lib/plus-analytics.ts).
             "launchOddsN": float(g["overall_odds"]) if g.get("overall_odds") is not None else None,
+            # Real "prize data last changed" timestamp — NOT scraped_at,
+            # which updates every run regardless of whether anything moved.
+            # See db.replace_scratch_games(). Sitemap lastmod source.
+            "dataChangedAt": g["data_changed_at"],
             "prizeTiers": [
                 {
                     "amount": float(t["amount"]),

@@ -31,6 +31,10 @@ export interface Game {
    * Only ALC's adapter currently scrapes this — null elsewhere. See
    * lib/plus-analytics.ts's launchVsNowOdds(). */
   launchOddsN?: number | null;
+  /** Real "prize data last changed" timestamp — NOT when it was scraped
+   * (which happens daily regardless of whether anything moved). Sitemap
+   * lastmod source; see scripts/db.py's replace_scratch_games(). */
+  dataChangedAt: string;
   prizeTiers: PrizeTier[];
 
   // ---- derived by calculate_rankings.py; meaning depends on scoringMethod ----

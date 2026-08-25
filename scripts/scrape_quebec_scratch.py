@@ -102,11 +102,6 @@ UA = (
 CAPTION_RE = re.compile(r"^(.+?)\s*\((\d+-\d+)\)\s*$")
 
 
-def slugify(name: str) -> str:
-    s = re.sub(r"[^\w\s-]", "", name.lower()).strip()
-    return re.sub(r"[\s_]+", "-", s)
-
-
 def parse_amount(label: str) -> float:
     m = re.search(r"([\d\s]+(?:,\d+)?)\s*\$", label)
     if not m:
@@ -216,7 +211,7 @@ def run_live() -> int:
             {
                 "game_number": code,
                 "name": name,
-                "slug": slugify(name),
+                "slug": db.slugify(name),
                 "price": meta["price"],
                 "launch_date": meta["launch_date"],
                 "prize_tiers": tiers,

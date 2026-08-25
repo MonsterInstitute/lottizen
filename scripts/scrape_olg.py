@@ -63,11 +63,6 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
-def slugify(name: str) -> str:
-    s = re.sub(r"[^\w\s-]", "", name.lower()).strip()
-    return re.sub(r"[\s_]+", "-", s)
-
-
 def _ssl_context() -> ssl.SSLContext:
     """Verified context via certifi when available; otherwise fall back to an
     unverified context (the feed is public, non-sensitive). CI (Ubuntu) has
@@ -134,7 +129,7 @@ def replace_games(games: list[dict], source: str) -> None:
     """Full refresh, scoped to OLG only — see db.replace_scratch_games()'s
     docstring for why this must never be a table-wide delete."""
     for g in games:
-        g["slug"] = slugify(g["name"])
+        g["slug"] = db.slugify(g["name"])
     n = db.replace_scratch_games(AGENCY, PROVINCE, games, source)
     print(f"  ⤷ wrote {n} OLG games (province={PROVINCE})")
 

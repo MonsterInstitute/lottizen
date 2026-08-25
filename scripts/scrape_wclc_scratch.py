@@ -70,11 +70,6 @@ UA = (
 CAPTION_RE = re.compile(r"^\$([\d,]+(?:\.\d+)?)\s+(.+?)\s*-\s*(\d+)\s*\*?\s*$")
 
 
-def slugify(name: str) -> str:
-    s = re.sub(r"[^\w\s-]", "", name.lower()).strip()
-    return re.sub(r"[\s_]+", "-", s)
-
-
 def parse_amount(label: str) -> float:
     m = re.search(r"\$([\d,]+(?:\.\d+)?)", label)
     return float(m.group(1).replace(",", "")) if m else 0.0
@@ -122,7 +117,7 @@ def parse_games(html: str) -> list[dict]:
         for i, t in enumerate(tiers):
             t["is_top"] = i == top_i
 
-        games.append({"game_number": game_number, "name": name, "slug": slugify(name), "price": price, "prize_tiers": tiers})
+        games.append({"game_number": game_number, "name": name, "slug": db.slugify(name), "price": price, "prize_tiers": tiers})
     return games
 
 

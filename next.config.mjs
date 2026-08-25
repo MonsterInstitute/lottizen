@@ -33,6 +33,39 @@ function legacyScratchRedirects() {
   }));
 }
 
+/**
+ * Loto-Québec's slugify() used to leave French accents in the URL
+ * (Élite, Années 90, Diva à Paris, ...) — a real sitemap-protocol
+ * violation (unescaped non-ASCII in <loc>) fixed by ASCII-folding new
+ * slugs going forward (see scripts/db.py's slugify()). These 12 games
+ * already had accented slugs live, so their old URLs get a permanent
+ * redirect to the new ASCII ones — a static list (not derived from
+ * current data, since the old slugs no longer exist anywhere to derive
+ * from) built once by diffing the DB before/after the slugify fix shipped.
+ */
+const QUEBEC_ACCENT_SLUG_REDIRECTS = [
+  ["années-90", "annees-90"],
+  ["diva-à-paris", "diva-a-paris"],
+  ["gagnant-à-vie", "gagnant-a-vie"],
+  ["la-voûte", "la-voute"],
+  ["mots-cachés-astrologie", "mots-caches-astrologie"],
+  ["mots-cachés-plantes", "mots-caches-plantes"],
+  ["mots-cachés", "mots-caches"],
+  ["néon", "neon"],
+  ["slingo-jeu-de-dés", "slingo-jeu-de-des"],
+  ["slingo-sucré", "slingo-sucre"],
+  ["à-la-piscine", "a-la-piscine"],
+  ["élite", "elite"],
+];
+
+function quebecAccentSlugRedirects() {
+  return QUEBEC_ACCENT_SLUG_REDIRECTS.map(([oldSlug, newSlug]) => ({
+    source: `/scratch/quebec/${encodeURIComponent(oldSlug)}`,
+    destination: `/scratch/quebec/${newSlug}`,
+    permanent: true,
+  }));
+}
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
@@ -52,6 +85,7 @@ const nextConfig = {
         permanent: true,
       },
       ...legacyScratchRedirects(),
+      ...quebecAccentSlugRedirects(),
     ];
   },
 };

@@ -77,11 +77,6 @@ UA = (
 )
 
 
-def slugify(name: str) -> str:
-    s = re.sub(r"[^\w\s-]", "", name.lower()).strip()
-    return re.sub(r"[\s_]+", "-", s)
-
-
 def parse_amount(label: str) -> float:
     m = re.search(r"\$([\d,]+(?:\.\d+)?)", label)
     return float(m.group(1).replace(",", "")) if m else 0.0
@@ -192,7 +187,7 @@ def run_live() -> int:
             {
                 "game_number": gnum,
                 "name": meta["name"] or rows[0]["label"],
-                "slug": slugify(meta["name"] or gnum),
+                "slug": db.slugify(meta["name"] or gnum),
                 "price": meta["price"],
                 "launch_date": meta["launch_date"],
                 "overall_odds": meta["overall_odds"],

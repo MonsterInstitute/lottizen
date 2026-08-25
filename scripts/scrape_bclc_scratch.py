@@ -69,11 +69,6 @@ UA = (
 )
 
 
-def slugify(name: str) -> str:
-    s = re.sub(r"[^\w\s-]", "", name.lower()).strip()
-    return re.sub(r"[\s_]+", "-", s)
-
-
 def parse_amount(label: str) -> float:
     m = re.search(r"\$([\d,]+(?:\.\d+)?)", label)
     return float(m.group(1).replace(",", "")) if m else 0.0
@@ -147,7 +142,7 @@ def run_live() -> int:
 
     launch_dates = fetch_launch_dates()
     for g in games:
-        g["slug"] = slugify(g["name"])
+        g["slug"] = db.slugify(g["name"])
         g["launch_date"] = launch_dates.get(g["game_number"])
 
     n = db.replace_scratch_games(AGENCY, PROVINCE, games, source="bclc-live")

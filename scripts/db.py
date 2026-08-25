@@ -19,6 +19,7 @@ Design notes:
 from __future__ import annotations
 
 import os
+import re
 import time
 from pathlib import Path
 from typing import Any, Iterable, Sequence
@@ -115,6 +116,27 @@ def delete_all(table: str, pk_col: str, sentinel) -> None:
     get_client().table(table).delete().neq(pk_col, sentinel).execute()
 
 
+def slugify(name: str) -> str:
+    """Shared slug generator for all 5 scratch adapters. ASCII-folds accented
+    characters (é->e, à->a, û->u, ...) rather than leaving them in the URL —
+    Loto-Québec game names are the only source that actually has any (Élite,
+    Années 90, Mots Cachés, Diva à Paris, La Voûte, Slingo Sucré, ...); the
+    other 4 adapters' input is already pure ASCII, so this is a no-op there.
+
+    ASCII slugs were chosen over percent-encoded accented ones on purpose:
+    they work correctly in every tool/integration without requiring
+    encoding-awareness, match how people actually type/search without a
+    French keyboard, and stay consistent with the other 4 agencies' slugs —
+    while costing nothing for SEO, since ranking-relevant text (title, h1,
+    body) keeps the real accented name regardless of what the URL slug is.
+    """
+    import unicodedata
+
+    ascii_name = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode("ascii")
+    s = re.sub(r"[^\w\s-]", "", ascii_name.lower()).strip()
+    return re.sub(r"[\s_]+", "-", s)
+
+
 def dedupe_slugs(games: list[dict]) -> list[dict]:
     """Guarantee unique `slug` within one agency's game list.
 
@@ -149,31 +171,56 @@ def replace_scratch_games(agency: str, province: str, games: list[dict], source:
     `games`: [{"game_number", "name", "price", "prize_tiers": [{"amount",
     "label", "total", "remaining", "is_top"}], "launch_date"?, "overall_odds"?,
     "top_prize_odds"?}, ...]. Returns the number of games written.
+
+    `data_changed_at` (sitemap lastmod source — see app/sitemap.ts) is NOT
+    just "now" on every run: it's diffed against the prior state before the
+    delete below, and only advances when a game's tier data (amount/label/
+    total/remaining per tier) genuinely differs from what was there
+    yesterday. A game whose prizes haven't moved keeps its old timestamp
+    even though `scraped_at` (which DOES update every run) says otherwise —
+    without this, every scratch page would report a fake daily lastmod and
+    crawlers would learn to ignore the signal site-wide.
     """
     from datetime import datetime, timezone
 
     ts = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
+    def tier_signature(tiers: list[dict]) -> tuple:
+        return tuple(sorted((t["amount"], t["label"], t["total"], t["remaining"]) for t in tiers))
+
+    prior_rows = fetch_all("games", "game_number,data_changed_at", filters=[("eq", "agency", agency)])
+    prior_changed_at = {r["game_number"]: r["data_changed_at"] for r in prior_rows}
+    prior_tiers_rows = fetch_all("prize_tiers", "game_number,amount,label,total,remaining", filters=[("eq", "agency", agency)])
+    prior_tiers_by_game: dict[str, list[dict]] = {}
+    for t in prior_tiers_rows:
+        prior_tiers_by_game.setdefault(t["game_number"], []).append(t)
+
     delete_where("games", "agency", agency)  # cascades to prize_tiers + scratch_snapshots
 
     games = dedupe_slugs(games)
 
-    game_rows = [
-        {
-            "game_number": g["game_number"],
-            "agency": agency,
-            "province": province,
-            "name": g["name"],
-            "slug": g["slug"],
-            "price": g["price"],
-            "overall_odds": g.get("overall_odds"),
-            "top_prize_odds": g.get("top_prize_odds"),
-            "launch_date": g.get("launch_date"),
-            "source": source,
-            "scraped_at": ts,
-        }
-        for g in games
-    ]
+    game_rows = []
+    for g in games:
+        prior_sig = tier_signature(prior_tiers_by_game[g["game_number"]]) if g["game_number"] in prior_tiers_by_game else None
+        new_sig = tier_signature(g["prize_tiers"])
+        unchanged = prior_sig is not None and prior_sig == new_sig
+        data_changed_at = prior_changed_at.get(g["game_number"], ts) if unchanged else ts
+        game_rows.append(
+            {
+                "game_number": g["game_number"],
+                "agency": agency,
+                "province": province,
+                "name": g["name"],
+                "slug": g["slug"],
+                "price": g["price"],
+                "overall_odds": g.get("overall_odds"),
+                "top_prize_odds": g.get("top_prize_odds"),
+                "launch_date": g.get("launch_date"),
+                "source": source,
+                "scraped_at": ts,
+                "data_changed_at": data_changed_at,
+            }
+        )
     tier_rows = []
     for g in games:
         for t in g["prize_tiers"]:
