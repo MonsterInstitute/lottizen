@@ -59,6 +59,8 @@ export const metadata: Metadata = {
   },
   robots: { index: true, follow: true },
   category: "reference",
+  // Bing Webmaster Tools site-ownership verification.
+  verification: { other: { "msvalidate.01": "DDAB0B990C5093BD6479EC3A8ED9D624" } },
 };
 
 const orgJsonLd = {
