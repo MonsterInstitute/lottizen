@@ -49,7 +49,7 @@ def repo_generated_at() -> datetime:
 def fetch_deployed_lastmod(site_url: str) -> datetime | None:
     """Newest <lastmod> from the live sitemap — the build timestamp of what's
     actually deployed. None if the sitemap can't be fetched/parsed."""
-    url = site_url.rstrip("/") + "/sitemap/0.xml"
+    url = site_url.rstrip("/") + "/sitemap.xml"
     req = urllib.request.Request(url, headers={"User-Agent": "lottizen-deploy-check/1.0"})
     # Public read-only probe; skip cert verification (matches the scrapers' ssl_ctx
     # and avoids CA-bundle issues on bare runners/macOS).

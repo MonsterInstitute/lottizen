@@ -1,0 +1,107 @@
+name: SEO health watchdog
+
+# Weekly, Googlebot-UA crawl-health check against the real production site —
+# see scripts/seo_health.py for what it checks. Built after GSC showed only
+# 50/2019 pages indexed; root cause was a geo-redirect on `/` Googlebot never
+# saw past (fixed 2026-08-25). This exists so that failure mode, and its
+# neighbors (noindex, canonical drift, broken/orphaned pages, stale
+# structured data), self-detect instead of being noticed months later.
+#
+# A local `next build` runs first purely so scripts/seo_health.py's link-
+# graph check has real static HTML to crawl for internal links — it never
+# deploys anything.
+on:
+  schedule:
+    - cron: "0 13 * * 1" # Mondays 13:00 UTC (~9am ET)
+  workflow_dispatch: {}
+
+permissions:
+  contents: write # commits reports/health-weekly.md
+  issues: write
+  actions: read # downloads billing-health's latest artifact
+
+concurrency:
+  group: seo-health
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SITE_URL: ${{ vars.SITE_URL || 'https://lottizen.com' }}
+      GSC_SERVICE_ACCOUNT_JSON: ${{ secrets.GSC_SERVICE_ACCOUNT_JSON }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Prefetch published site data
+        run: node scripts/prefetch_supabase.mjs
+
+      - name: Build (for the link-graph check only — never deployed)
+        env:
+          PREFETCH_FILL_MISSING: "1"
+        run: npm run build
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install google-api-python-client google-auth
+
+      - name: Run SEO health checks
+        id: seo
+        run: |
+          python scripts/seo_health.py
+          echo "exit=$?" >> "$GITHUB_OUTPUT"
+        continue-on-error: true
+
+      - name: Open / update / close SEO health issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/health_issues.sh "SEO health:" seo_health_problems.json
+
+      - name: Upload result for the weekly digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: seo-health-result
+          path: seo_health_result.json
+          retention-days: 14
+
+      - name: Fetch the latest billing-health result (if any)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          run_id=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow billing-health.yml \
+            --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+          if [ -n "$run_id" ]; then
+            gh run download "$run_id" --repo "$GITHUB_REPOSITORY" -n billing-health-result || true
+          else
+            echo "no successful billing-health run found yet — report will note it's unavailable"
+          fi
+
+      - name: Build reports/health-weekly.md
+        run: python scripts/build_health_report.py
+
+      - name: Commit the weekly report
+        run: |
+          git config user.name "lottizen-bot"
+          git config user.email "bot@lottizen.com"
+          git add reports/health-weekly.md
+          git diff --staged --quiet && echo "no change" && exit 0
+          git commit -m "Weekly health report — $(date -u +%Y-%m-%d)"
+          git push
+
+      - name: Fail the job if problems were found
+        if: steps.seo.outputs.exit != '0'
+        run: exit 1

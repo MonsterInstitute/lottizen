@@ -1,0 +1,63 @@
+name: Billing health watchdog
+
+# Daily end-to-end verification of the Stripe billing pipeline and Lottizen
+# Plus feature gating against the real production app — see
+# scripts/billing_health.py. Runs a genuine test-mode subscribe -> real
+# webhook delivery -> tier upgrade -> cancel -> downgrade round trip (not a
+# mock), a live read-only product/price/webhook sanity check, and Plus
+# feature-gating checks against real sessions. Nothing here ever touches
+# real money — test-mode Stripe objects only, cleaned up every run.
+on:
+  schedule:
+    - cron: "30 12 * * *" # 12:30 UTC daily (~8:30am ET)
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: billing-health
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      SITE_URL: ${{ vars.SITE_URL || 'https://lottizen.com' }}
+      STRIPE_TEST_SECRET_KEY: ${{ secrets.STRIPE_TEST_SECRET_KEY }}
+      STRIPE_LIVE_RESTRICTED_KEY: ${{ secrets.STRIPE_LIVE_RESTRICTED_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: python -m pip install --upgrade pip supabase certifi stripe
+
+      - name: Run billing health checks
+        id: billing
+        run: |
+          python scripts/billing_health.py
+          echo "exit=$?" >> "$GITHUB_OUTPUT"
+        continue-on-error: true
+
+      - name: Open / update / close billing health issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/health_issues.sh "Billing health:" billing_health_problems.json
+
+      - name: Upload result for the weekly digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: billing-health-result
+          path: billing_health_result.json
+          retention-days: 14
+
+      - name: Fail the job if problems were found
+        if: steps.billing.outputs.exit != '0'
+        run: exit 1
