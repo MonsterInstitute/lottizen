@@ -10,6 +10,7 @@ import { getLatestAll, getLatestGeneratedAt, hasData } from "@/lib/draws";
 import { getAllRankings, getTopPick } from "@/lib/data";
 import { drawDate, money, humanDate, resolveNextDraw } from "@/lib/format";
 import { SITE, absUrl } from "@/lib/site";
+import { PLANS } from "@/lib/plans";
 import { Balls } from "@/components/draws/Balls";
 import { AdSlot } from "@/components/site/AdSlot";
 import { JsonLd } from "@/components/site/JsonLd";
@@ -210,6 +211,59 @@ export default function HomePage() {
               <div className="data-card-foot">
                 <span>{scratchCount} scratch games ranked</span>
                 <Link href="/scratch" style={{ color: "var(--brand-deep)", textDecoration: "none" }}>See all →</Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ============ LOTTIZEN PLUS ============ */}
+      <section className="section">
+        <div className="container">
+          <div
+            className="card home-scratch-grid"
+            style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 32, alignItems: "center", padding: 36 }}
+          >
+            <div>
+              <div className="section-eyebrow" style={{ marginBottom: 14 }}>
+                Lottizen Plus
+              </div>
+              <h2 className="section-headline" style={{ fontSize: "clamp(28px,3.4vw,44px)", marginBottom: 12 }}>
+                Never buy an <em>empty ticket</em> again.
+              </h2>
+              <p className="section-lede" style={{ marginBottom: 22 }}>
+                {PLANS.plus.priceMonthlyLabel} — the price of one Lotto 6/49 ticket. Alerts when a
+                top prize is claimed, all 5 provinces, estimated real value per dollar, and a
+                budget optimizer. Avoid buying one wrong $20 ticket and you&rsquo;ve paid for half
+                a year.
+              </p>
+              <Link href="/plus" className="btn btn-primary">
+                Explore Lottizen Plus
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <path d="M5 12h14M13 5l7 7-7 7" />
+                </svg>
+              </Link>
+            </div>
+            <div className="data-card" style={{ boxShadow: "var(--shadow-sm)" }}>
+              <div className="data-card-head">
+                <span className="data-card-title">Free vs Plus</span>
+                <span className="status-pill">7-day trial</span>
+              </div>
+              <div className="data-row">
+                <span className="k">Top-prize-claimed alerts</span>
+                <span className="v" style={{ color: "var(--brand-deep)", fontWeight: 700 }}>Plus</span>
+              </div>
+              <div className="data-row">
+                <span className="k">Provinces followed</span>
+                <span className="v">1 → 5</span>
+              </div>
+              <div className="data-row">
+                <span className="k">Saved number combinations</span>
+                <span className="v">1 → Unlimited</span>
+              </div>
+              <div className="data-card-foot">
+                <span>{PLANS.plus.priceAnnualLabel} annual ({PLANS.plus.annualSavingsLabel})</span>
+                <Link href="/plus" style={{ color: "var(--brand-deep)", textDecoration: "none" }}>See all →</Link>
               </div>
             </div>
           </div>

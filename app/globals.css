@@ -220,6 +220,14 @@ body {
 .nav-links a:hover {
   color: var(--ink);
 }
+.nav-links a.nav-plus {
+  color: var(--brand-deep);
+  font-weight: 600;
+}
+.nav-links a.nav-plus:hover {
+  color: var(--brand-deep);
+  opacity: 0.8;
+}
 .nav-right {
   display: flex;
   align-items: center;
