@@ -1,14 +1,16 @@
 # Lottizen Health — Weekly Report
 
-Generated 2026-08-25T16:18:27.484985+00:00
+Generated 2026-08-25T16:21:19.076085+00:00
 
 ## Data freshness
 
-Not available this run.
+⚠️ 1 draw game(s) behind schedule:
+
+- **Numbers** — latest `2026-07-11`, due `2026-08-24` (45d late)
 
 ## Deployment
 
-⚠️ Could not check: repo rankings unreadable: RuntimeError: supabase not installed. Run: pip install "supabase>=2.0"
+✅ OK — live sitemap last rebuilt `2026-08-25T14:13:55+00:00` (0.1h ago, threshold 12.0h)
 
 ## SEO health
 
