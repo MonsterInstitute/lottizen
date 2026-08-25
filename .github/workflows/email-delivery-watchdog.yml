@@ -1,0 +1,68 @@
+name: Email delivery watchdog
+
+# Daily regression guard for the exact bug found and fixed 2026-08-25:
+# send_draw_emails.py's date check could silently never match real draws, so
+# real subscribers followed real games that really drew, and zero emails
+# ever sent — with no error anywhere, because there was nothing to error on.
+# See scripts/email_delivery_check.py. Runs after the data workflows
+# (draws-daily 10:10 UTC, usa-daily 10:30 UTC) and after Europe's previous
+# evening run (23:00 UTC Tue/Wed/Fri/Sat), so `yesterday` (Toronto) always
+# reflects a fully-completed cycle across every region.
+on:
+  schedule:
+    - cron: "15 14 * * *" # 14:15 UTC — just after freshness-watchdog (14:00)
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: email-delivery-watchdog
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Prefetch published site data (draws + stats)
+        run: node scripts/prefetch_supabase.mjs
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: python -m pip install --upgrade pip supabase certifi
+
+      - name: Run email delivery checks
+        id: email
+        run: |
+          python scripts/email_delivery_check.py
+          echo "exit=$?" >> "$GITHUB_OUTPUT"
+        continue-on-error: true
+
+      - name: Open / update / close email delivery issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/health_issues.sh "Email delivery:" email_delivery_problems.json
+
+      - name: Upload result for the weekly digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: email-delivery-result
+          path: email_delivery_result.json
+          retention-days: 14
+
+      - name: Fail the job if problems were found
+        if: steps.email.outputs.exit != '0'
+        run: exit 1

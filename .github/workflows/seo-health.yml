@@ -90,6 +90,18 @@ jobs:
             echo "no successful billing-health run found yet — report will note it's unavailable"
           fi
 
+      - name: Fetch the latest email-delivery-watchdog result (if any)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          run_id=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow email-delivery-watchdog.yml \
+            --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+          if [ -n "$run_id" ]; then
+            gh run download "$run_id" --repo "$GITHUB_REPOSITORY" -n email-delivery-result || true
+          else
+            echo "no successful email-delivery-watchdog run found yet — report will note it's unavailable"
+          fi
+
       - name: Build reports/health-weekly.md
         run: python scripts/build_health_report.py
 

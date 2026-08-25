@@ -155,6 +155,31 @@ def section_billing(billing: dict | None, billing_problems: list | None) -> str:
     return "\n".join(lines) + "\n"
 
 
+def section_email_delivery(email: dict | None, email_problems: list | None) -> str:
+    if email is None:
+        return "## Email delivery\n\nNot available this run (no email-delivery-watchdog artifact found).\n"
+    n_problems = len(email_problems or [])
+    lines = [f"## Email delivery\n\n{fmt_bool(n_problems == 0)} — {n_problems} problem(s) on {email.get('checkedAt', '?')[:10]}\n"]
+    dr = email.get("drawResult") or {}
+    if dr.get("skipped"):
+        lines.append("- Draw-result: skipped")
+    else:
+        lines.append(f"- Draw-result: {dr.get('gamesChecked', 0)} game(s) with real drawn+followed activity checked, {dr.get('missing', 0)} missing")
+    wd = email.get("weeklyDigest") or {}
+    if wd.get("skipped"):
+        lines.append("- Weekly digest: not checked today (only runs the Monday after a Sunday digest)")
+    else:
+        lines.append(f"- Weekly digest: {wd.get('eligible', 0)} eligible, {wd.get('logged', 0)} logged")
+    ts = email.get("totalSilence") or {}
+    if not ts.get("skipped"):
+        lines.append(f"- Any send in the last 3 days: {fmt_bool(ts.get('anyLogsInWindow', False))}")
+    if email_problems:
+        lines.append("\n**Problems:**")
+        for p in email_problems[:10]:
+            lines.append(f"- {p['title'].replace('Email delivery: ', '')}")
+    return "\n".join(lines) + "\n"
+
+
 def section_watch() -> str:
     return (
         "## Watching: number-page content similarity\n\n"
@@ -180,6 +205,8 @@ def main() -> int:
     seo_problems = load(os.environ.get("SEO_PROBLEMS", "seo_health_problems.json"))
     billing = load(os.environ.get("BILLING_RESULT", "billing_health_result.json"))
     billing_problems = load(os.environ.get("BILLING_PROBLEMS", "billing_health_problems.json"))
+    email = load(os.environ.get("EMAIL_RESULT", "email_delivery_result.json"))
+    email_problems = load(os.environ.get("EMAIL_PROBLEMS", "email_delivery_problems.json"))
 
     parts = [
         f"# Lottizen Health — Weekly Report\n\nGenerated {now}\n",
@@ -187,6 +214,7 @@ def main() -> int:
         section_deploy(deploy),
         section_seo(seo, seo_problems),
         section_billing(billing, billing_problems),
+        section_email_delivery(email, email_problems),
         section_watch(),
     ]
     report = "\n".join(parts)
