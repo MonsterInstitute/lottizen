@@ -101,7 +101,7 @@ def section_seo(seo: dict | None, seo_problems: list | None) -> str:
     lines.append(f"- Structured data: {sd.get('blocksChecked', '?')} JSON-LD blocks checked, {sd.get('errors', '?')} error(s)")
     gsc = seo.get("gsc", {})
     if gsc.get("skipped"):
-        lines.append("- GSC: not configured yet (see setup notes in the repo)")
+        lines.append("- GSC: not integrated yet — skipped, no impact on the other checks")
     else:
         lines.append(
             f"- GSC ({gsc.get('windowStart')} → {gsc.get('windowEnd')}): "
