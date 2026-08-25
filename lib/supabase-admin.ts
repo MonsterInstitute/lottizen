@@ -499,11 +499,23 @@ export async function getSubscription(subscriberId: string): Promise<Subscriptio
   return rows?.[0] ?? null;
 }
 
+/** "By stripe id" is the function name, but subscriber_id — not
+ *  stripe_subscription_id — is the real one-row-per-subscriber key the table
+ *  enforces (both are `unique`, but only subscriber_id matches the "exactly
+ *  one subscription per subscriber" invariant; it's also the one that
+ *  correctly carries a resubscribe onto a brand-new stripe_subscription_id).
+ *  Without an explicit on_conflict target PostgREST's merge-duplicates
+ *  defaults to the primary key, which a fresh row never collides with — so
+ *  every call after the first one for a given subscriber attempted a plain
+ *  INSERT and 409'd against the subscriber_id unique constraint, silently
+ *  failing to sync any lifecycle event past the first (e.g. a cancellation
+ *  after a subscribe). Caught by scripts/billing_health.py's first real
+ *  subscribe-then-cancel run. */
 export async function upsertSubscriptionByStripeId(
   stripeSubscriptionId: string,
-  fields: Partial<SubscriptionRow> & { subscriber_id?: string; stripe_customer_id?: string },
+  fields: Partial<SubscriptionRow> & { subscriber_id: string; stripe_customer_id?: string },
 ): Promise<void> {
-  await pg(`subscriptions`, {
+  await pg(`subscriptions?on_conflict=subscriber_id`, {
     method: "POST",
     headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
     body: JSON.stringify([{ stripe_subscription_id: stripeSubscriptionId, ...fields, updated_at: new Date().toISOString() }]),
