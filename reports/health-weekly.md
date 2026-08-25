@@ -1,6 +1,6 @@
 # Lottizen Health — Weekly Report
 
-Generated 2026-08-25T16:21:19.076085+00:00
+Generated 2026-08-25T17:03:36.885519+00:00
 
 ## Data freshness
 
@@ -18,15 +18,15 @@ Generated 2026-08-25T16:21:19.076085+00:00
 
 - Sitemap: 2019 URLs, 236 distinct lastmod dates, 20/20 sampled URLs live
 - Link graph: 2020 pages, 2016 reached from home, 0 orphan(s), 0 broken internal link(s), deepest reached 5 clicks
-- Structured data: 78 JSON-LD blocks checked, 0 error(s)
-- GSC: not configured yet (see setup notes in the repo)
+- Structured data: 79 JSON-LD blocks checked, 0 error(s)
+- GSC: not integrated yet — skipped, no impact on the other checks
 
 ## Billing & Plus feature health
 
 ✅ OK — 0 problem(s) on 2026-08-25
 
 - Test-mode subscribe → webhook → plus → cancel → free: upgrade ✅ OK, downgrade ✅ OK
-- Live product/price/webhook health: skipped (no restricted live key configured)
+- Live product/price/webhook health: ✅ OK
 - Plus feature gating (budget optimizer, goal ranking, cross-province follow limit): ✅ OK
 
 ## Watching: number-page content similarity
