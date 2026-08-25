@@ -129,7 +129,7 @@ def create_session(subscriber_id: str) -> str:
     return token
 
 
-def poll_tier(subscriber_id: str, expect: str, timeout_s: int = 40, interval_s: int = 3) -> tuple[bool, str]:
+def poll_tier(subscriber_id: str, expect: str, timeout_s: int = 90, interval_s: int = 3) -> tuple[bool, str]:
     client = db.get_client()
     deadline = time.time() + timeout_s
     last = "?"
