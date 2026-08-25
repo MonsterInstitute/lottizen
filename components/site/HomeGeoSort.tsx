@@ -1,10 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-
-// EU_COUNTRIES here must match middleware.ts's old EU set — the IP countries
-// whose players play the games /europe covers (EuroMillions footprint + UK Lotto).
-const EU_COUNTRIES = new Set(["GB", "IE", "FR", "ES", "PT", "AT", "BE", "CH", "LU"]);
+import { EU_COUNTRY_CODES } from "@/config/games";
 
 function resolveCountry(): "CA" | "US" | "EU" | null {
   const cookie = typeof document !== "undefined" ? document.cookie : "";
@@ -17,7 +14,7 @@ function resolveCountry(): "CA" | "US" | "EU" | null {
   if (geo) {
     const country = decodeURIComponent(geo[1]).split("-")[0].toUpperCase();
     if (country === "CA" || country === "US") return country;
-    if (EU_COUNTRIES.has(country)) return "EU";
+    if (country in EU_COUNTRY_CODES) return "EU";
   }
   return null;
 }

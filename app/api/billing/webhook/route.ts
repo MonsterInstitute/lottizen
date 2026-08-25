@@ -18,6 +18,13 @@ import { findSubscriberByStripeCustomerId, setSubscriberTier, upsertSubscription
  * (current_period_end) for the rare case a webhook is delayed. A payment
  * failure (past_due/unpaid/incomplete) always resolves to 'free' — never
  * grants Pro.
+ *
+ * One endpoint, two modes: live and test-mode Stripe events both post here
+ * (same URL registered as two separate Endpoint objects, one per mode, since
+ * endpoints are mode-scoped). STRIPE_WEBHOOK_SECRET_TEST lets
+ * scripts/billing_health.py's daily test-mode subscribe/cancel drill exercise
+ * this exact handler end-to-end, not a mock of it. Live events verify first
+ * (the common case); test-mode is only tried on a live-secret mismatch.
  */
 export async function POST(req: Request) {
   const stripe = getStripe();
@@ -33,9 +40,18 @@ export async function POST(req: Request) {
   let event: Stripe.Event;
   try {
     event = stripe.webhooks.constructEvent(rawBody, signature, webhookSecret);
-  } catch (e) {
-    console.error("[billing/webhook] signature verification failed:", e);
-    return NextResponse.json({ error: "Invalid signature." }, { status: 400 });
+  } catch (liveErr) {
+    const testSecret = process.env.STRIPE_WEBHOOK_SECRET_TEST;
+    if (!testSecret) {
+      console.error("[billing/webhook] signature verification failed:", liveErr);
+      return NextResponse.json({ error: "Invalid signature." }, { status: 400 });
+    }
+    try {
+      event = stripe.webhooks.constructEvent(rawBody, signature, testSecret);
+    } catch (testErr) {
+      console.error("[billing/webhook] signature verification failed (both secrets):", testErr);
+      return NextResponse.json({ error: "Invalid signature." }, { status: 400 });
+    }
   }
 
   try {

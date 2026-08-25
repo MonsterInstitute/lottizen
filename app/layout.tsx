@@ -5,6 +5,7 @@ import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
 import { JsonLd } from "@/components/site/JsonLd";
 import { SITE, absUrl } from "@/lib/site";
+import { COUNTRIES, EU_COUNTRY_CODES } from "@/config/games";
 
 const serif = Playfair_Display({
   subsets: ["latin"],
@@ -29,7 +30,7 @@ const mono = JetBrains_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(SITE.url),
   title: {
-    default: `${SITE.name} — Canadian Lottery Numbers & Statistics`,
+    default: `${SITE.name} — ${SITE.tagline}`,
     template: `%s · ${SITE.name}`,
   },
   description: SITE.description,
@@ -76,22 +77,12 @@ const orgJsonLd = {
   foundingDate: "2026-07-02",
   // Was hardcoded to a single "Ontario, Canada" AdministrativeArea — wrong
   // on every /usa and /europe page too, a self-contradictory geo signal to
-  // search engines. Real coverage: all of Canada (5 provincial scratch
-  // agencies + national/regional draw games), the US, and the European
-  // countries EuroMillions/EuroJackpot/UK Lotto actually serve (kept in
-  // sync by hand with middleware.ts's EU_COUNTRIES geo-routing set).
+  // search engines. Derived from config/games.ts (COUNTRIES + EU_COUNTRY_CODES)
+  // instead of a hand-copied list, so this can't silently drift from the
+  // site's real coverage again the way it did before.
   areaServed: [
-    { "@type": "Country", name: "Canada" },
-    { "@type": "Country", name: "United States" },
-    { "@type": "Country", name: "United Kingdom" },
-    { "@type": "Country", name: "Ireland" },
-    { "@type": "Country", name: "France" },
-    { "@type": "Country", name: "Spain" },
-    { "@type": "Country", name: "Portugal" },
-    { "@type": "Country", name: "Austria" },
-    { "@type": "Country", name: "Belgium" },
-    { "@type": "Country", name: "Switzerland" },
-    { "@type": "Country", name: "Luxembourg" },
+    ...COUNTRIES.filter((c) => c.code !== "EU").map((c) => ({ "@type": "Country", name: c.name })),
+    ...Object.values(EU_COUNTRY_CODES).map((name) => ({ "@type": "Country", name })),
   ],
   // sameAs (official social profiles) intentionally omitted — SITE.twitter
   // ("@lottizen") is only ever used for the twitter:site meta tag, with no

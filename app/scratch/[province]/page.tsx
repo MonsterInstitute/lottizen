@@ -210,6 +210,24 @@ export default async function ScratchProvincePage({ params }: { params: { provin
                   Free plan shows the top 3 highest current Value Score tickets. Rankings are based
                   on remaining-prize data published by {cfg.agency}.
                 </p>
+                <div className="card" style={{ padding: 28 }}>
+                  <div className="section-eyebrow" style={{ marginBottom: 14 }}>
+                    Every {cfg.label} ticket we track
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 18px" }}>
+                    {[...games]
+                      .sort((a, b) => a.name.localeCompare(b.name))
+                      .map((g) => (
+                        <Link
+                          key={`${g.agency}:${g.slug}`}
+                          href={`/scratch/${province}/${g.slug}`}
+                          style={{ fontSize: 14, color: "var(--ink-2)" }}
+                        >
+                          {g.name}
+                        </Link>
+                      ))}
+                  </div>
+                </div>
               </>
             )}
             <ScratchDisclaimer />

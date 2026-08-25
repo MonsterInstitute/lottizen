@@ -177,6 +177,24 @@ export function regionBucket(g: GameConfig): string {
   }
 }
 
+/** ISO country codes for the EuroMillions/EuroJackpot/UK Lotto footprint —
+ *  the /europe country hub's coverage. Single source of truth for "which
+ *  countries count as Europe" — referenced by components/site/HomeGeoSort.tsx
+ *  (client-side homepage region sort) and app/layout.tsx's Organization
+ *  JSON-LD areaServed, so the two can't drift the way middleware.ts's
+ *  hand-duplicated copy of this same list once could. */
+export const EU_COUNTRY_CODES: Record<string, string> = {
+  GB: "United Kingdom",
+  IE: "Ireland",
+  FR: "France",
+  ES: "Spain",
+  PT: "Portugal",
+  AT: "Austria",
+  BE: "Belgium",
+  CH: "Switzerland",
+  LU: "Luxembourg",
+};
+
 /** Map a Vercel province/state code (ON, BC, QC, NY…) to a region bucket. */
 export function bucketForRegionCode(code: string): string | null {
   const m: Record<string, string> = {
@@ -191,19 +209,14 @@ export function bucketForRegionCode(code: string): string | null {
     PE: "Atlantic",
     NL: "Atlantic",
     NY: "New York",
-    // Europe: UK visitors see UK Lotto first; the rest of the EuroMillions/
-    // EuroJackpot footprint maps to the pan-European bucket.
+    // UK visitors see UK Lotto first; every other EU_COUNTRY_CODES member
+    // (the rest of the EuroMillions/EuroJackpot footprint) maps below to the
+    // shared pan-European bucket instead of a per-country one.
     GB: "United Kingdom",
-    IE: "Pan-European",
-    FR: "Pan-European",
-    ES: "Pan-European",
-    PT: "Pan-European",
-    AT: "Pan-European",
-    BE: "Pan-European",
-    CH: "Pan-European",
-    LU: "Pan-European",
   };
-  return m[code] ?? null;
+  if (m[code]) return m[code];
+  if (code in EU_COUNTRY_CODES) return "Pan-European";
+  return null;
 }
 
 /** Games grouped by agency within a country, for the country overview. */
