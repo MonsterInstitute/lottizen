@@ -17,9 +17,12 @@ credential isn't configured yet:
      'plus' in Supabase -> cancels -> asserts it drops back to 'free'.
      Cleans up every Stripe test object each run, in a `finally`.
 
-  2. LIVE READ-ONLY HEALTH  (needs STRIPE_LIVE_RESTRICTED_KEY)
-     Product/price/webhook-endpoint sanity against the real live account.
-     Never creates a charge, customer, or subscription.
+  2. LIVE READ-ONLY HEALTH  (needs STRIPE_SECRET_KEY)
+     Product/price/webhook-endpoint sanity against the real live account,
+     using the same full live key already set up for checkout/webhooks (a
+     deliberate choice over a separate restricted key — see the function's
+     docstring). Never calls a write endpoint: no charge, customer, or
+     subscription is ever created here.
 
   3. PLUS FEATURE GATING  (needs SUPABASE_SERVICE_ROLE_KEY, already in CI)
      Forces a test subscriber's tier directly in the DB (bypassing Stripe
@@ -235,9 +238,13 @@ LIVE_WEBHOOK_ID = "we_1U8AXQPu9rinb13hk1TBZfDG"
 
 
 def check_live_health() -> None:
-    key = os.environ.get("STRIPE_LIVE_RESTRICTED_KEY")
+    # Reuses the full live STRIPE_SECRET_KEY (already a GitHub secret from the
+    # product/price/webhook setup) rather than a separate restricted read-only
+    # key — a deliberate, acknowledged over-privilege tradeoff for this project;
+    # this function never calls a write endpoint.
+    key = os.environ.get("STRIPE_SECRET_KEY")
     if not key:
-        log("skip: live read-only health (STRIPE_LIVE_RESTRICTED_KEY not set)")
+        log("skip: live read-only health (STRIPE_SECRET_KEY not set)")
         results["liveHealth"] = {"skipped": True}
         return
 

@@ -140,7 +140,7 @@ def section_billing(billing: dict | None, billing_problems: list | None) -> str:
 
     lh = billing.get("liveHealth") or {}
     if lh.get("skipped"):
-        lines.append("- Live product/price/webhook health: skipped (no restricted live key configured)")
+        lines.append("- Live product/price/webhook health: skipped (no live key configured)")
     else:
         lines.append(f"- Live product/price/webhook health: {fmt_bool(lh.get('ok', False))}")
 
