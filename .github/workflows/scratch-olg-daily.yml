@@ -1,12 +1,20 @@
-name: Daily OLG refresh
+name: Scratch — OLG (Ontario) daily refresh
 
 # Rebuild the scratch-game rankings every morning ~6:00 AM Eastern.
 # GitHub cron is UTC-only; 10:00 UTC = 06:00 EDT (summer) / 05:00 EST (winter).
 #
+# One of 5 independent per-agency scratch workflows (OLG/BCLC/WCLC/ALC/Quebec —
+# see scratch-bclc-daily.yml etc.), staggered so one agency's outage never
+# blocks or delays another's. calculate_rankings.py always recomputes ALL 5
+# provinces from whatever's currently in Supabase, regardless of which single
+# agency's scraper just ran here — so every run republishes a fresh, complete
+# 5-province rankings/ set even though it only scrapes one agency.
+#
 # Data layer: Supabase Postgres. The scraper writes games/prize_tiers, the
-# calculator reads them back and renders rankings.json, which is published to the
-# site_json table. There is NO git commit — the Vercel deploy hook rebuilds the
-# site, whose Node prefetch pulls the JSON straight from Supabase.
+# calculator reads them back and renders data/rankings/{province}.json, which
+# is published to the site_json table. There is NO git commit — the Vercel
+# deploy hook rebuilds the site, whose Node prefetch pulls the JSON straight
+# from Supabase.
 on:
   schedule:
     - cron: "0 10 * * *"
@@ -16,7 +24,7 @@ permissions:
   contents: read # no data commit anymore — just checkout
 
 concurrency:
-  group: daily-refresh
+  group: scratch-olg-refresh
   cancel-in-progress: false
 
 jobs:
@@ -50,18 +58,18 @@ jobs:
         run: python scripts/scrape_olg.py --live || echo "scrape failed; keeping last-good data in Supabase"
         continue-on-error: true
 
-      - name: Recompute rankings (reads Supabase -> data/rankings.json)
+      - name: Recompute rankings for all 5 provinces (reads Supabase -> data/rankings/*.json)
         run: python scripts/calculate_rankings.py
 
       # Deploy gate: build the site (Node prefetch fills the draws/stats slices
-      # from Supabase, keeping the fresh rankings.json) and audit it. A CRITICAL or
-      # HIGH finding fails here and the publish + deploy steps below never run, so
-      # bad data never ships.
+      # from Supabase, keeping the fresh rankings/*.json) and audit it. A CRITICAL
+      # or HIGH finding fails here and the publish + deploy steps below never run,
+      # so bad data never ships.
       - name: Build & audit (deploy gate)
         uses: ./.github/actions/build-and-audit
 
       - name: Publish JSON to Supabase (site_json)
-        run: python scripts/publish_site_json.py rankings.json
+        run: python scripts/publish_site_json.py rankings
 
       - name: Trigger Vercel deploy
         env:

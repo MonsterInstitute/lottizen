@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 import { COUNTRIES } from "@/config/games";
-import { getActivePricePoints, getAllSlugs, getRankings } from "@/lib/data";
+import { getActivePricePoints, getAllProvinceSlugs, getAllRankings, getAllSlugs } from "@/lib/data";
 import { getPlayableSlugs, getResultYears, getStats } from "@/lib/draws";
 import { getAllGuides } from "@/lib/guides";
 import { absUrl } from "@/lib/site";
@@ -13,7 +13,8 @@ export async function generateSitemaps() {
 }
 
 export default function sitemap({ id }: { id: number }): MetadataRoute.Sitemap {
-  const lastModified = new Date(getRankings().generatedAt);
+  const allRankings = getAllRankings();
+  const lastModified = new Date(allRankings.map((r) => r.generatedAt).sort().at(-1) ?? Date.now());
   const entries: MetadataRoute.Sitemap = [];
   const push = (
     path: string,
@@ -35,8 +36,11 @@ export default function sitemap({ id }: { id: number }): MetadataRoute.Sitemap {
         priority: 0.7,
       });
     }
-    for (const p of getActivePricePoints()) push(`/scratch/price/${p}`, 0.6, "daily");
-    for (const slug of getAllSlugs()) push(`/scratch/${slug}`, 0.6, "daily");
+    for (const province of getAllProvinceSlugs()) {
+      push(`/scratch/${province}`, 0.7, "daily");
+      for (const p of getActivePricePoints(province)) push(`/scratch/${province}/price/${p}`, 0.6, "daily");
+      for (const slug of getAllSlugs(province)) push(`/scratch/${province}/${slug}`, 0.6, "daily");
+    }
     return entries;
   }
 

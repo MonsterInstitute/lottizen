@@ -115,6 +115,85 @@ def delete_all(table: str, pk_col: str, sentinel) -> None:
     get_client().table(table).delete().neq(pk_col, sentinel).execute()
 
 
+def dedupe_slugs(games: list[dict]) -> list[dict]:
+    """Guarantee unique `slug` within one agency's game list.
+
+    Real, observed collisions (not hypothetical): OLG has two separate
+    "Bingo" editions (game numbers 3043/3044), ALC has three different
+    tickets that all slugify to "777", etc. — 26 cases found across the
+    5 agencies when this was first checked. Any game whose base slug is
+    shared with another game in the same batch gets `-{game_number}`
+    appended, deterministically for EVERY game in that collision group
+    (not just the 2nd+ one) so the winner of the bare slug never flips
+    from one day's scrape to the next.
+    """
+    from collections import Counter
+
+    counts = Counter(g["slug"] for g in games)
+    for g in games:
+        if counts[g["slug"]] > 1:
+            g["slug"] = f"{g['slug']}-{g['game_number']}"
+    return games
+
+
+def replace_scratch_games(agency: str, province: str, games: list[dict], source: str) -> int:
+    """Full refresh of one agency's scratch/instant games + prize tiers —
+    the shared pattern every scratch adapter (OLG, BCLC, WCLC, ALC,
+    Loto-Québec) uses. Scoped to `agency` via delete_where, NOT a table-wide
+    delete_all: games.game_number is an agency-native code with no
+    cross-agency coordination, so a table-wide wipe here would delete every
+    OTHER agency's games on every single-agency scrape (a real bug caught
+    when OLG's original replace_games() used delete_all — see
+    supabase/migrations/0007_scratch_multi_agency.sql).
+
+    `games`: [{"game_number", "name", "price", "prize_tiers": [{"amount",
+    "label", "total", "remaining", "is_top"}], "launch_date"?, "overall_odds"?,
+    "top_prize_odds"?}, ...]. Returns the number of games written.
+    """
+    from datetime import datetime, timezone
+
+    ts = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+    delete_where("games", "agency", agency)  # cascades to prize_tiers + scratch_snapshots
+
+    games = dedupe_slugs(games)
+
+    game_rows = [
+        {
+            "game_number": g["game_number"],
+            "agency": agency,
+            "province": province,
+            "name": g["name"],
+            "slug": g["slug"],
+            "price": g["price"],
+            "overall_odds": g.get("overall_odds"),
+            "top_prize_odds": g.get("top_prize_odds"),
+            "launch_date": g.get("launch_date"),
+            "source": source,
+            "scraped_at": ts,
+        }
+        for g in games
+    ]
+    tier_rows = []
+    for g in games:
+        for t in g["prize_tiers"]:
+            tier_rows.append(
+                {
+                    "game_number": g["game_number"],
+                    "agency": agency,
+                    "amount": t["amount"],
+                    "label": t["label"],
+                    "total": t["total"],
+                    "remaining": t["remaining"],
+                    "is_top": 1 if t.get("is_top") else 0,
+                    "scraped_at": ts,
+                }
+            )
+    insert_rows("games", game_rows)  # parent first (FK)
+    insert_rows("prize_tiers", tier_rows)  # children
+    return len(game_rows)
+
+
 def insert_ignore(table: str, rows: Sequence[dict], on_conflict: str,
                   tries: int = 6) -> int:
     """INSERT ... ON CONFLICT DO NOTHING (PostgREST ignore-duplicates).

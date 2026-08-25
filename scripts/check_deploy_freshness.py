@@ -34,14 +34,16 @@ import db  # noqa: E402 — shared Supabase data-layer helper
 def repo_generated_at() -> datetime:
     """The generatedAt the deployed site *should* be showing. Post-Supabase the
     rankings JSON isn't committed — it's published to the site_json table, and the
-    sitemap's <lastmod> is stamped from rankings.generatedAt at build time. So the
-    latest published rankings.generatedAt is the reference the live site must match."""
-    rows = db.fetch_all("site_json", "content",
-                        filters=[("eq", "path", "rankings.json")])
+    sitemap's <lastmod> is stamped from the NEWEST of the 5 provinces'
+    rankings/{province}.json generatedAt at build time (see app/sitemap.ts). So
+    the latest published generatedAt across all 5 is the reference the live
+    site must match."""
+    rows = db.fetch_all("site_json", "path,content",
+                        filters=[("like", "path", "rankings/%")])
     if not rows:
-        raise RuntimeError("rankings.json not in site_json (publish hasn't run yet)")
-    d = json.loads(rows[0]["content"])
-    return datetime.fromisoformat(d["generatedAt"].replace("Z", "+00:00"))
+        raise RuntimeError("no rankings/*.json in site_json (publish hasn't run yet)")
+    stamps = [datetime.fromisoformat(json.loads(r["content"])["generatedAt"].replace("Z", "+00:00")) for r in rows]
+    return max(stamps)
 
 
 def fetch_deployed_lastmod(site_url: str) -> datetime | None:

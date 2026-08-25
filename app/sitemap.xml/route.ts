@@ -1,5 +1,5 @@
 import { COUNTRIES } from "@/config/games";
-import { getRankings } from "@/lib/data";
+import { getAllRankings } from "@/lib/data";
 import { absUrl } from "@/lib/site";
 
 // Next.js `generateSitemaps()` (see app/sitemap.ts) emits the sharded sitemaps at
@@ -10,7 +10,8 @@ import { absUrl } from "@/lib/site";
 export const dynamic = "force-static";
 
 export function GET() {
-  const lastmod = new Date(getRankings().generatedAt).toISOString();
+  const allRankings = getAllRankings();
+  const lastmod = new Date(allRankings.map((r) => r.generatedAt).sort().at(-1) ?? Date.now()).toISOString();
   const ids = [0, ...COUNTRIES.map((_, i) => i + 1)];
 
   const body = `<?xml version="1.0" encoding="UTF-8"?>

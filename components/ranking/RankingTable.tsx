@@ -29,8 +29,9 @@ export function RankingTable({
       </div>
       {games.map((g, i) => {
         const pos = startRank + i;
+        const hasTotals = g.scoringMethod !== "remaining_value_index";
         return (
-          <Link href={`/scratch/${g.slug}`} className="rank-row" key={g.slug}>
+          <Link href={`/scratch/${g.province}/${g.slug}`} className="rank-row" key={`${g.agency}:${g.slug}`}>
             <div className="rank-pos">
               {String(pos).padStart(2, "0")}
             </div>
@@ -51,7 +52,7 @@ export function RankingTable({
             <div className="rank-cell rank-num num-col">
               <span className="rank-cell-label">Top left</span>
               <strong>{g.topPrizesRemaining}</strong>
-              <span style={{ color: "var(--ink-3)" }}>&nbsp;/&nbsp;{g.topPrizesTotal}</span>
+              {hasTotals ? <span style={{ color: "var(--ink-3)" }}>&nbsp;/&nbsp;{g.topPrizesTotal}</span> : null}
             </div>
             <div className="rank-score">
               <ScoreBadge value={g.valueScore} hot={pos <= hotCount} />

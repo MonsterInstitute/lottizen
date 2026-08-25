@@ -271,7 +271,7 @@ export function DashboardClient({
 
       {/* ============ FAVOURITE SCRATCH TICKETS ============ */}
       <div className="card" style={{ padding: 28 }}>
-        <div className="section-eyebrow">Favourite Ontario scratch tickets</div>
+        <div className="section-eyebrow">Favourite scratch tickets</div>
         <h2 className="section-headline" style={{ fontSize: "clamp(20px,2.4vw,26px)", marginBottom: 14 }}>
           Tickets you&rsquo;re watching
         </h2>
@@ -282,17 +282,21 @@ export function DashboardClient({
         ) : (
           <div style={{ display: "grid", gap: 10 }}>
             {favouriteScratch.map((g) => (
-              <div key={g.slug} className="data-row">
+              <div key={`${g.agency}:${g.slug}`} className="data-row">
                 <span className="k">
-                  <Link href={`/scratch/${g.slug}`}>{g.name}</Link> · ${Math.round(g.price)} · rank #{g.rank}
+                  <Link href={`/scratch/${g.province}/${g.slug}`}>{g.name}</Link> · {g.agency} · ${Math.round(g.price)} · rank #{g.rank}
                 </span>
                 <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
                   <span className="v">Score {g.valueScore.toFixed(1)}</span>
                   <button
                     className="nav-signin"
                     style={{ fontSize: 13 }}
-                    disabled={busy === `unfav-${g.slug}`}
-                    onClick={() => run(`unfav-${g.slug}`, () => api("/api/account/scratch-favourites", "DELETE", { gameSlug: g.slug }))}
+                    disabled={busy === `unfav-${g.agency}-${g.slug}`}
+                    onClick={() =>
+                      run(`unfav-${g.agency}-${g.slug}`, () =>
+                        api("/api/account/scratch-favourites", "DELETE", { gameSlug: g.slug, agency: g.agency }),
+                      )
+                    }
                   >
                     Remove
                   </button>

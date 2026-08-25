@@ -60,3 +60,50 @@ gh issue list --repo "$REPO" --state open --limit 200 --json number,title \
         echo "closed #$num — $title"
       fi
     done
+
+# ============================================================================
+# Scratch/instant-ticket agencies (OLG/BCLC/WCLC/ALC/Loto-Québec) — same
+# idempotent open/comment/auto-close pattern, keyed by agency instead of by
+# game, driven by .staleScratch[] (see check_scratch_freshness() in
+# audit_site.py). Independent of the draw-game section above so one agency's
+# scrape breaking never gets conflated with a draw-game issue.
+# ============================================================================
+SCRATCH_PREFIX="Stale scratch data:"
+
+desired_scratch_titles=()
+while IFS= read -r line; do
+  desired_scratch_titles+=("$line")
+done < <(jq -r '(.staleScratch // [])[] | "'"$SCRATCH_PREFIX"' \(.agency)"' "$JSON")
+
+# 3) Open/update an issue for every currently-stale scratch agency.
+jq -c '(.staleScratch // [])[]' "$JSON" | while read -r s; do
+  agency=$(jq -r '.agency'     <<<"$s")
+  latest=$(jq -r '.latest'     <<<"$s")
+  hours=$(jq -r '.hoursStale'  <<<"$s")
+  reason=$(jq -r '.reason'     <<<"$s")
+  title="$SCRATCH_PREFIX $agency"
+  if [ "$reason" != "null" ]; then
+    body=$(printf '**%s** scratch-ticket data is stale — %s.\n\nJudged from `games.scraped_at` in Supabase by `audit_site.py --freshness`. The daily %s scratch workflow runs independently of the other 4 agencies, so this does not affect them. This issue auto-closes once a fresh scrape lands.' \
+      "$agency" "$reason" "$agency")
+  else
+    body=$(printf '**%s** scratch-ticket data is stale — last scraped `%s` (%s hours ago, threshold 48h).\n\nJudged from `games.scraped_at` in Supabase by `audit_site.py --freshness`. The daily %s scratch workflow runs independently of the other 4 agencies, so this does not affect them. This issue auto-closes once a fresh scrape lands.' \
+      "$agency" "$latest" "$hours" "$agency")
+  fi
+  open_or_comment "$title" "$body"
+done
+
+# 4) Auto-close any previously-open scratch staleness issue whose agency has recovered.
+gh issue list --repo "$REPO" --state open --limit 200 --json number,title \
+  --jq ".[] | select(.title | startswith(\"$SCRATCH_PREFIX\")) | \"\(.number)\t\(.title)\"" \
+  | while IFS=$'\t' read -r num title; do
+      still_stale=false
+      for t in ${desired_scratch_titles[@]+"${desired_scratch_titles[@]}"}; do
+        [ "$t" = "$title" ] && { still_stale=true; break; }
+      done
+      if [ "$still_stale" = false ]; then
+        gh issue comment "$num" --repo "$REPO" \
+          --body "✅ Recovered — a fresh scrape has landed. Auto-closing." >/dev/null
+        gh issue close "$num" --repo "$REPO" >/dev/null
+        echo "closed #$num — $title"
+      fi
+    done

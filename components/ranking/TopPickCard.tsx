@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Game } from "@/lib/types";
+import { provinceConfig } from "@/config/scratch";
 import { money, price, score } from "@/lib/format";
 
 /**
@@ -7,10 +8,12 @@ import { money, price, score } from "@/lib/format";
  * repurposed to surface today's #1 value pick. No interactivity; pure editorial.
  */
 export function TopPickCard({ game }: { game: Game }) {
+  const cfg = provinceConfig(game.province);
+  const hasTotals = game.scoringMethod !== "remaining_value_index";
   return (
     <div className="data-card reveal r-3">
       <div className="data-card-head">
-        <Link href={`/scratch/${game.slug}`} className="data-card-title">
+        <Link href={`/scratch/${game.province}/${game.slug}`} className="data-card-title">
           {game.name}
         </Link>
         <span className="status-pill">Top pick</span>
@@ -28,7 +31,8 @@ export function TopPickCard({ game }: { game: Game }) {
         <div className="data-row">
           <span className="k">Top prizes left</span>
           <span className="v">
-            {game.topPrizesRemaining} / {game.topPrizesTotal}
+            {game.topPrizesRemaining}
+            {hasTotals ? ` / ${game.topPrizesTotal}` : ""}
           </span>
         </div>
         <div className="data-row">
@@ -47,13 +51,13 @@ export function TopPickCard({ game }: { game: Game }) {
         <div className="eyebrow">Why it&rsquo;s #1</div>
         <p>
           Its big prizes are draining slower than the tickets — more prize value
-          is still on the table per dollar than any other Ontario game today.
+          is still on the table per dollar than any other {cfg.label} game today.
         </p>
       </div>
 
       <div className="data-card-foot">
         <span>GAME #{game.gameNumber}</span>
-        <span>OLG · Ontario</span>
+        <span>{game.agency} · {cfg.label}</span>
       </div>
     </div>
   );

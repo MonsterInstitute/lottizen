@@ -1,0 +1,67 @@
+name: Scratch — BCLC (British Columbia) daily refresh
+
+# One of 5 independent per-agency scratch workflows (see scratch-olg-daily.yml
+# for the full design note). Staggered off the other 4 so a BCLC-specific
+# outage (e.g. a page shape change) never blocks or delays OLG/BCLC/WCLC/ALC/Quebec.
+# calculate_rankings.py always recomputes ALL 5 provinces from whatever's
+# currently in Supabase, regardless of which single agency's scraper just ran
+# here — so every run republishes a fresh, complete 5-province rankings/ set
+# even though it only scrapes BCLC.
+on:
+  schedule:
+    - cron: "15 10 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scratch-bclc-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      PREFETCH_FILL_MISSING: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install scraper dependencies
+        # No Playwright needed here — scrape_bclc_scratch.py uses plain HTTP/HTML parsing
+        # (beautifulsoup4), unlike scrape_olg.py's headless-Chromium path.
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r scripts/requirements.txt
+
+      - name: Scrape BCLC -> Supabase (keep last-good data on failure)
+        # --live exits non-zero and leaves the data untouched on failure, so a
+        # bad morning keeps yesterday's data in Supabase instead of wiping it.
+        run: python scripts/scrape_bclc_scratch.py --live || echo "scrape failed; keeping last-good data in Supabase"
+        continue-on-error: true
+
+      - name: Recompute rankings for all 5 provinces (reads Supabase -> data/rankings/*.json)
+        run: python scripts/calculate_rankings.py
+
+      - name: Build & audit (deploy gate)
+        uses: ./.github/actions/build-and-audit
+
+      - name: Publish JSON to Supabase (site_json)
+        run: python scripts/publish_site_json.py rankings
+
+      - name: Trigger Vercel deploy
+        env:
+          VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
+        run: |
+          curl -fsS -X POST "$VERCEL_DEPLOY_HOOK" && echo "✓ Vercel deploy triggered"
+
+      # Failure alerting is handled out-of-band by ci-failure-alert.yml
+      # (on: workflow_run). Data staleness is caught by freshness-watchdog.yml.

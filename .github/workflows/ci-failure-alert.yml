@@ -1,16 +1,23 @@
 name: CI failure alert
 
-# Robust failure alerting for the four data workflows. This fires as its OWN run
+# Robust failure alerting for the data workflows. This fires as its OWN run
 # *after* a data workflow completes (via workflow_run), so it works even when the
 # data job never acquired a runner — the conclusion is then `cancelled` with zero
 # steps, which an in-job `if: failure()` step can NEVER catch (no runner = no
 # steps run; and `failure()` doesn't trigger on `cancelled` anyway). That exact
 # mode hit us on Jul 9 and produced no alert. This replaces the old in-job
 # notify-failure step. Opens (or comments on) one issue per failing workflow.
+#
+# Matches on each workflow's `name:` field (workflow_run keys off that, not the
+# filename) — kept in sync by hand with every scratch-*-daily.yml's `name:`.
 on:
   workflow_run:
     workflows:
-      - "Daily OLG refresh"
+      - "Scratch — OLG (Ontario) daily refresh"
+      - "Scratch — BCLC (British Columbia) daily refresh"
+      - "Scratch — WCLC (Western Canada (AB/SK/MB)) daily refresh"
+      - "Scratch — ALC (Atlantic Canada (NB/NS/PE/NL)) daily refresh"
+      - "Scratch — Loto-Québec (Quebec) daily refresh"
       - "Daily draw results"
       - "Daily US draw results"
       - "Daily European draw results"

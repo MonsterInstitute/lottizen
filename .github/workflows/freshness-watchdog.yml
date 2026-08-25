@@ -21,7 +21,7 @@ name: Data freshness watchdog
 # the site stops rebuilding.
 on:
   schedule:
-    # 14:00 UTC (~10:00 ET) — after daily.yml (10:00), draws-daily (10:10) and
+    # 14:00 UTC (~10:00 ET) — after the 5 scratch-*-daily workflows (10:00-10:35), draws-daily (10:10) and
     # usa-daily (10:30) UTC have had time to run, commit, and push.
     - cron: "0 14 * * *"
   workflow_dispatch:
@@ -67,9 +67,11 @@ jobs:
         run: |
           python scripts/audit_site.py --freshness $SELFTEST            # human-readable log
           python scripts/audit_site.py --freshness --json $SELFTEST > freshness.json
-          count=$(python -c "import json; print(len(json.load(open('freshness.json'))['stale']))")
+          count=$(python -c "import json; d=json.load(open('freshness.json')); print(len(d['stale']))")
+          scratch_count=$(python -c "import json; d=json.load(open('freshness.json')); print(len(d['staleScratch']))")
           echo "count=$count" >> "$GITHUB_OUTPUT"
-          echo "Stale games: $count"
+          echo "scratch_count=$scratch_count" >> "$GITHUB_OUTPUT"
+          echo "Stale games: $count · Stale scratch agencies: $scratch_count"
 
       - name: Open / update / close staleness issues
         env:
@@ -83,8 +85,28 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          echo "Stale data detected — re-dispatching data workflows to recover."
-          for wf in daily.yml draws-daily.yml usa-daily.yml europe-daily.yml; do
+          echo "Stale draw data detected — re-dispatching data workflows to recover."
+          for wf in draws-daily.yml usa-daily.yml europe-daily.yml; do
+            gh workflow run "$wf" --repo "$GITHUB_REPOSITORY" \
+              && echo "re-dispatched $wf" \
+              || echo "could not dispatch $wf (continuing)"
+          done
+
+      - name: Re-dispatch stale scratch workflows to self-heal
+        if: ${{ steps.fresh.outputs.scratch_count != '0' && github.event.inputs.selftest != 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "Stale scratch-agency data detected — re-dispatching only the affected agencies."
+          declare -A WF=( [OLG]=scratch-olg-daily.yml [BCLC]=scratch-bclc-daily.yml \
+                          [WCLC]=scratch-wclc-daily.yml [ALC]=scratch-alc-daily.yml \
+                          [QUEBEC]=scratch-quebec-daily.yml )
+          for agency in $(jq -r '.staleScratch[].agency' freshness.json); do
+            wf="${WF[$agency]:-}"
+            if [ -z "$wf" ]; then
+              echo "no workflow mapped for agency '$agency' (selftest canary?) — skipping"
+              continue
+            fi
             gh workflow run "$wf" --repo "$GITHUB_REPOSITORY" \
               && echo "re-dispatched $wf" \
               || echo "could not dispatch $wf (continuing)"

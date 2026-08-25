@@ -13,6 +13,7 @@ import { effectiveTier } from "@/lib/entitlements";
 import { getGame } from "@/config/games";
 import { getLatestAll } from "@/lib/draws";
 import { getGameBySlug } from "@/lib/data";
+import { provinceForAgency } from "@/config/scratch";
 import { SubscribeForm } from "@/components/site/SubscribeForm";
 import { DashboardClient } from "@/components/dashboard/DashboardClient";
 
@@ -77,7 +78,12 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
     })
     .filter((g): g is NonNullable<typeof g> => g !== null);
 
-  const favouriteScratch = favouriteSlugs.map((slug) => getGameBySlug(slug)).filter((g): g is NonNullable<typeof g> => Boolean(g));
+  const favouriteScratch = favouriteSlugs
+    .map((f) => {
+      const province = provinceForAgency(f.agency);
+      return province ? getGameBySlug(province, f.slug) : undefined;
+    })
+    .filter((g): g is NonNullable<typeof g> => Boolean(g));
 
   return (
     <>

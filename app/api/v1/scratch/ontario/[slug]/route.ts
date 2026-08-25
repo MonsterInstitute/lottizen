@@ -6,7 +6,7 @@ export async function GET(req: Request, { params }: { params: { slug: string } }
   const authError = checkRapidApiSecret(req);
   if (authError) return authError;
 
-  const game = getGameBySlug(params.slug);
+  const game = getGameBySlug("ontario", params.slug);
   if (!game) {
     return apiError(404, "GAME_NOT_FOUND", `No Ontario scratch ticket found for slug '${params.slug}'.`);
   }

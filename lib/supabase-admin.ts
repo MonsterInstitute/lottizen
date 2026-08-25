@@ -409,25 +409,34 @@ export async function unfollowGame(subscriberId: string, gameSlug: string): Prom
 // ============================================================================
 // Scratch-ticket favourites
 // ============================================================================
-export async function listScratchFavourites(subscriberId: string): Promise<string[]> {
-  const rows = await pg<{ game_slug: string }[]>(
-    `scratch_favourites?subscriber_id=eq.${subscriberId}&select=game_slug`,
-  );
-  return (rows ?? []).map((r) => r.game_slug);
+export interface ScratchFavouriteRef {
+  agency: string;
+  slug: string;
 }
 
-export async function addScratchFavourite(subscriberId: string, gameSlug: string): Promise<void> {
+/** Agency is part of the key because game_slug is only unique WITHIN one
+ * agency — several agencies have games that share a slug (see
+ * supabase/migrations/0008_scratch_pro_multi_agency.sql). */
+export async function listScratchFavourites(subscriberId: string): Promise<ScratchFavouriteRef[]> {
+  const rows = await pg<{ game_slug: string; agency: string }[]>(
+    `scratch_favourites?subscriber_id=eq.${subscriberId}&select=game_slug,agency`,
+  );
+  return (rows ?? []).map((r) => ({ agency: r.agency, slug: r.game_slug }));
+}
+
+export async function addScratchFavourite(subscriberId: string, agency: string, gameSlug: string): Promise<void> {
   await pg(`scratch_favourites`, {
     method: "POST",
     headers: { Prefer: "resolution=ignore-duplicates" },
-    body: JSON.stringify([{ subscriber_id: subscriberId, game_slug: gameSlug }]),
+    body: JSON.stringify([{ subscriber_id: subscriberId, agency, game_slug: gameSlug }]),
   });
 }
 
-export async function removeScratchFavourite(subscriberId: string, gameSlug: string): Promise<void> {
-  await pg(`scratch_favourites?subscriber_id=eq.${subscriberId}&game_slug=eq.${encodeURIComponent(gameSlug)}`, {
-    method: "DELETE",
-  });
+export async function removeScratchFavourite(subscriberId: string, agency: string, gameSlug: string): Promise<void> {
+  await pg(
+    `scratch_favourites?subscriber_id=eq.${subscriberId}&agency=eq.${encodeURIComponent(agency)}&game_slug=eq.${encodeURIComponent(gameSlug)}`,
+    { method: "DELETE" },
+  );
 }
 
 /** "Remove their saved data" (keep the account/email active) — clears

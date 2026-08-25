@@ -7,6 +7,9 @@ import { SubscribeForm } from "@/components/site/SubscribeForm";
 interface FollowButtonProps {
   kind: "game" | "scratch";
   slug: string;
+  /** Required for kind="scratch" — game_slug alone isn't unique across the
+   * 5 tracked agencies (see scratch_favourites' composite key). */
+  agency?: string;
   label: string;
 }
 
@@ -18,10 +21,11 @@ interface FollowButtonProps {
  *
  * Self-contained: fetches its own signed-in/following status on mount via
  * /api/account/status, rather than receiving it as server props — the pages
- * this lives on (/[country]/[game], /scratch/[slug]) are statically
- * generated, so there is no per-visitor state available at render time.
+ * this lives on (/[country]/[game], /scratch/[province]/[slug]) are
+ * statically generated, so there is no per-visitor state available at
+ * render time.
  */
-export function FollowButton({ kind, slug, label }: FollowButtonProps) {
+export function FollowButton({ kind, slug, agency, label }: FollowButtonProps) {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [isSignedIn, setIsSignedIn] = useState(false);
@@ -34,7 +38,9 @@ export function FollowButton({ kind, slug, label }: FollowButtonProps) {
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`/api/account/status?kind=${kind}&slug=${encodeURIComponent(slug)}`)
+    const qs = new URLSearchParams({ kind, slug });
+    if (agency) qs.set("agency", agency);
+    fetch(`/api/account/status?${qs.toString()}`)
       .then((r) => r.json())
       .then((data) => {
         if (cancelled) return;
@@ -45,7 +51,7 @@ export function FollowButton({ kind, slug, label }: FollowButtonProps) {
     return () => {
       cancelled = true;
     };
-  }, [kind, slug]);
+  }, [kind, slug, agency]);
 
   async function toggle() {
     if (!isSignedIn) {
@@ -57,7 +63,7 @@ export function FollowButton({ kind, slug, label }: FollowButtonProps) {
     const res = await fetch(path, {
       method: following ? "DELETE" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ gameSlug: slug }),
+      body: JSON.stringify({ gameSlug: slug, agency }),
     });
     const data = await res.json().catch(() => ({}));
     setBusy(false);

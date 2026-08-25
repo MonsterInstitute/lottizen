@@ -18,15 +18,18 @@ Everything referenced below lives in `docs/rapidapi/`:
    dashboard) → **Add New API**.
 2. Choose **Import from OpenAPI / Swagger file** (not "manually add
    endpoints" — this is exactly what `openapi.yaml` is for; it saves
-   re-typing all 7 endpoints by hand).
+   re-typing all 9 endpoints by hand).
 3. Upload `docs/rapidapi/openapi.yaml`.
 4. RapidAPI parses it and pre-fills:
    - API name → "Lottizen Data API" (from `info.title`)
    - Base URL → `https://lottizen.com/api/v1` (from `servers[0].url`)
-   - All 7 endpoints, grouped by the `Games` / `Scratch — Ontario` tags,
-     with their parameters and example responses.
+   - All 9 endpoints, grouped by the `Games` / `Scratch` / `Scratch — Ontario`
+     tags, with their parameters and example responses. `Scratch` covers the
+     general `/scratch/{province}` routes (all 5 provinces); `Scratch —
+     Ontario` is the pre-existing Ontario-only alias, kept for subscribers
+     integrated before the other 4 provinces launched.
 5. Review the imported endpoint list against the table in
-   `description.md` — confirm all 7 are present and none show a parsing
+   `description.md` — confirm all 9 are present and none show a parsing
    warning icon.
 
 ## 2. API details
@@ -52,7 +55,7 @@ On the API's **Info** / **Overview** tab:
 
 ## 3. Endpoints review
 
-For each of the 7 imported endpoints:
+For each of the 9 imported endpoints:
 
 - [ ] Confirm the example response shown matches what's in `openapi.yaml`
       (RapidAPI sometimes needs the example re-pasted manually if the import
@@ -62,7 +65,7 @@ For each of the 7 imported endpoints:
 - [ ] Confirm query parameters on `/games/{slug}/draws` (`from`, `to`,
       `limit`, `offset`) are marked **optional**.
 - [ ] Use RapidAPI's **Test Endpoint** button on 2–3 endpoints (e.g.
-      `/games`, `/games/lotto-max/statistics`, `/scratch/ontario`) to confirm
+      `/games`, `/games/lotto-max/statistics`, `/scratch/british-columbia`) to confirm
       RapidAPI can actually reach `lottizen.com` and gets a real `200` with a
       `data` payload. This is why the RapidAPI-secret gate must stay
       **disabled** at this point — see `rapidapi-secret.md`.

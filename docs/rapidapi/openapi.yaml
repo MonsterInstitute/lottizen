@@ -4,10 +4,11 @@ info:
   version: "1.0.0"
   description: >-
     Lottery data for Canada, the US and Europe: winning numbers, 40+ years of
-    draw history, hot/cold/overdue number statistics, and the only Ontario
-    scratch-ticket remaining-prize tracker in Canada. Every dataset refreshes
-    daily from official lottery-operator sources. Japan coverage is coming
-    soon.
+    draw history, hot/cold/overdue number statistics, and the only Canadian
+    scratch-ticket remaining-prize tracker — 428 games across all 5 provincial
+    lottery agencies (Ontario/OLG, British Columbia/BCLC, Western Canada/WCLC,
+    Atlantic Canada/ALC, Quebec/Loto-Québec). Every dataset refreshes daily
+    from official lottery-operator sources. Japan coverage is coming soon.
   contact:
     name: Lottizen
     url: https://lottizen.com/api
@@ -19,10 +20,20 @@ servers:
 tags:
   - name: Games
     description: Draw-lottery games — Canada, US, Europe.
+  - name: Scratch
+    description: >-
+      Exclusive: scratch tickets across all 5 Canadian provincial lottery
+      agencies (Ontario/OLG, British Columbia/BCLC, Western Canada/WCLC,
+      Atlantic Canada/ALC, Quebec/Loto-Québec), ranked by remaining prize
+      value. No other lottery API tracks this. Not every province publishes
+      the same underlying data, so 3 different scoring methods are used —
+      see `scoringMethod` / `dataCompleteness` on each response and
+      https://lottizen.com/methodology#scoring-methods.
   - name: Scratch — Ontario
     description: >-
-      Exclusive: Ontario (OLG) scratch tickets ranked by remaining prize
-      value. No other lottery API tracks this.
+      Ontario (OLG) scratch tickets — kept as a stable alias of GET
+      /scratch/{province} for province=ontario, for backward compatibility
+      with existing subscribers.
 
 paths:
   /games:
@@ -208,15 +219,95 @@ paths:
         "404":
           $ref: "#/components/responses/NotFound"
 
+  /scratch/{province}:
+    get:
+      operationId: listScratchByProvince
+      summary: Scratch tickets by province — ranked
+      description: >-
+        Every current scratch ticket for one of the 5 tracked provinces,
+        ranked by that province's Value Score, with the full prize-tier
+        breakdown and how many of each prize are still unclaimed. Exclusive
+        to Lottizen — no other lottery API tracks remaining scratch-ticket
+        prizes in Canada, across all 5 provincial agencies. `scoringMethod`
+        and `dataCompleteness` in `meta` tell you which of the 3 formulas
+        applies (see https://lottizen.com/methodology#scoring-methods) — not
+        every province publishes the same underlying prize data.
+      tags: [Scratch]
+      parameters:
+        - name: province
+          in: path
+          required: true
+          description: One of ontario, british-columbia, western, atlantic, quebec.
+          schema:
+            type: string
+            enum: [ontario, british-columbia, western, atlantic, quebec]
+            example: british-columbia
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/ScratchGame" }
+                  meta:
+                    type: object
+                    properties:
+                      generatedAt: { type: string, format: date-time }
+                      source: { type: string, example: bclc-live }
+                      currency: { type: string, example: CAD }
+                      agency: { type: string, example: BCLC }
+                      province: { type: string, example: british-columbia }
+                      provinceLabel: { type: string, example: British Columbia }
+                      scoringMethod: { type: string, enum: [retention, remaining_value_index, top_prize_fraction] }
+                      dataCompleteness: { type: string, enum: [full, top_prizes_only, remaining_counts_only] }
+                      gameCount: { type: integer, example: 173 }
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /scratch/{province}/{slug}:
+    get:
+      operationId: getScratchByProvince
+      summary: Scratch ticket detail, by province
+      tags: [Scratch]
+      parameters:
+        - name: province
+          in: path
+          required: true
+          description: One of ontario, british-columbia, western, atlantic, quebec.
+          schema:
+            type: string
+            enum: [ontario, british-columbia, western, atlantic, quebec]
+            example: atlantic
+        - name: slug
+          in: path
+          required: true
+          description: Scratch ticket slug, as returned by GET /scratch/{province}.
+          schema: { type: string, example: elite }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: "#/components/schemas/ScratchGame" }
+                  meta: { nullable: true }
+        "404":
+          $ref: "#/components/responses/NotFound"
+
   /scratch/ontario:
     get:
       operationId: listScratchOntario
-      summary: Ontario scratch tickets — ranked
+      summary: Ontario scratch tickets — ranked (alias)
       description: >-
-        Every current OLG scratch ticket ranked by Value Score, with the full
-        prize-tier breakdown and how many of each prize are still unclaimed.
-        Exclusive to Lottizen — no other lottery API tracks remaining
-        scratch-ticket prizes in Canada.
+        Stable alias of GET /scratch/{province} for province=ontario, kept
+        for backward compatibility with subscribers integrated before the
+        other 4 provinces launched.
       tags: [Scratch — Ontario]
       responses:
         "200":
@@ -235,13 +326,14 @@ paths:
                       generatedAt: { type: string, format: date-time }
                       source: { type: string, enum: [olg-live, sample] }
                       currency: { type: string, example: CAD }
-                      province: { type: string, example: ON }
-                      gameCount: { type: integer, example: 50 }
+                      province: { type: string, example: ontario }
+                      gameCount: { type: integer, example: 49 }
 
   /scratch/ontario/{slug}:
     get:
       operationId: getScratchOntario
-      summary: Ontario scratch ticket detail
+      summary: Ontario scratch ticket detail (alias)
+      description: Stable alias of GET /scratch/{province}/{slug} for province=ontario.
       tags: [Scratch — Ontario]
       parameters:
         - name: slug
@@ -402,7 +494,7 @@ components:
       properties:
         amount: { type: number, example: 250000 }
         label: { type: string, example: "$250,000.00" }
-        total: { type: integer, example: 5 }
+        total: { type: integer, description: "Prizes printed at this tier. WCLC (province=western) never publishes this — always 0, a sentinel, not a real count.", example: 5 }
         remaining: { type: integer, example: 4 }
         isTop: { type: boolean }
 
@@ -412,18 +504,30 @@ components:
         slug: { type: string, example: bingo-multip }
         name: { type: string, example: Bingo Multip }
         gameNumber: { type: string, example: "3088" }
+        agency: { type: string, description: "OLG, BCLC, WCLC, ALC, or QUEBEC.", example: OLG }
+        province: { type: string, enum: [ontario, british-columbia, western, atlantic, quebec] }
         price: { type: number, example: 10 }
+        launchDate: { type: string, nullable: true, format: date }
         prizeTiers:
           type: array
           items: { $ref: "#/components/schemas/PrizeTier" }
         topPrizeLabel: { type: string }
         topPrizeAmount: { type: number }
-        topPrizesTotal: { type: integer }
+        topPrizesTotal: { type: integer, description: "0 for province=western (WCLC never publishes a printed total)." }
         topPrizesRemaining: { type: integer }
         prizeTierCount: { type: integer }
-        remainingPrizePool: { type: number, description: "Σ (remaining × amount) across valued tiers, CAD." }
-        printedPrizePool: { type: number, description: "Σ (total × amount) across valued tiers, CAD (launch pool)." }
-        valueRetention: { type: number, description: "(remaining_pool/printed_pool) ÷ (count_remaining/count_total); >1 = good value left." }
-        valueScore: { type: number, description: "Value Score = 0.62 × valueRetention × 100. Higher = more prize value left per dollar." }
+        remainingPrizePool: { type: number, description: "Σ (remaining × amount) across disclosed tiers, CAD. For province=atlantic (ALC), covers only the top tier(s), not the whole game." }
+        printedPrizePool: { type: number, nullable: true, description: "Σ (total × amount) across valued tiers, CAD (launch pool). Null for province=western — no printed totals exist to sum." }
+        valueRetention: { type: number, nullable: true, description: "(remaining_pool/printed_pool) ÷ (count_remaining/count_total); >1 = good value left. Only meaningful when scoringMethod=retention — null for western/atlantic." }
+        valueScore:
+          type: number
+          description: >-
+            The ranking metric — units depend on scoringMethod: "retention"
+            → ~0-150 typical scale; "remaining_value_index" (western/WCLC
+            only) → raw CAD of remaining prize value per $1 ticket, NOT on
+            the same scale, can run into the hundreds of thousands;
+            "top_prize_fraction" (atlantic/ALC only) → 0-100, % of top
+            prizes remaining. Only comparable within the same province.
+        scoringMethod: { type: string, enum: [retention, remaining_value_index, top_prize_fraction] }
         rank: { type: integer }
         scrapedAt: { type: string, format: date-time }

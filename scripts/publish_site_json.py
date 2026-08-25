@@ -2,18 +2,22 @@
 """Publish the generated site JSON to the Supabase `site_json` table.
 
 Runs in the data-refresh workflows AFTER the calculators (calculate_stats.py /
-calculate_rankings.py) have written data/rankings.json, data/draws/*.json and
-data/stats/*.json. Uploads each file's exact text so the Vercel build's Node
-prefetch can materialize them without recomputing anything.
+calculate_rankings.py) have written data/rankings/*.json (one file per
+province — OLG/BCLC/WCLC/ALC/Quebec), data/draws/*.json and data/stats/*.json.
+Uploads each file's exact text so the Vercel build's Node prefetch can
+materialize them without recomputing anything.
 
     python scripts/calculate_stats.py
     python scripts/publish_site_json.py draws stats   # publish ONLY these categories
 
 Category arguments restrict what gets published so a workflow only uploads the
 files IT generated — never the other slices it merely prefetched from Supabase to
-build. Without them, the draws/US/Europe workflows would re-upload (and race on)
-rankings.json that the scratch workflow owns. Valid categories: `rankings.json`,
-`draws`, `stats`. No arguments = publish everything (local `npm run data:refresh`).
+build. Without them, a draws workflow would re-upload (and race on) rankings/*
+that the 5 independent scratch workflows own — and vice versa, since
+calculate_rankings.py always recomputes ALL 5 provinces from whatever's
+currently in Supabase, regardless of which single agency's scraper just ran.
+Valid categories: `rankings`, `draws`, `stats`. No arguments = publish
+everything (local `npm run data:refresh`).
 """
 from __future__ import annotations
 
@@ -33,10 +37,7 @@ def collect(categories: set[str]) -> list[tuple[str, Path]]:
     Empty `categories` means all."""
     want = lambda c: not categories or c in categories  # noqa: E731
     items: list[tuple[str, Path]] = []
-    rankings = DATA / "rankings.json"
-    if want("rankings.json") and rankings.exists():
-        items.append(("rankings.json", rankings))
-    for sub in ("draws", "stats"):
+    for sub in ("rankings", "draws", "stats"):
         d = DATA / sub
         if want(sub) and d.is_dir():
             for f in sorted(d.glob("*.json")):

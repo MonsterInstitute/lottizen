@@ -287,6 +287,90 @@ const ENDPOINTS: Endpoint[] = [
   "meta": null
 }`,
   },
+  {
+    id: "get-scratch-province",
+    method: "GET",
+    path: "/scratch/{province}",
+    title: "Scratch tickets by province — ranked",
+    exclusive: true,
+    description:
+      "Every current scratch ticket for one of 5 Canadian provinces (ontario, british-columbia, western, atlantic, quebec), ranked by that province's Value Score. Lottizen is the only lottery API tracking remaining scratch-ticket prizes across all 5 Canadian scratch-ticket agencies. Not every province publishes the same underlying data — see scoringMethod and dataCompleteness in the response, and /methodology for what each means.",
+    params: [{ name: "province", description: "One of: ontario, british-columbia, western, atlantic, quebec." }],
+    curl: `curl "${BASE}/scratch/british-columbia"`,
+    response: `{
+  "data": [
+    {
+      "slug": "5-set-for-life-xii",
+      "name": "$5 Set for Life XII",
+      "gameNumber": "37116004",
+      "agency": "BCLC",
+      "province": "british-columbia",
+      "price": 5,
+      "prizeTiers": [
+        { "amount": 675000, "label": "$675,000", "total": 1, "remaining": 1, "isTop": true }
+        // ... more tiers
+      ],
+      "topPrizeLabel": "$675,000",
+      "topPrizesTotal": 1,
+      "topPrizesRemaining": 1,
+      "remainingPrizePool": 812400,
+      "printedPrizePool": 1105500,
+      "valueRetention": 1.62,
+      "valueScore": 100.4,
+      "scoringMethod": "retention",
+      "rank": 1
+    }
+    // ... more games
+  ],
+  "meta": {
+    "generatedAt": "2026-08-24T23:17:28+00:00",
+    "source": "bclc-live",
+    "currency": "CAD",
+    "agency": "BCLC",
+    "province": "british-columbia",
+    "provinceLabel": "British Columbia",
+    "scoringMethod": "retention",
+    "dataCompleteness": "full",
+    "gameCount": 173
+  }
+}`,
+  },
+  {
+    id: "get-scratch-province-slug",
+    method: "GET",
+    path: "/scratch/{province}/{slug}",
+    title: "Scratch ticket detail, by province",
+    exclusive: true,
+    description: "Full prize-tier breakdown for a single scratch ticket, by province + slug.",
+    params: [
+      { name: "province", description: "One of: ontario, british-columbia, western, atlantic, quebec." },
+      { name: "slug", description: "Scratch ticket slug, as returned by GET /scratch/{province}." },
+    ],
+    curl: `curl "${BASE}/scratch/atlantic/elite"`,
+    response: `{
+  "data": {
+    "slug": "elite",
+    "name": "ELITE",
+    "gameNumber": "4120",
+    "agency": "ALC",
+    "province": "atlantic",
+    "price": 100,
+    "prizeTiers": [
+      { "amount": 10000000, "label": "$10,000,000", "total": 5, "remaining": 5, "isTop": true },
+      { "amount": 1000000, "label": "$1,000,000", "total": 5, "remaining": 5, "isTop": false }
+    ],
+    "topPrizeLabel": "$10,000,000",
+    "topPrizesTotal": 10,
+    "topPrizesRemaining": 10,
+    "remainingPrizePool": 55000000,
+    "valueRetention": null,
+    "valueScore": 100,
+    "scoringMethod": "top_prize_fraction",
+    "rank": 1
+  },
+  "meta": null
+}`,
+  },
 ];
 
 const TOC: { id: string; text: string; level: 2 | 3 }[] = [

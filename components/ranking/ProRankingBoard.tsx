@@ -3,28 +3,33 @@
 import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { Game } from "@/lib/types";
+import type { ScratchFavouriteRef } from "@/lib/supabase-admin";
 import { money, price } from "@/lib/format";
 import { ScoreBadge } from "@/components/ranking/ScoreBadge";
 
 interface ProRankingBoardProps {
   games: Game[];
-  initialFavourites: string[];
+  initialFavourites: ScratchFavouriteRef[];
 }
 
+const favKey = (agency: string, slug: string) => `${agency}:${slug}`;
+
 /**
- * Lottizen Pro's full, filterable Ontario scratch board — the product's
- * strongest differentiator (see the brief). Free visitors only ever see
- * the top-3 teaser (RankingTable in app/scratch/page.tsx); this component
- * only renders for a confirmed Pro session (server-checked in the page).
- * All filtering happens client-side over the full ranked list already
- * passed down — no extra data fetch per filter change.
+ * Lottizen Pro's full, filterable scratch board for one province — the
+ * product's strongest differentiator (see the brief). Free visitors only
+ * ever see the top-3 teaser (RankingTable in app/scratch/[province]/page.tsx);
+ * this component only renders for a confirmed Pro session (server-checked
+ * in the page). All filtering happens client-side over the full ranked
+ * list already passed down — no extra data fetch per filter change.
  */
 export function ProRankingBoard({ games, initialFavourites }: ProRankingBoardProps) {
   const [priceFilter, setPriceFilter] = useState<number | "all">("all");
   const [minTopPrizesRemaining, setMinTopPrizesRemaining] = useState(0);
   const [minRemainingPool, setMinRemainingPool] = useState(0);
   const [search, setSearch] = useState("");
-  const [favourites, setFavourites] = useState<Set<string>>(new Set(initialFavourites));
+  const [favourites, setFavourites] = useState<Set<string>>(
+    new Set(initialFavourites.map((f) => favKey(f.agency, f.slug))),
+  );
   const [expanded, setExpanded] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -33,25 +38,26 @@ export function ProRankingBoard({ games, initialFavourites }: ProRankingBoardPro
   const filtered = games.filter((g) => {
     if (priceFilter !== "all" && Math.round(g.price) !== priceFilter) return false;
     if (g.topPrizesRemaining < minTopPrizesRemaining) return false;
-    if (g.remainingPrizePool < minRemainingPool) return false;
+    if ((g.remainingPrizePool ?? 0) < minRemainingPool) return false;
     if (search && !g.name.toLowerCase().includes(search.toLowerCase()) && !g.gameNumber.includes(search)) return false;
     return true;
   });
 
-  async function toggleFavourite(slug: string) {
-    setBusy(slug);
-    const isFav = favourites.has(slug);
+  async function toggleFavourite(g: Game) {
+    const key = favKey(g.agency, g.slug);
+    setBusy(key);
+    const isFav = favourites.has(key);
     const res = await fetch("/api/account/scratch-favourites", {
       method: isFav ? "DELETE" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ gameSlug: slug }),
+      body: JSON.stringify({ gameSlug: g.slug, agency: g.agency }),
     });
     setBusy(null);
     if (!res.ok) return;
     setFavourites((prev) => {
       const next = new Set(prev);
-      if (isFav) next.delete(slug);
-      else next.add(slug);
+      if (isFav) next.delete(key);
+      else next.add(key);
       return next;
     });
   }
@@ -108,12 +114,15 @@ export function ProRankingBoard({ games, initialFavourites }: ProRankingBoardPro
           <div className="num-col">Top prizes left</div>
           <div className="num-col">Score</div>
         </div>
-        {filtered.map((g) => (
-          <div key={g.slug}>
+        {filtered.map((g) => {
+          const key = favKey(g.agency, g.slug);
+          const hasTotals = g.scoringMethod !== "remaining_value_index";
+          return (
+          <div key={key}>
             <div className="rank-row" style={{ cursor: "default" }}>
               <div className="rank-pos">{String(g.rank).padStart(2, "0")}</div>
               <div className="rank-name">
-                <Link href={`/scratch/${g.slug}`}>{g.name}</Link>
+                <Link href={`/scratch/${g.province}/${g.slug}`}>{g.name}</Link>
                 <span className="rank-gameno">
                   GAME #{g.gameNumber} · TOP PRIZE {g.topPrizeLabel}
                 </span>
@@ -129,7 +138,7 @@ export function ProRankingBoard({ games, initialFavourites }: ProRankingBoardPro
               <div className="rank-cell rank-num num-col">
                 <span className="rank-cell-label">Top left</span>
                 <strong>{g.topPrizesRemaining}</strong>
-                <span style={{ color: "var(--ink-3)" }}>&nbsp;/&nbsp;{g.topPrizesTotal}</span>
+                {hasTotals ? <span style={{ color: "var(--ink-3)" }}>&nbsp;/&nbsp;{g.topPrizesTotal}</span> : null}
               </div>
               <div className="rank-score" style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <ScoreBadge value={g.valueScore} hot={g.rank <= 3} />
@@ -139,41 +148,41 @@ export function ProRankingBoard({ games, initialFavourites }: ProRankingBoardPro
               <button
                 className="nav-signin"
                 style={{ fontSize: 13 }}
-                disabled={busy === g.slug}
-                onClick={() => toggleFavourite(g.slug)}
+                disabled={busy === key}
+                onClick={() => toggleFavourite(g)}
               >
-                {favourites.has(g.slug) ? "★ Favourited" : "☆ Favourite"}
+                {favourites.has(key) ? "★ Favourited" : "☆ Favourite"}
               </button>
               <button
                 className="nav-signin"
                 style={{ fontSize: 13 }}
-                onClick={() => setExpanded(expanded === g.slug ? null : g.slug)}
+                onClick={() => setExpanded(expanded === key ? null : key)}
               >
-                {expanded === g.slug ? "Hide prize breakdown" : "Show prize breakdown"}
+                {expanded === key ? "Hide prize breakdown" : "Show prize breakdown"}
               </button>
             </div>
-            {expanded === g.slug ? (
+            {expanded === key ? (
               <table className="prize-table" style={{ marginBottom: 14 }}>
                 <thead>
                   <tr>
                     <th>Prize</th>
-                    <th>Total Printed</th>
+                    <th>{hasTotals ? "Total Printed" : "Total"}</th>
                     <th>Remaining</th>
-                    <th>% Left</th>
+                    <th>{hasTotals ? "% Left" : ""}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {g.prizeTiers.map((t, i) => {
-                    const pctLeft = t.total ? (t.remaining / t.total) * 100 : 0;
+                    const pctLeft = t.total ? (t.remaining / t.total) * 100 : null;
                     return (
                       <tr key={i} className={t.remaining === 0 ? "depleted" : ""}>
                         <td className="amount">
                           {t.label}
                           {t.isTop ? <span style={{ color: "var(--brand)" }}> ★</span> : null}
                         </td>
-                        <td className="num">{t.total}</td>
+                        <td className="num">{hasTotals && t.total ? t.total : "—"}</td>
                         <td className="num">{t.remaining}</td>
-                        <td className="num">{pctLeft.toFixed(0)}%</td>
+                        <td className="num">{pctLeft !== null ? `${pctLeft.toFixed(0)}%` : "—"}</td>
                       </tr>
                     );
                   })}
@@ -181,7 +190,8 @@ export function ProRankingBoard({ games, initialFavourites }: ProRankingBoardPro
               </table>
             ) : null}
           </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

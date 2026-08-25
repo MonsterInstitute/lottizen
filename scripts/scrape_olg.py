@@ -124,28 +124,19 @@ def clean_name(name: str) -> str:
 
 
 # --------------------------------------------------------------------------
-# Supabase (schema lives in Postgres; see supabase/migrations/0001_init.sql)
+# Supabase (schema: see supabase/migrations/0001_init.sql, 0007_scratch_multi_agency.sql)
 # --------------------------------------------------------------------------
-def replace_games(games: list[dict], source: str) -> None:
-    """Full refresh: clear and rewrite so delisted games/tiers disappear.
+AGENCY = "OLG"
+PROVINCE = "ontario"
 
-    Deleting every game cascades to prize_tiers (FK ON DELETE CASCADE), then we
-    bulk-insert fresh rows. prize_tiers ids are auto-generated (identity), so we
-    insert tiers without an id — matching the old AUTOINCREMENT behaviour."""
-    ts = now_iso()
-    db.delete_all("games", "game_number", "__lottizen_none__")  # cascades to prize_tiers
-    game_rows = [{"game_number": g["game_number"], "name": g["name"],
-                  "slug": slugify(g["name"]), "price": g["price"],
-                  "source": source, "scraped_at": ts} for g in games]
-    tier_rows = []
+
+def replace_games(games: list[dict], source: str) -> None:
+    """Full refresh, scoped to OLG only — see db.replace_scratch_games()'s
+    docstring for why this must never be a table-wide delete."""
     for g in games:
-        for t in g["prize_tiers"]:
-            tier_rows.append({"game_number": g["game_number"], "amount": t["amount"],
-                              "label": t["label"], "total": t["total"],
-                              "remaining": t["remaining"],
-                              "is_top": 1 if t.get("is_top") else 0, "scraped_at": ts})
-    db.insert_rows("games", game_rows)       # parent first (FK)
-    db.insert_rows("prize_tiers", tier_rows)  # children
+        g["slug"] = slugify(g["name"])
+    n = db.replace_scratch_games(AGENCY, PROVINCE, games, source)
+    print(f"  ⤷ wrote {n} OLG games (province={PROVINCE})")
 
 
 # --------------------------------------------------------------------------

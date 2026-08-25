@@ -61,7 +61,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -77,6 +77,7 @@ API_DOCS_PAGE = APP / "api.html"
 API_ENDPOINT_ANCHORS = [
     "get-games", "get-game", "get-latest", "get-draws",
     "get-statistics", "get-scratch-ontario", "get-scratch-ontario-slug",
+    "get-scratch-province", "get-scratch-province-slug",
 ]
 
 # /subscribe/preferences is a client-rendered shell (fetches with a ?token=
@@ -278,6 +279,44 @@ def check_freshness(live: list[dict], db_counts: dict, today: date) -> list[dict
             "daysLate": (today - db_latest).days,
             "missing": missing,
         })
+    return stale
+
+
+SCRATCH_AGENCIES = ["OLG", "BCLC", "WCLC", "ALC", "QUEBEC"]
+SCRATCH_STALE_THRESHOLD_HOURS = 48  # 2 days — each of the 5 scratch adapters runs daily
+
+
+def check_scratch_freshness() -> list[dict]:
+    """Per-agency staleness for the 5 scratch/instant adapters, judged from
+    `games.scraped_at` in Supabase — same "trust the DB, not the exit code"
+    principle as check_freshness(), extended to the scratch pipeline (which
+    has no draw schedule to compare against, just "did today's scrape land
+    within the last 2 days"). Independent per agency so one agency's outage
+    (e.g. WCLC's page changing shape) surfaces on its own, not lumped with
+    the other 4 that are working fine.
+
+    Returns one record per stale (or entirely missing) agency; empty = all
+    5 current. Never blocks a deploy — same non-blocking contract as the
+    draw-game freshness check.
+    """
+    now = datetime.now(timezone.utc)
+    rows = db.fetch_all("games", "agency,scraped_at")
+    latest_by_agency: dict[str, str] = {}
+    for r in rows:
+        cur = latest_by_agency.get(r["agency"])
+        if cur is None or r["scraped_at"] > cur:
+            latest_by_agency[r["agency"]] = r["scraped_at"]
+
+    stale = []
+    for agency in SCRATCH_AGENCIES:
+        latest = latest_by_agency.get(agency)
+        if latest is None:
+            stale.append({"agency": agency, "latest": None, "hoursStale": None, "reason": "no games in DB for this agency"})
+            continue
+        latest_dt = datetime.fromisoformat(latest.replace("Z", "+00:00"))
+        hours = (now - latest_dt).total_seconds() / 3600.0
+        if hours > SCRATCH_STALE_THRESHOLD_HOURS:
+            stale.append({"agency": agency, "latest": latest, "hoursStale": round(hours, 1), "reason": None})
     return stale
 
 
@@ -591,7 +630,12 @@ FALLBACK_SCRATCH_SLUG = "bingo-multip"
 # are checked live instead, same reasoning as the /api/v1 endpoint checks.
 PAGE_HEALTH_CHECKS = [
     ("/dashboard", "My Lottizen", "anonymous visitor should see the sign-in prompt, not an error"),
-    ("/scratch", "Rankings are based on publicly available remaining-prize data", "required disclaimer must render"),
+    # /scratch/[province] is the page with the per-visitor Pro-gate (dynamic);
+    # the plain /scratch national overview is static and already covered by
+    # the build-completeness check above. Two provinces checked (not all 5)
+    # since this is exercising the SAME shared gating code path each time.
+    ("/scratch/ontario", "Rankings are based on publicly available remaining-prize data", "required disclaimer must render"),
+    ("/scratch/western", "Rankings are based on publicly available remaining-prize data", "required disclaimer must render (WCLC/remaining-value-index province)"),
     ("/subscribe", "Winning numbers", "newsletter/account landing page"),
 ]
 
@@ -691,6 +735,18 @@ def api_health_main() -> int:
         checks.append({"path": "/api/v1/scratch/ontario/{slug}", "status": None, "ok": False, "ms": None,
                         "error": "skipped — /api/v1/scratch/ontario returned no games to chain a slug from"})
 
+    # /api/v1/scratch/{province} — one non-retention province ("western",
+    # WCLC's Remaining Value Index) as a smoke test of the general route,
+    # distinct from the always-retention Ontario alias checked above.
+    body = record("/api/v1/scratch/western", *get("/api/v1/scratch/western"))
+    western_slug = body["data"][0]["slug"] if body and body.get("data") else None
+    if western_slug:
+        path = f"/api/v1/scratch/western/{western_slug}"
+        record(path, *get(path))
+    elif not secret:
+        checks.append({"path": "/api/v1/scratch/western/{slug}", "status": None, "ok": False, "ms": None,
+                        "error": "skipped — /api/v1/scratch/western returned no games to chain a slug from"})
+
     status, body, error, ms = get("/api/v1/games/not-a-real-game-xyz")
     # An invalid slug should 404 when authorized, but if the gate rejects the
     # request first (no/wrong secret), a 401 is the correct, expected result.
@@ -783,6 +839,7 @@ def freshness_main() -> int:
     and config — no site build required, so it can run as a standalone watchdog."""
     live = [g for g in load_config() if g["live"]]
     stale = check_freshness(live, db_draw_counts(), local_today())
+    stale_scratch = check_scratch_freshness()
     if "--selftest" in sys.argv:
         # Fire-drill: inject a synthetic stale game so the watchdog's issue
         # open/close path can be exercised end-to-end on demand, without touching
@@ -793,22 +850,37 @@ def freshness_main() -> int:
             "drawDays": ["Daily"], "latest": "2000-01-01", "due": "2000-01-02",
             "daysLate": 9999, "missing": ["2000-01-02"],
         }]
+        stale_scratch = stale_scratch + [{
+            "agency": "SELFTEST", "latest": "2000-01-01T00:00:00+00:00", "hoursStale": 99999.0, "reason": None,
+        }]
     if "--json" in sys.argv:
-        print(json.dumps({"generatedAt": datetime.now().isoformat(), "stale": stale}, indent=2))
+        print(json.dumps(
+            {"generatedAt": datetime.now().isoformat(), "stale": stale, "staleScratch": stale_scratch},
+            indent=2,
+        ))
         return 0
     print("=" * 78)
     print(f"LOTTIZEN FRESHNESS CHECK — {datetime.now().isoformat(timespec='seconds')}")
     print("=" * 78)
     if not stale:
         print(f"\n✅ All {len(live)} live games are current with their draw schedule.\n")
-        return 0
-    print(f"\n⚠️  {len(stale)} of {len(live)} live games are STALE "
-          f"(newest stored draw is behind the schedule):\n")
-    print(f"{'game':22} {'latest':12} {'due':12} missing")
-    print("-" * 78)
-    for s in stale:
-        print(f"{s['name'][:21]:22} {s['latest']:12} {s['due']:12} {', '.join(s['missing']) or '—'}")
-    print()
+    else:
+        print(f"\n⚠️  {len(stale)} of {len(live)} live games are STALE "
+              f"(newest stored draw is behind the schedule):\n")
+        print(f"{'game':22} {'latest':12} {'due':12} missing")
+        print("-" * 78)
+        for s in stale:
+            print(f"{s['name'][:21]:22} {s['latest']:12} {s['due']:12} {', '.join(s['missing']) or '—'}")
+        print()
+    if not stale_scratch:
+        print(f"\n✅ All {len(SCRATCH_AGENCIES)} scratch agencies scraped within the last "
+              f"{SCRATCH_STALE_THRESHOLD_HOURS}h.\n")
+    else:
+        print(f"\n⚠️  {len(stale_scratch)} of {len(SCRATCH_AGENCIES)} scratch agencies are STALE:\n")
+        for s in stale_scratch:
+            reason = s["reason"] or f"last scraped {s['latest']} ({s['hoursStale']}h ago)"
+            print(f"  {s['agency']:8} {reason}")
+        print()
     return 0
 
 

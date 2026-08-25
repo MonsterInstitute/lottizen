@@ -7,7 +7,7 @@ import {
   type GameConfig,
 } from "@/config/games";
 import { getLatestAll, getLatestGeneratedAt, hasData } from "@/lib/draws";
-import { getTopPick, getRankings } from "@/lib/data";
+import { getAllRankings, getTopPick } from "@/lib/data";
 import { drawDate, money, humanDate, resolveNextDraw } from "@/lib/format";
 import { SITE, absUrl } from "@/lib/site";
 import { Balls } from "@/components/draws/Balls";
@@ -17,8 +17,8 @@ import { JsonLd } from "@/components/site/JsonLd";
 export default function HomePage() {
   const latest = new Map(getLatestAll().map((l) => [l.slug, l]));
   const generatedAt = getLatestGeneratedAt();
-  const scratchTop = getTopPick();
-  const scratchCount = getRankings().games.length;
+  const scratchTop = getTopPick("ontario");
+  const scratchCount = getAllRankings().reduce((s, r) => s + r.gameCount, 0);
 
   const liveGames = (code: Country): GameConfig[] =>
     gamesForCountry(code).filter((g) => g.live && hasData(g.slug));
@@ -180,8 +180,8 @@ export default function HomePage() {
                 Which scratch ticket is <em>worth it</em> today?
               </h2>
               <p className="section-lede" style={{ marginBottom: 22 }}>
-                We track OLG&rsquo;s remaining instant-game prizes and rank every Ontario scratch
-                ticket by the value still left to win.
+                We track remaining instant-game prizes across all 5 Canadian lottery agencies and
+                rank every scratch ticket by the value still left to win.
               </p>
               <Link href="/scratch" className="btn btn-primary">
                 Open the tracker

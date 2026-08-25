@@ -5,8 +5,10 @@ follow a game that drew today.
 Run at the end of the daily scrape workflows (draws-daily.yml, usa-daily.yml,
 europe-daily.yml), after "Build & audit" has populated data/draws/*.json +
 data/stats/*.json (fresh for this run's region, last-known-good for the
-other two — see PREFETCH_FILL_MISSING in those workflows) and data/rankings.json
-(pulled from Supabase site_json, for the Ontario scratch top-3 line).
+other two — see PREFETCH_FILL_MISSING in those workflows) and
+data/rankings/ontario.json (pulled from Supabase site_json, for the Ontario
+scratch top-3 line — the email's scratch teaser stays Ontario-only, one of
+5 provinces now tracked; not expanded to the others here).
 
 Idempotent: claims each (subscriber, game, day) send via an INSERT ... ON
 CONFLICT DO NOTHING against email_log BEFORE calling Resend (claim_send), so
@@ -44,7 +46,7 @@ FREE_WEEKLY_ALERT_LIMIT = 7
 ROOT = Path(__file__).resolve().parent.parent
 DRAWS_DIR = ROOT / "data" / "draws"
 STATS_DIR = ROOT / "data" / "stats"
-RANKINGS_PATH = ROOT / "data" / "rankings.json"
+RANKINGS_PATH = ROOT / "data" / "rankings" / "ontario.json"
 SITE_URL = "https://lottizen.com"
 RESEND_API_URL = "https://api.resend.com/emails"
 FROM_EMAIL = os.environ.get("RESEND_FROM_EMAIL", "Lottizen <newsletter@mail.lottizen.com>")

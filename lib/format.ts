@@ -47,7 +47,14 @@ export function nDraws(n: number): string {
   return `${n.toLocaleString("en-CA")} draw${n === 1 ? "" : "s"}`;
 }
 
+/** Value Score display. Most scores are ~0-150 (retention/top-prize-fraction
+ * methods), but WCLC's Remaining Value Index is a raw CAD figure that can
+ * run into the hundreds of thousands — compact-format anything large rather
+ * than dumping an unformatted 7-digit number into the small score badge. */
 export function score(n: number): string {
+  if (Math.abs(n) >= 10000) {
+    return new Intl.NumberFormat("en-CA", { notation: "compact", maximumFractionDigits: 1 }).format(n);
+  }
   return n.toFixed(1);
 }
 
