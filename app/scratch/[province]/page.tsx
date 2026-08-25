@@ -9,8 +9,10 @@ import { getCurrentSubscriber } from "@/lib/auth";
 import { getSubscription, listScratchFavourites } from "@/lib/supabase-admin";
 import { effectiveTier } from "@/lib/entitlements";
 import { PLANS } from "@/lib/plans";
+import { estimateRemainingValue } from "@/lib/plus-analytics";
 import { RankingTable } from "@/components/ranking/RankingTable";
 import { ProRankingBoard } from "@/components/ranking/ProRankingBoard";
+import { BudgetOptimizer } from "@/components/ranking/BudgetOptimizer";
 import { PriceNav } from "@/components/ranking/PriceNav";
 import { TopPickCard } from "@/components/ranking/TopPickCard";
 import { DemoNotice } from "@/components/site/DemoNotice";
@@ -162,6 +164,7 @@ export default async function ScratchProvincePage({ params }: { params: { provin
             {isPlus ? (
               <>
                 <AdSlot slot="rankings-top" format="leaderboard" />
+                <BudgetOptimizer games={games} />
                 <ProRankingBoard games={games} initialFavourites={favourites} />
               </>
             ) : (
@@ -169,6 +172,25 @@ export default async function ScratchProvincePage({ params }: { params: { provin
                 <PriceNav province={province} />
                 <AdSlot slot="rankings-top" format="leaderboard" />
                 <RankingTable games={games.slice(0, 3)} />
+                {(() => {
+                  const est = estimateRemainingValue(top);
+                  return est.supported ? (
+                    <div className="card" style={{ padding: "20px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+                      <div>
+                        <div className="section-eyebrow" style={{ marginBottom: 4 }}>
+                          Plus insight · {top.name}
+                        </div>
+                        <div style={{ fontSize: 15 }}>
+                          🔒 <strong>{est.pctRemaining}%</strong> of this game&rsquo;s prize pool remains ·{" "}
+                          <strong>~{est.evPerDollarCents}¢</strong> expected value per $1 spent
+                        </div>
+                      </div>
+                      <Link href="/plus" className="btn btn-secondary">
+                        Unlock with Plus
+                      </Link>
+                    </div>
+                  ) : null;
+                })()}
                 <div className="card" style={{ padding: 32, textAlign: "center" }}>
                   <div className="section-eyebrow" style={{ justifyContent: "center" }}>
                     Lottizen Plus

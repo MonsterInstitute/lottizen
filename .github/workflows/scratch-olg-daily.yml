@@ -33,6 +33,7 @@ jobs:
     env:
       SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
       # Deploy gate builds from this run's fresh local JSON + the other slices
       # pulled from Supabase; never clobber the fresh files before they're audited.
       PREFETCH_FILL_MISSING: "1"
@@ -67,6 +68,14 @@ jobs:
       # so bad data never ships.
       - name: Build & audit (deploy gate)
         uses: ./.github/actions/build-and-audit
+
+      - name: Send Lottizen Plus scratch alerts (top prize claimed / new ticket / rank drop)
+        # Reads today's + yesterday's scratch_snapshots directly from Supabase — independent
+        # of the build above. Runs after the audit gate so alerts never fire off data that
+        # failed the deploy gate. Never fails the workflow: a subscriber email hiccup
+        # shouldn't block publish/deploy below.
+        run: python scripts/scratch_alerts.py || echo "scratch alerts step failed; continuing"
+        continue-on-error: true
 
       - name: Publish JSON to Supabase (site_json)
         run: python scripts/publish_site_json.py rankings

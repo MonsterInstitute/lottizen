@@ -48,7 +48,14 @@ def btn(href: str, label: str) -> str:
     )
 
 
-def shell(preview_text: str, body_html: str, preferences_url: str, unsubscribe_url: str) -> str:
+def shell(preview_text: str, body_html: str, preferences_url: str, unsubscribe_url: str, show_plus_upsell: bool = False) -> str:
+    upsell = (
+        f'<div style="margin:0 0 18px;padding:14px 16px;background:#f6e7d6;border-radius:10px;font-size:13px;color:#1a1815;">'
+        f'Get alerts like this the moment they happen, all 5 provinces, with '
+        f'<a href="{SITE_URL}/plus" style="color:#c2652a;font-weight:600;">Lottizen Plus</a> &mdash; $3/month, 7-day free trial.</div>'
+        if show_plus_upsell
+        else ""
+    )
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -70,6 +77,7 @@ def shell(preview_text: str, body_html: str, preferences_url: str, unsubscribe_u
 {body_html}
 </td></tr>
 <tr><td style="padding:20px 36px 28px;border-top:1px solid #e6e0d4;font-size:12px;color:#9c968a;line-height:1.7;">
+{upsell}
 <a href="{preferences_url}" style="color:#c2652a;text-decoration:underline;">Manage your subscription</a>
 &nbsp;&middot;&nbsp;
 <a href="{unsubscribe_url}" style="color:#c2652a;text-decoration:underline;">Unsubscribe</a>
@@ -216,6 +224,7 @@ def draw_result_email(
         body_html="".join(parts),
         preferences_url=preferences_url,
         unsubscribe_url=unsubscribe_url,
+        show_plus_upsell=not is_plus,
     )
     return subject, html
 
@@ -265,6 +274,44 @@ def weekly_digest_email(
 
     html = shell(
         preview_text="This week's results, jackpot trends, and data highlights.",
+        body_html="".join(parts),
+        preferences_url=preferences_url,
+        unsubscribe_url=unsubscribe_url,
+    )
+    return subject, html
+
+
+# ---------------------------------------------------------------------------
+# Scratch alerts (Lottizen Plus) — sent immediately, not batched, by
+# scripts/scratch_alerts.py. One template covers all 3 event kinds; the
+# subject/lede differ by `kind`.
+# ---------------------------------------------------------------------------
+def scratch_alert_email(
+    *,
+    kind: str,  # "claimed" | "new_game" | "rank_drop"
+    game_name: str,
+    game_url: str,
+    province_label: str,
+    detail: str,  # kind-specific one-liner, e.g. "The $250,000 top prize was just claimed."
+    preferences_url: str,
+    unsubscribe_url: str,
+) -> tuple[str, str]:
+    subjects = {
+        "claimed": f"Top prize claimed: {game_name}",
+        "new_game": f"New ticket just launched: {game_name}",
+        "rank_drop": f"{game_name} dropped in the rankings",
+    }
+    subject = subjects.get(kind, game_name)
+
+    parts = [
+        f'<p style="margin:0 0 6px;font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:0.04em;color:#9c968a;">{province_label} scratch alert</p>',
+        f'<h1 style="font-family:Georgia,\'Times New Roman\',serif;font-size:22px;font-weight:700;color:#1a1815;margin:0 0 10px;">{game_name}</h1>',
+        f'<p style="margin:0 0 18px;font-size:15px;color:#1a1815;">{detail}</p>',
+        btn(game_url, "See the current prize breakdown"),
+    ]
+
+    html = shell(
+        preview_text=detail,
         body_html="".join(parts),
         preferences_url=preferences_url,
         unsubscribe_url=unsubscribe_url,

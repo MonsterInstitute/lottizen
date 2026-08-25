@@ -27,6 +27,10 @@ export interface Game {
   province: Province;
   price: number;
   launchDate?: string | null;
+  /** "1 in N" overall odds of winning ANY prize, as published at launch.
+   * Only ALC's adapter currently scrapes this — null elsewhere. See
+   * lib/plus-analytics.ts's launchVsNowOdds(). */
+  launchOddsN?: number | null;
   prizeTiers: PrizeTier[];
 
   // ---- derived by calculate_rankings.py; meaning depends on scoringMethod ----

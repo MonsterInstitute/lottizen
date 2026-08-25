@@ -96,6 +96,12 @@ def load_all_games() -> dict[str, list[dict]]:
             "province": g["province"],
             "price": float(g["price"]),
             "launchDate": g.get("launch_date"),
+            # "1 in N" overall odds of winning ANY prize, as published by the
+            # agency at launch — only ALC's adapter currently scrapes this
+            # (from its catalog's chanceOfWinning field). Powers the
+            # Lottizen Plus launch-vs-now odds comparison; null everywhere
+            # else until a future adapter pass adds it (see lib/plus-analytics.ts).
+            "launchOddsN": float(g["overall_odds"]) if g.get("overall_odds") is not None else None,
             "prizeTiers": [
                 {
                     "amount": float(t["amount"]),

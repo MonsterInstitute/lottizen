@@ -206,6 +206,13 @@ export default function ScratchGamePage({
 
           <div style={{ marginTop: 20 }}>
             <FollowButton kind="scratch" slug={g.slug} agency={g.agency} label="Follow this scratch ticket" />
+            <p className="field-hint" style={{ marginTop: 8 }}>
+              <Link href="/plus" style={{ color: "var(--brand-deep)" }}>
+                Lottizen Plus
+              </Link>{" "}
+              subscribers get an email the moment this ticket&rsquo;s top prize is claimed, or if
+              it drops in the rankings.
+            </p>
           </div>
 
           {/* Prize table */}

@@ -6,6 +6,7 @@ import type { Game } from "@/lib/types";
 import type { ScratchFavouriteRef } from "@/lib/supabase-admin";
 import { money, price } from "@/lib/format";
 import { ScoreBadge } from "@/components/ranking/ScoreBadge";
+import { GOAL_MODES, estimateRemainingValue, goalModeScore, launchVsNowOdds, rankByGoalMode, type GoalMode } from "@/lib/plus-analytics";
 
 interface ProRankingBoardProps {
   games: Game[];
@@ -18,15 +19,16 @@ const favKey = (agency: string, slug: string) => `${agency}:${slug}`;
  * Lottizen Plus's full, filterable scratch board for one province — the
  * product's strongest differentiator (see the brief). Free visitors only
  * ever see the top-3 teaser (RankingTable in app/scratch/[province]/page.tsx);
- * this component only renders for a confirmed Pro session (server-checked
- * in the page). All filtering happens client-side over the full ranked
- * list already passed down — no extra data fetch per filter change.
+ * this component only renders for a confirmed Plus session (server-checked
+ * in the page). All filtering/sorting happens client-side over the full
+ * ranked list already passed down — no extra data fetch per filter change.
  */
 export function ProRankingBoard({ games, initialFavourites }: ProRankingBoardProps) {
   const [priceFilter, setPriceFilter] = useState<number | "all">("all");
   const [minTopPrizesRemaining, setMinTopPrizesRemaining] = useState(0);
   const [minRemainingPool, setMinRemainingPool] = useState(0);
   const [search, setSearch] = useState("");
+  const [goalMode, setGoalMode] = useState<GoalMode>("overall");
   const [favourites, setFavourites] = useState<Set<string>>(
     new Set(initialFavourites.map((f) => favKey(f.agency, f.slug))),
   );
@@ -35,7 +37,7 @@ export function ProRankingBoard({ games, initialFavourites }: ProRankingBoardPro
 
   const prices = useMemo(() => [...new Set(games.map((g) => Math.round(g.price)))].sort((a, b) => a - b), [games]);
 
-  const filtered = games.filter((g) => {
+  const filtered = rankByGoalMode(games, goalMode).filter((g) => {
     if (priceFilter !== "all" && Math.round(g.price) !== priceFilter) return false;
     if (g.topPrizesRemaining < minTopPrizesRemaining) return false;
     if ((g.remainingPrizePool ?? 0) < minRemainingPool) return false;
@@ -64,6 +66,22 @@ export function ProRankingBoard({ games, initialFavourites }: ProRankingBoardPro
 
   return (
     <div>
+      <div className="chip-row" style={{ marginBottom: 14 }}>
+        {GOAL_MODES.map((m) => (
+          <button
+            key={m.id}
+            className={`chip ${goalMode === m.id ? "active" : ""}`}
+            style={{ border: "none", cursor: "pointer" }}
+            title={m.blurb}
+            onClick={() => setGoalMode(m.id)}
+          >
+            {m.label}
+          </button>
+        ))}
+      </div>
+      <p className="field-hint" style={{ marginBottom: 16 }}>
+        {GOAL_MODES.find((m) => m.id === goalMode)?.blurb}
+      </p>
       <div className="inline-form" style={{ marginBottom: 20 }}>
         <div className="field">
           <label>Price</label>
@@ -162,7 +180,26 @@ export function ProRankingBoard({ games, initialFavourites }: ProRankingBoardPro
               </button>
             </div>
             {expanded === key ? (
-              <table className="prize-table" style={{ marginBottom: 14 }}>
+              <>
+                {(() => {
+                  const est = estimateRemainingValue(g);
+                  const odds = launchVsNowOdds(g);
+                  return (
+                    <div style={{ display: "flex", gap: 16, flexWrap: "wrap", padding: "0 20px 14px", fontSize: 13.5 }}>
+                      <span>
+                        <strong>Remaining value:</strong>{" "}
+                        {est.supported ? `${est.pctRemaining}% of prize pool left · ~${est.evPerDollarCents}¢ EV per $1` : `not supported (${est.reason})`}
+                      </span>
+                      <span>
+                        <strong>Launch vs. now odds:</strong>{" "}
+                        {odds.supported
+                          ? `1 in ${odds.launchOddsN} at launch${odds.nowOddsN ? ` → ~1 in ${odds.nowOddsN} now` : ""}`
+                          : `not supported (${odds.reason})`}
+                      </span>
+                    </div>
+                  );
+                })()}
+                <table className="prize-table" style={{ marginBottom: 14 }}>
                 <thead>
                   <tr>
                     <th>Prize</th>
@@ -187,7 +224,8 @@ export function ProRankingBoard({ games, initialFavourites }: ProRankingBoardPro
                     );
                   })}
                 </tbody>
-              </table>
+                </table>
+              </>
             ) : null}
           </div>
           );
