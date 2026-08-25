@@ -55,7 +55,7 @@ export async function POST(req: Request) {
         code: "LIMIT_REACHED",
         error:
           max === 1
-            ? "Free plan saves 1 number combination. Upgrade to Lottizen Pro to save more."
+            ? "Free plan saves 1 number combination. Upgrade to Lottizen Plus to save more."
             : `You've reached your limit of ${max} saved combinations.`,
       },
       { status: 403 },

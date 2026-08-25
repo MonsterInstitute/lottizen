@@ -623,9 +623,10 @@ def _api_get(
 
 FALLBACK_GAME_SLUG = "lotto-max"
 FALLBACK_SCRATCH_SLUG = "bingo-multip"
+FALLBACK_WESTERN_SLUG = "25-50-or-100-frenzy"  # WCLC; verified real game_number 16123
 
 # (path, required substring, description) — pages that became dynamic for
-# Lottizen Pro's per-visitor gating (/dashboard, /scratch) and so have no
+# Lottizen Plus's per-visitor gating (/dashboard, /scratch) and so have no
 # static .html to check the way audit()/audit_subscribe_pages() do; these
 # are checked live instead, same reasoning as the /api/v1 endpoint checks.
 PAGE_HEALTH_CHECKS = [
@@ -739,11 +740,13 @@ def api_health_main() -> int:
     # WCLC's Remaining Value Index) as a smoke test of the general route,
     # distinct from the always-retention Ontario alias checked above.
     body = record("/api/v1/scratch/western", *get("/api/v1/scratch/western"))
-    western_slug = body["data"][0]["slug"] if body and body.get("data") else None
+    western_slug = (
+        body["data"][0]["slug"] if body and body.get("data") else (None if secret else FALLBACK_WESTERN_SLUG)
+    )
     if western_slug:
         path = f"/api/v1/scratch/western/{western_slug}"
         record(path, *get(path))
-    elif not secret:
+    else:
         checks.append({"path": "/api/v1/scratch/western/{slug}", "status": None, "ok": False, "ms": None,
                         "error": "skipped — /api/v1/scratch/western returned no games to chain a slug from"})
 

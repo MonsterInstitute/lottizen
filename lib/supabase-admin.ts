@@ -1,6 +1,6 @@
 /**
  * Server-only Supabase data layer for accounts, subscriptions, and the
- * Lottizen Pro tracking features. Unlike lib/data.ts / lib/draws.ts
+ * Lottizen Plus tracking features. Unlike lib/data.ts / lib/draws.ts
  * (build-time JSON, read by every page), this talks to Supabase's PostgREST
  * API at REQUEST TIME with the service-role key — subscribers sign up,
  * sign in, and edit their tracked games/combinations live.
@@ -294,7 +294,7 @@ export async function deleteAccount(subscriberId: string): Promise<void> {
 }
 
 // ============================================================================
-// Saved combinations — full CRUD (Lottizen Pro: multiple per subscriber).
+// Saved combinations — full CRUD (Lottizen Plus: multiple per subscriber).
 // The older saveNumbers()/getNumbers()/clearNumbers() above stay in place
 // unchanged for the token-based /subscribe/preferences page (no login,
 // free-tier single combination, "replace on save" is the whole UX there).
@@ -491,6 +491,7 @@ export interface SubscriptionRow {
   status: string;
   current_period_end: string | null;
   cancel_at_period_end: boolean;
+  trial_end: string | null;
 }
 
 export async function getSubscription(subscriberId: string): Promise<SubscriptionRow | null> {
@@ -509,7 +510,7 @@ export async function upsertSubscriptionByStripeId(
   });
 }
 
-export async function setSubscriberTier(subscriberId: string, tier: "free" | "pro"): Promise<void> {
+export async function setSubscriberTier(subscriberId: string, tier: "free" | "plus"): Promise<void> {
   await pg(`subscribers?id=eq.${subscriberId}`, { method: "PATCH", body: JSON.stringify({ tier }) });
 }
 

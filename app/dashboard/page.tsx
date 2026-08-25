@@ -104,6 +104,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
         <div className="container">
           <DashboardClient
             tier={tier}
+            trialEnd={subscription?.status === "trialing" ? subscription.trial_end : null}
             frequency={subscriber.frequency}
             followedGames={followedGames}
             combinations={combinations}

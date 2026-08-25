@@ -61,7 +61,7 @@ export default async function ScratchProvincePage({ params }: { params: { provin
     ? await Promise.all([getSubscription(subscriber.id), listScratchFavourites(subscriber.id)])
     : [null, []];
   const favourites = allFavourites.filter((f) => provinceForAgency(f.agency) === province);
-  const isPro = subscriber ? effectiveTier(subscription) === "pro" : false;
+  const isPlus = subscriber ? effectiveTier(subscription) === "plus" : false;
 
   const itemListJsonLd = {
     "@context": "https://schema.org",
@@ -159,7 +159,7 @@ export default async function ScratchProvincePage({ params }: { params: { provin
           </div>
           <div style={{ marginTop: 28, display: "flex", flexDirection: "column", gap: 20 }}>
             <DemoNotice province={province} />
-            {isPro ? (
+            {isPlus ? (
               <>
                 <AdSlot slot="rankings-top" format="leaderboard" />
                 <ProRankingBoard games={games} initialFavourites={favourites} />
@@ -171,17 +171,17 @@ export default async function ScratchProvincePage({ params }: { params: { provin
                 <RankingTable games={games.slice(0, 3)} />
                 <div className="card" style={{ padding: 32, textAlign: "center" }}>
                   <div className="section-eyebrow" style={{ justifyContent: "center" }}>
-                    Lottizen Pro
+                    Lottizen Plus
                   </div>
                   <h2 className="section-headline" style={{ fontSize: "clamp(24px,3vw,34px)", marginBottom: 10 }}>
                     See the full {cfg.label} scratch board
                   </h2>
                   <p className="section-lede" style={{ marginBottom: 18 }}>
-                    Compare every active game, filter by price, and follow the tickets you care
-                    about with Lottizen Pro — {PLANS.pro.priceMonthlyLabel}.
+                    Compare every active game, filter by price, get alerts when a top prize is
+                    claimed, and see the estimated real value per dollar — {PLANS.plus.priceMonthlyLabel}.
                   </p>
-                  <Link href="/dashboard" className="btn btn-primary">
-                    Explore Lottizen Pro
+                  <Link href="/plus" className="btn btn-primary">
+                    Explore Lottizen Plus
                   </Link>
                 </div>
                 <p className="field-hint">

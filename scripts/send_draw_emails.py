@@ -208,8 +208,8 @@ def main() -> int:
                 skipped += 1
                 continue
 
-            is_pro = sub.get("tier") == "pro"
-            if not is_pro and weekly_alert_count(sub["id"]) > FREE_WEEKLY_ALERT_LIMIT:
+            is_plus = sub.get("tier") == "plus"
+            if not is_plus and weekly_alert_count(sub["id"]) > FREE_WEEKLY_ALERT_LIMIT:
                 print(f"  [capped] {sub['email']} hit the free weekly alert limit — skipping send (not the claim).")
                 skipped += 1
                 continue
@@ -241,7 +241,7 @@ def main() -> int:
                 next_jackpot=draws_file.get("nextJackpot") if meta.get("progressive") else None,
                 currency=meta["currency"],
                 insight=insight,
-                is_pro=is_pro,
+                is_plus=is_plus,
                 saved_combinations=saved_combinations or None,
                 scratch_top3=top3 if sub.get("country") == "CA" else None,
                 dashboard_url=f"{SITE_URL}/dashboard",

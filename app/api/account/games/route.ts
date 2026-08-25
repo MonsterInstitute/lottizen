@@ -35,7 +35,7 @@ export async function POST(req: Request) {
         {
           ok: false,
           code: "LIMIT_REACHED",
-          error: `Free plan follows up to ${max} games. Upgrade to Lottizen Pro to follow more.`,
+          error: `Free plan follows up to ${max} games. Upgrade to Lottizen Plus to follow more.`,
         },
         { status: 403 },
       );

@@ -168,8 +168,8 @@ def pick_guide(country: str | None) -> dict | None:
 
 
 def subscribers_for_digest() -> list[dict]:
-    """The weekly personal digest is a Lottizen Pro feature (see the product
-    brief's Free vs Pro split — free tier gets 'basic draw-result emails'
+    """The weekly personal digest is a Lottizen Plus feature (see the product
+    brief's Free vs Plus split — free tier gets 'basic draw-result emails'
     only). Free subscribers who've chosen a 'weekly'/'both' frequency simply
     don't get one yet; the preferences UI doesn't hide that choice from them
     today, which is a known, reported gap (see the final report) rather than
@@ -181,7 +181,7 @@ def subscribers_for_digest() -> list[dict]:
         if s.get("confirmed_at")
         and not s.get("unsubscribed_at")
         and s.get("frequency") in ("weekly", "both")
-        and s.get("tier") == "pro"
+        and s.get("tier") == "plus"
     ]
 
 

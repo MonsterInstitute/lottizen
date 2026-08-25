@@ -77,7 +77,8 @@ async function syncSubscription(sub: Stripe.Subscription, subscriberId: string, 
     plan: sub.items.data[0]?.price.recurring?.interval === "year" ? "annual" : "monthly",
     current_period_end: periodEndSec ? new Date(periodEndSec * 1000).toISOString() : null,
     cancel_at_period_end: sub.cancel_at_period_end,
+    trial_end: sub.trial_end ? new Date(sub.trial_end * 1000).toISOString() : null,
   });
-  const tier = sub.status === "active" || sub.status === "trialing" ? "pro" : "free";
+  const tier = sub.status === "active" || sub.status === "trialing" ? "plus" : "free";
   await setSubscriberTier(subscriberId, tier);
 }

@@ -31,7 +31,7 @@ export async function POST(req: Request) {
   } catch {
     return NextResponse.json({ ok: false, error: "Invalid request." }, { status: 400 });
   }
-  const priceId = body.plan === "annual" ? PLANS.pro.stripePriceIdAnnual : PLANS.pro.stripePriceIdMonthly;
+  const priceId = body.plan === "annual" ? PLANS.plus.stripePriceIdAnnual : PLANS.plus.stripePriceIdMonthly;
   if (!priceId) {
     return NextResponse.json({ ok: false, error: "That plan isn't available yet." }, { status: 400 });
   }
@@ -44,10 +44,13 @@ export async function POST(req: Request) {
       customer_email: existing?.stripe_customer_id ? undefined : subscriber.email,
       line_items: [{ price: priceId, quantity: 1 }],
       success_url: absUrl("/dashboard?upgraded=1"),
-      cancel_url: absUrl("/dashboard?upgrade_cancelled=1"),
+      cancel_url: absUrl("/plus?upgrade_cancelled=1"),
       client_reference_id: subscriber.id,
       metadata: { subscriber_id: subscriber.id },
-      subscription_data: { metadata: { subscriber_id: subscriber.id } },
+      subscription_data: {
+        metadata: { subscriber_id: subscriber.id },
+        trial_period_days: PLANS.plus.trialDays,
+      },
     });
     return NextResponse.json({ ok: true, url: session.url });
   } catch (e) {

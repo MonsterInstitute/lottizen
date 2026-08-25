@@ -15,7 +15,7 @@ interface ProRankingBoardProps {
 const favKey = (agency: string, slug: string) => `${agency}:${slug}`;
 
 /**
- * Lottizen Pro's full, filterable scratch board for one province — the
+ * Lottizen Plus's full, filterable scratch board for one province — the
  * product's strongest differentiator (see the brief). Free visitors only
  * ever see the top-3 teaser (RankingTable in app/scratch/[province]/page.tsx);
  * this component only renders for a confirmed Pro session (server-checked

@@ -151,7 +151,7 @@ def draw_result_email(
     next_jackpot,
     currency: str,
     insight: str | None,
-    is_pro: bool,
+    is_plus: bool,
     saved_combinations: list[dict] | None,  # [{"numbers": [...], "label": str|None, "match": (matched, near_miss, full_match)}]
     scratch_top3: list[dict] | None,
     dashboard_url: str,
@@ -173,12 +173,12 @@ def draw_result_email(
     if next_draw:
         parts.append(f'<p style="margin:0 0 18px;color:#6d685f;font-size:14px;">Next draw: {next_draw}</p>')
 
-    # Personalized per-combination match results are a Lottizen Pro email
-    # feature (see the product brief's Free vs Pro split) — free tier gets
+    # Personalized per-combination match results are a Lottizen Plus email
+    # feature (see the product brief's Free vs Plus split) — free tier gets
     # the same draw facts + insight, just not the "your numbers" section.
     # The combination is still checked and saved to the dashboard either
     # way (see scripts/send_draw_emails.py); this only gates the EMAIL copy.
-    if is_pro and saved_combinations:
+    if is_plus and saved_combinations:
         for combo in saved_combinations:
             matched, near_miss, full_match = combo["match"]
             nums_str = ", ".join(str(n) for n in combo["numbers"])
@@ -190,9 +190,9 @@ def draw_result_email(
             else:
                 line = f"Your saved numbers{label} ({nums_str}) matched <strong>{matched}</strong> this draw."
             parts.append(f'<div style="background:#f6e7d6;border-radius:10px;padding:14px 16px;margin:0 0 10px;font-size:14.5px;">{line}</div>')
-    elif not is_pro and saved_combinations:
+    elif not is_plus and saved_combinations:
         parts.append(
-            f'<p style="margin:0 0 18px;font-size:13.5px;color:#6d685f;">Personalized match-checking for your saved numbers is a Lottizen Pro feature — see your result any time on your <a href="{dashboard_url}" style="color:#c2652a;">dashboard</a>.</p>'
+            f'<p style="margin:0 0 18px;font-size:13.5px;color:#6d685f;">Personalized match-checking for your saved numbers is a Lottizen Plus feature — see your result any time on your <a href="{dashboard_url}" style="color:#c2652a;">dashboard</a>.</p>'
         )
 
     if insight:

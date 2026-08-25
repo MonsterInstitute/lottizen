@@ -28,6 +28,7 @@ const FREQUENCY_LABELS: Record<Frequency, string> = {
 
 interface DashboardClientProps {
   tier: Tier;
+  trialEnd: string | null;
   frequency: string;
   followedGames: { cfg: GameConfig; latest: LatestGame | null }[];
   combinations: Combination[];
@@ -56,6 +57,7 @@ const ALERT_LABELS: Record<string, string> = {
 
 export function DashboardClient({
   tier,
+  trialEnd,
   frequency,
   followedGames,
   combinations,
@@ -71,9 +73,11 @@ export function DashboardClient({
   const availableToFollow = LIVE_GAMES.filter((g) => !followedSlugs.has(g.slug));
   const [addGameSlug, setAddGameSlug] = useState(availableToFollow[0]?.slug ?? "");
 
-  const isPro = tier === "pro";
-  const gameLimit = isPro ? Infinity : PLANS.free.limits.followedGames;
-  const comboLimit = isPro ? Infinity : PLANS.free.limits.savedCombinations;
+  const isPlus = tier === "plus";
+  const gameLimit = isPlus ? Infinity : PLANS.free.limits.followedGames;
+  const comboLimit = isPlus ? Infinity : PLANS.free.limits.savedCombinations;
+  const trialDaysLeft =
+    trialEnd != null ? Math.max(0, Math.ceil((new Date(trialEnd).getTime() - Date.now()) / 86400000)) : null;
   const atGameLimit = followedGames.length >= gameLimit;
   const atComboLimit = combinations.length >= comboLimit;
 
@@ -96,7 +100,7 @@ export function DashboardClient({
     const result = await api("/api/billing/checkout", "POST", { plan });
     setBusy(null);
     if (result.status === 501) {
-      setError("Lottizen Pro subscriptions aren't open yet — check back soon.");
+      setError("Lottizen Plus subscriptions aren't open yet — check back soon.");
       return;
     }
     if (!result.ok) {
@@ -110,29 +114,36 @@ export function DashboardClient({
     <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
       {error ? <div className="form-notice error">{error}</div> : null}
 
-      {!isPro ? (
+      {!isPlus ? (
         <div className="card" style={{ padding: 28, background: "var(--brand-soft)", border: "1px solid var(--brand)" }}>
           <div className="section-eyebrow">Free plan</div>
           <h2 className="section-headline" style={{ fontSize: "clamp(22px,2.6vw,28px)", marginBottom: 8 }}>
-            Follow more games and save more numbers with <em>Lottizen Pro.</em>
+            Never buy an empty ticket with <em>Lottizen Plus.</em>
           </h2>
           <p className="section-lede" style={{ marginBottom: 16, fontSize: 15 }}>
-            Unlimited followed games and saved combinations, personalized result emails, the full
-            Ontario scratch board with filters, and favourite-game ranking alerts.
+            Alerts when a top prize is claimed, all 5 provinces (428 games), estimated real value
+            per dollar, a budget optimizer, and unlimited saved number combinations. Try free for
+            7 days.
           </p>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             <button className="btn btn-primary" disabled={busy === "upgrade"} onClick={() => upgrade("monthly")}>
-              {PLANS.pro.priceMonthlyLabel} — Upgrade
+              {PLANS.plus.priceMonthlyLabel} — Start free trial
             </button>
             <button className="btn btn-secondary" disabled={busy === "upgrade"} onClick={() => upgrade("annual")}>
-              {PLANS.pro.priceAnnualLabel} (save ~33%)
+              {PLANS.plus.priceAnnualLabel} ({PLANS.plus.annualSavingsLabel})
             </button>
           </div>
         </div>
       ) : (
         <div className="notice">
-          <span className="notice-tag">Pro</span>
-          <span>You&rsquo;re on Lottizen Pro — unlimited games, combinations, and the full scratch board.</span>
+          <span className="notice-tag">Plus</span>
+          <span>
+            You&rsquo;re on Lottizen Plus — unlimited games, combinations, and the full scratch
+            board.
+            {trialDaysLeft !== null
+              ? ` Trial ends in ${trialDaysLeft} day${trialDaysLeft === 1 ? "" : "s"} — your card will then be charged.`
+              : ""}
+          </span>
           <button
             className="nav-signin"
             style={{ fontSize: 13, marginLeft: "auto" }}
@@ -224,7 +235,7 @@ export function DashboardClient({
             </>
           ) : atGameLimit ? (
             <span className="field-hint">
-              Free plan follows up to {PLANS.free.limits.followedGames} games. Upgrade to Lottizen Pro to follow more.
+              Free plan follows up to {PLANS.free.limits.followedGames} games. Upgrade to Lottizen Plus to follow more.
             </span>
           ) : null}
         </div>
@@ -505,7 +516,7 @@ function CombinationsSection({
 
       {atLimit && editingId === null ? (
         <p className="field-hint">
-          Free plan saves {limit} number combination. Upgrade to Lottizen Pro to save more.
+          Free plan saves {limit} number combination. Upgrade to Lottizen Plus to save more.
         </p>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 420 }}>
