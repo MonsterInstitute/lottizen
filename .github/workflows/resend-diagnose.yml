@@ -1,0 +1,28 @@
+name: Resend delivery diagnose
+
+# Manual-only. Answers "why didn't that email arrive?" using Resend's own
+# delivery records rather than inference — see scripts/resend_diagnose.py.
+# Sends exactly one real probe email to the address given.
+on:
+  workflow_dispatch:
+    inputs:
+      to:
+        description: "Address to send the delivery probe to"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Diagnose Resend delivery
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: python scripts/resend_diagnose.py --to "${{ inputs.to }}"
