@@ -10,6 +10,11 @@ on:
         description: "Address to send the delivery probe to"
         required: true
         type: string
+      template:
+        description: "Send the real draw-result template instead of a plain probe"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -25,4 +30,4 @@ jobs:
       - name: Diagnose Resend delivery
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-        run: python scripts/resend_diagnose.py --to "${{ inputs.to }}"
+        run: python scripts/resend_diagnose.py --to "${{ inputs.to }}" ${{ inputs.template && '--template' || '' }}

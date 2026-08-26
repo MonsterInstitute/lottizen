@@ -59,6 +59,9 @@ def call(path: str, method: str = "GET", body: dict | None = None) -> tuple[int,
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--to", required=True, help="address to send the probe to")
+    ap.add_argument("--template", action="store_true",
+                    help="send the REAL draw-result template (with List-Unsubscribe headers) "
+                         "instead of a plain probe, to isolate content/headers as the variable")
     args = ap.parse_args()
 
     print("=" * 70)
@@ -77,13 +80,39 @@ def main() -> int:
     print("=" * 70)
     print(f"2. PROBE SEND -> {args.to}")
     print("=" * 70)
-    status, res = call("/emails", "POST", {
-        "from": FROM,
-        "to": args.to,
-        "subject": "Lottizen delivery probe",
-        "html": "<p>Automated delivery probe from scripts/resend_diagnose.py. "
-                "If you received this, Resend delivery to your address is working.</p>",
-    })
+    if args.template:
+        # Exercise the real production template + headers, so a difference in
+        # outcome versus the plain probe points at content or headers rather
+        # than at the account/domain/address.
+        sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+        from email_templates import draw_result_email  # noqa: PLC0415
+
+        unsub = "https://lottizen.com/api/subscribe/unsubscribe?token=diagnostic-probe"
+        subject, html = draw_result_email(
+            game_name="Lotto Max", game_url="https://lottizen.com/canada/lotto-max",
+            draw_date="2026-08-25", numbers=[1, 4, 15, 18, 24, 25, 51], bonus=13, bonus2=None,
+            jackpot_won=None, next_draw=None, next_jackpot=None, currency="CAD",
+            insight=None, is_plus=False, saved_combinations=None, scratch_top3=None,
+            dashboard_url="https://lottizen.com/dashboard",
+            preferences_url="https://lottizen.com/subscribe/preferences?token=diagnostic-probe",
+            unsubscribe_url=unsub,
+        )
+        body = {
+            "from": FROM, "to": args.to, "subject": f"[probe] {subject}", "html": html,
+            "headers": {
+                "List-Unsubscribe": f"<{unsub}>",
+                "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+            },
+        }
+        print("  mode: REAL draw-result template + List-Unsubscribe headers")
+    else:
+        body = {
+            "from": FROM, "to": args.to, "subject": "Lottizen delivery probe",
+            "html": "<p>Automated delivery probe from scripts/resend_diagnose.py. "
+                    "If you received this, Resend delivery to your address is working.</p>",
+        }
+        print("  mode: plain probe")
+    status, res = call("/emails", "POST", body)
     print(f"  POST /emails -> {status}: {res}")
     if status not in (200, 202) or not isinstance(res, dict) or not res.get("id"):
         print("  Send was not accepted — stopping here; the failure is at submission, not delivery.")
