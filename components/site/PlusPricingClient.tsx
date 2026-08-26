@@ -6,6 +6,20 @@ import { PLANS } from "@/lib/plans";
 import { COMPARISON, FAQ } from "@/lib/plus-content";
 import { AdSlot } from "@/components/site/AdSlot";
 
+const EXAMPLE_ROWS: { label: string; vault: string; eighties: string; emphasis?: boolean }[] = [
+  { label: "Price", vault: "$20", eighties: "$20" },
+  { label: "Advertised top prize", vault: "$2,000,000", eighties: "$80,000" },
+  { label: "Top prizes still unclaimed", vault: "1 of 6", eighties: "5 of 8", emphasis: true },
+  { label: "Its $500,000 tier", vault: "0 of 1 — already gone", eighties: "—", emphasis: true },
+  {
+    label: "Prize money still unclaimed",
+    vault: "$2.5M of $13.2M printed",
+    eighties: "$1.1M of $3.1M printed",
+  },
+  { label: "Est. prize value per $20 spent", vault: "~$4.54", eighties: "~$15.64", emphasis: true },
+  { label: "Today's rank", vault: "48th of 49", eighties: "8th of 49" },
+];
+
 export function PlusPricingClient() {
   const [busy, setBusy] = useState<"monthly" | "annual" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -37,17 +51,23 @@ export function PlusPricingClient() {
         <div className="container">
           <div className="section-eyebrow">Lottizen Plus</div>
           <h1 className="section-headline">
-            Canada&rsquo;s scratch ticket <em>intelligence.</em>
+            Don&rsquo;t buy the $20 ticket whose jackpot is <em>already gone.</em>
           </h1>
           <p className="section-lede" style={{ maxWidth: "38em" }}>
-            $3 a month — the price of one Lotto 6/49 ticket. Avoid buying one wrong $20 ticket
-            whose jackpot is already gone, and you&rsquo;ve paid for half a year.
+            Two scratch tickets can cost the same $20 and be worth wildly different amounts —
+            because the prizes behind one of them have already been claimed. The prize data is
+            public. Nobody reads it. We read it every morning, for all 428 tickets across 5
+            provinces.
           </p>
         </div>
       </div>
 
       <section className="section" style={{ paddingTop: 40 }}>
         <div className="container">
+          <p className="section-lede" style={{ maxWidth: "38em", marginBottom: 24 }}>
+            $3 a month — the price of one Lotto 6/49 ticket.
+          </p>
+
           <div
             style={{
               display: "grid",
@@ -96,6 +116,49 @@ export function PlusPricingClient() {
           </div>
 
           <h2 className="section-headline" style={{ fontSize: "clamp(26px,3.2vw,38px)", marginBottom: 20 }}>
+            Same store. Same day. Same <em>$20.</em>
+          </h2>
+          <div style={{ overflowX: "auto" }}>
+            <table className="prize-table">
+              <thead>
+                <tr>
+                  <th />
+                  <th>Vault (game #2559)</th>
+                  <th>The 80s (game #2579)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {EXAMPLE_ROWS.map((row) => (
+                  <tr key={row.label}>
+                    <td className="amount">{row.label}</td>
+                    <td className="num" style={row.emphasis ? { fontWeight: 700 } : undefined}>
+                      {row.vault}
+                    </td>
+                    <td className="num">{row.eighties}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="prose" style={{ marginTop: 24 }}>
+            <p>
+              The $2,000,000 headline is still on the front of the Vault ticket. Five of those six
+              jackpots have already been won. So has its only half-million-dollar prize.
+            </p>
+            <p style={{ fontWeight: 700 }}>
+              Buy Vault instead of The 80s today and you hand back about $11.10 of expected value —
+              on a $20 ticket. That one decision costs more than three months of Plus.
+            </p>
+          </div>
+
+          <p className="field-hint" style={{ marginTop: 12, marginBottom: 40 }}>
+            Estimated from each agency&rsquo;s published remaining-prize counts against a nominal
+            payout scale — see <Link href="/methodology">methodology</Link>. This tells you which
+            tickets still have money left in them. It does not improve your odds of winning.
+          </p>
+
+          <h2 className="section-headline" style={{ fontSize: "clamp(26px,3.2vw,38px)", marginBottom: 20 }}>
             Free vs <em>Plus.</em>
           </h2>
           <div style={{ overflowX: "auto" }}>
@@ -108,15 +171,23 @@ export function PlusPricingClient() {
                 </tr>
               </thead>
               <tbody>
-                {COMPARISON.map((row) => (
-                  <tr key={row.label}>
-                    <td className="amount">{row.label}</td>
-                    <td className="num">{row.free}</td>
-                    <td className="num" style={{ fontWeight: 700, color: "var(--brand-deep)" }}>
-                      {row.plus}
-                    </td>
-                  </tr>
-                ))}
+                {COMPARISON.map((row) =>
+                  row.section ? (
+                    <tr key={row.label}>
+                      <td className="amount" colSpan={3} style={{ fontWeight: 700 }}>
+                        {row.label}
+                      </td>
+                    </tr>
+                  ) : (
+                    <tr key={row.label}>
+                      <td className="amount">{row.label}</td>
+                      <td className="num">{row.free}</td>
+                      <td className="num" style={{ fontWeight: 700, color: "var(--brand-deep)" }}>
+                        {row.plus}
+                      </td>
+                    </tr>
+                  )
+                )}
               </tbody>
             </table>
           </div>

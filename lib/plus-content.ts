@@ -8,18 +8,40 @@
  * Both the server page (for FAQPage JSON-LD) and the client component (for
  * the rendered comparison table) import from here instead.
  */
-export const COMPARISON: { label: string; free: string; plus: string }[] = [
-  { label: "Value Score rankings, all 5 provinces", free: "✓", plus: "✓" },
-  { label: "Full prize-tier detail & remaining counts", free: "✓", plus: "✓" },
-  { label: "“Top prize claimed” alerts for tickets you follow", free: "—", plus: "✓" },
-  { label: "New-ticket-launch alerts", free: "—", plus: "✓" },
-  { label: "Ranking-drop alerts for tickets you follow", free: "—", plus: "✓" },
-  { label: "Estimated remaining tickets & real EV per dollar", free: "—", plus: "✓" },
-  { label: "Budget optimizer", free: "—", plus: "✓" },
-  { label: "Goal-mode rankings (Best Overall / Jackpot Hunt / Mid Prize / Breakeven)", free: "—", plus: "✓" },
-  { label: "Launch-vs-now odds comparison", free: "—", plus: "✓" },
-  { label: "Follow scratch tickets", free: "Home province", plus: "All 5 provinces (428 games)" },
-  { label: "Saved number combinations, all 19 draw games", free: "1", plus: "Unlimited" },
+
+/**
+ * A row with `section: true` is a group header: the client renders it as a
+ * single full-width bold cell spanning all three columns, so `free`/`plus`
+ * are left empty on those rows.
+ */
+export const COMPARISON: { label: string; free: string; plus: string; section?: boolean }[] = [
+  { label: "Before you buy", free: "", plus: "", section: true },
+  { label: "Which tickets still have money left in them, all 5 provinces", free: "✓", plus: "✓" },
+  { label: "Every prize tier and how many are left", free: "✓", plus: "✓" },
+  { label: "How much you actually get back per $1 on this ticket", free: "—", plus: "✓" },
+  { label: "How much colder this ticket is than the day it launched", free: "—", plus: "✓" },
+  { label: "Got $50 to spend today? Here's how to spend it best", free: "—", plus: "✓" },
+  { label: "Chasing a jackpot, or want to win something? Two different lists", free: "—", plus: "✓" },
+  { label: "Someone just claimed the top prize on a ticket you follow — told instantly", free: "—", plus: "✓" },
+  { label: "A new ticket just hit shelves", free: "—", plus: "✓" },
+  { label: "A ticket you follow just dropped down the rankings", free: "—", plus: "✓" },
+  { label: "Follow tickets in", free: "1 province", plus: "All 5 (428 tickets)" },
+  { label: "Your numbers", free: "", plus: "", section: true },
+  { label: "Every past draw, every number's history, all 19 games", free: "✓", plus: "✓" },
+  { label: "Random numbers, same as the store terminal", free: "✓", plus: "✓" },
+  {
+    label:
+      "Numbers picked by what's actually been drawn — hot, cold, or avoiding the dates everyone else plays",
+    free: "1 free run/month",
+    plus: "✓",
+  },
+  {
+    label: "Have your numbers ever actually won? Check them against every draw on record",
+    free: "1 free run/month",
+    plus: "✓",
+  },
+  { label: "We check your numbers after every draw and tell you", free: "1 set", plus: "Unlimited" },
+  { label: "Exactly which number you missed it by", free: "✓", plus: "✓" },
 ];
 
 export const FAQ: { q: string; a: string }[] = [

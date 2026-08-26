@@ -5,14 +5,17 @@ import { SITE, absUrl } from "@/lib/site";
 import { JsonLd } from "@/components/site/JsonLd";
 import { PlusPricingClient } from "@/components/site/PlusPricingClient";
 
+const TITLE = "Lottizen Plus — Know Which Scratch Ticket Still Has Money Left";
+const DESCRIPTION =
+  "Two $20 scratch tickets can be worth wildly different amounts once the big prizes are claimed. Lottizen Plus tracks remaining prize data across all 5 Canadian lottery agencies. $3 CAD/month or $30 CAD/year, 7-day free trial.";
+
 export const metadata: Metadata = {
-  title: "Lottizen Plus — Canada's Scratch Ticket Intelligence",
-  description:
-    "Lottizen Plus: alerts when a top prize is claimed, all 5 Canadian provinces (428 scratch tickets), estimated real value per dollar, and a budget optimizer. $3 CAD/month or $30 CAD/year, 7-day free trial.",
+  title: TITLE,
+  description: DESCRIPTION,
   alternates: { canonical: "/plus" },
   openGraph: {
-    title: "Lottizen Plus — Canada's Scratch Ticket Intelligence",
-    description: "$3 a month — the price of one Lotto 6/49 ticket. Alerts, all 5 provinces, real value per dollar, budget optimizer.",
+    title: TITLE,
+    description: DESCRIPTION,
     url: absUrl("/plus"),
     type: "website",
   },
