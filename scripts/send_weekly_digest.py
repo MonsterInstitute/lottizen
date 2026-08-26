@@ -52,12 +52,27 @@ def today_toronto():
     return datetime.now(ZoneInfo("America/Toronto")).date()
 
 
-def send_email(to: str, subject: str, html: str) -> bool:
+# RFC 8058 one-click unsubscribe. Gmail and Yahoo both require bulk senders to
+# expose these headers, and their absence is a documented spam-placement
+# factor — diagnosed 2026-08-26, when Resend reported "delivered" to Gmail for
+# every send while the mail never reached the inbox. The URL must accept POST
+# (see app/api/subscribe/unsubscribe/route.ts).
+def unsubscribe_headers(unsubscribe_url: str) -> dict:
+    return {
+        "List-Unsubscribe": f"<{unsubscribe_url}>",
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+    }
+
+
+def send_email(to: str, subject: str, html: str, unsubscribe_url: str | None = None) -> bool:
     key = os.environ.get("RESEND_API_KEY")
     if not key:
         print(f"  [skip] RESEND_API_KEY not set — would send to {to}: {subject}")
         return False
-    payload = json.dumps({"from": FROM_EMAIL, "to": to, "subject": subject, "html": html}).encode()
+    body = {"from": FROM_EMAIL, "to": to, "subject": subject, "html": html}
+    if unsubscribe_url:
+        body["headers"] = unsubscribe_headers(unsubscribe_url)
+    payload = json.dumps(body).encode()
     req = urllib.request.Request(
         RESEND_API_URL, data=payload, method="POST",
         # See the matching comment in send_draw_emails.py: Cloudflare (in
@@ -229,7 +244,7 @@ def main() -> int:
             preferences_url=preferences_url,
             unsubscribe_url=unsubscribe_url,
         )
-        if send_email(sub["email"], subject, html):
+        if send_email(sub["email"], subject, html, unsubscribe_url=unsubscribe_url):
             sent += 1
         else:
             failed += 1

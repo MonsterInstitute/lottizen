@@ -55,7 +55,7 @@ export async function POST(req: Request) {
     const verifyUrl = absUrl(`/api/auth/verify?token=${loginToken}`);
 
     const { subject, html } = renderSignInEmail({ verifyUrl, isNewAccount, preferencesUrl, unsubscribeUrl });
-    const result = await sendEmail(subscriber.email, subject, html);
+    const result = await sendEmail(subscriber.email, subject, html, unsubscribeUrl);
     if (result.ok) await logEmail(subscriber.id, isNewAccount ? "confirmation" : "sign_in_link");
     else console.error("[subscribe] sign-in email send failed:", result.error);
 

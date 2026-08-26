@@ -21,7 +21,19 @@ export interface SendResult {
   id?: string;
 }
 
-export async function sendEmail(to: string, subject: string, html: string): Promise<SendResult> {
+/**
+ * `unsubscribeUrl` adds the RFC 8058 one-click headers. Gmail and Yahoo both
+ * require bulk senders to expose them, and their absence is a documented
+ * spam-placement factor — diagnosed 2026-08-26, when Resend reported
+ * "delivered" to Gmail for every send while the mail never reached the inbox.
+ * The URL must accept POST (see app/api/subscribe/unsubscribe/route.ts).
+ */
+export async function sendEmail(
+  to: string,
+  subject: string,
+  html: string,
+  unsubscribeUrl?: string,
+): Promise<SendResult> {
   const key = process.env.RESEND_API_KEY;
   if (!key) {
     console.warn(`[email] RESEND_API_KEY not set — skipping send to ${to}: "${subject}"`);
@@ -30,7 +42,20 @@ export async function sendEmail(to: string, subject: string, html: string): Prom
   const res = await fetch(RESEND_API_URL, {
     method: "POST",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from: FROM, to, subject, html }),
+    body: JSON.stringify({
+      from: FROM,
+      to,
+      subject,
+      html,
+      ...(unsubscribeUrl
+        ? {
+            headers: {
+              "List-Unsubscribe": `<${unsubscribeUrl}>`,
+              "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+            },
+          }
+        : {}),
+    }),
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
