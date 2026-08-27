@@ -183,12 +183,16 @@ def pick_guide(country: str | None) -> dict | None:
 
 
 def subscribers_for_digest() -> list[dict]:
-    """The weekly personal digest is a Lottizen Plus feature (see the product
-    brief's Free vs Plus split — free tier gets 'basic draw-result emails'
-    only). Free subscribers who've chosen a 'weekly'/'both' frequency simply
-    don't get one yet; the preferences UI doesn't hide that choice from them
-    today, which is a known, reported gap (see the final report) rather than
-    a silent behavior change with no trace."""
+    """Every confirmed, subscribed member who asked for weekly mail — no tier
+    gate.
+
+    This used to require tier == "plus". That was wrong on two counts: the
+    preferences UI offers "weekly"/"both" to free subscribers with no
+    indication it won't be honoured, so a free user could opt in and silently
+    receive nothing (that is what happened, and it read as the whole email
+    system being broken); and the digest is a retention tool, not a
+    monetisation one. Plus differentiates on instant alerts and the analysis
+    tools instead."""
     subs = db.fetch_all("subscribers", "*")
     return [
         s
@@ -196,7 +200,6 @@ def subscribers_for_digest() -> list[dict]:
         if s.get("confirmed_at")
         and not s.get("unsubscribed_at")
         and s.get("frequency") in ("weekly", "both")
-        and s.get("tier") == "plus"
     ]
 
 
