@@ -7,6 +7,7 @@ import { absUrl } from "@/lib/site";
 import { GameTabs } from "@/components/draws/GameTabs";
 import { GameSwitcher } from "@/components/draws/GameSwitcher";
 import { Generator } from "@/components/draws/Generator";
+import { Backtest } from "@/components/draws/Backtest";
 import { JsonLd } from "@/components/site/JsonLd";
 
 export const dynamicParams = false;
@@ -18,7 +19,7 @@ export function generateMetadata({ params }: { params: { country: string; game: 
   const g = resolveGame(params.country, params.game);
   if (!g) return {};
   const title = `${g.name} Number Generator — Quick Pick & Stats-Weighted`;
-  const description = `Generate ${g.name} numbers: pure Quick Pick, statistics-weighted, or birthday-seeded. Free, in your browser.`;
+  const description = `Generate ${g.name} numbers: pure Quick Pick free and unlimited, plus frequency-weighted, hot, cold, and jackpot-splitting-aware pick styles. Backtest any combination against every recorded draw.`;
   return {
     title,
     description,
@@ -72,14 +73,26 @@ export default function GeneratorPage({ params }: { params: { country: string; g
       <section className="section" style={{ paddingTop: 40 }}>
         <div className="container">
           <Generator
+            gameSlug={g.slug}
             pick={g.pick}
             max={g.max}
             hasBonus={g.hasBonus}
             bonusMax={g.bonusMax ?? g.max}
             bonusCount={g.bonusCount ?? 1}
             bonusLabel={g.bonusLabel ?? "Bonus"}
-            frequency={stats.aggregate.frequencyChart}
           />
+        </div>
+      </section>
+
+      <section className="section" style={{ paddingTop: 0 }}>
+        <div className="container">
+          <h2 className="section-headline" style={{ fontSize: "clamp(24px,3vw,34px)", marginBottom: 10 }}>
+            Have these numbers <em>ever won?</em>
+          </h2>
+          <p className="section-lede" style={{ marginBottom: 22, maxWidth: "42em" }}>
+            Check any combination against every {g.name} draw on record.
+          </p>
+          <Backtest gameSlug={g.slug} pick={g.pick} max={g.max} />
         </div>
       </section>
     </>
