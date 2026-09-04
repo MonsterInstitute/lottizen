@@ -28,6 +28,9 @@ export const PLANS = {
       // for at signup).
       followedGames: 3,
       savedCombinations: 1,
+      // Ticket wallet: one at a time, so the whole loop (log it, watch it get
+      // checked, see the countdown) is genuinely usable before paying.
+      wallettickets: 1,
     },
     features: [
       "Value Score rankings for all 5 provinces",
@@ -51,6 +54,7 @@ export const PLANS = {
     limits: {
       followedGames: Infinity,
       savedCombinations: Infinity,
+      wallettickets: Infinity,
     },
     features: [
       "Follow scratch tickets across all 5 provinces (428 games)",

@@ -532,3 +532,103 @@ export async function findSubscriberByStripeCustomerId(stripeCustomerId: string)
   );
   return rows?.[0]?.subscribers ?? null;
 }
+
+// ============================================================================
+// Ticket wallet — user_tickets (0013) and prize_claims (0014).
+// ============================================================================
+export interface UserTicket {
+  id: number;
+  subscriber_id: string;
+  ticket_type: "draw" | "scratch";
+  game_slug: string | null;
+  agency: string | null;
+  label: string | null;
+  numbers: number[] | null;
+  purchase_date: string | null;
+  draw_date: string | null;
+  cost_cents: number | null;
+  claim_deadline: string | null;
+  deadline_source: "computed" | "user_entered" | "unknown";
+  status: "pending" | "checked_no_win" | "won_unclaimed" | "claimed" | "expired";
+  claimed_at: string | null;
+  created_at: string;
+}
+
+export async function listTickets(subscriberId: string): Promise<UserTicket[]> {
+  return (
+    (await pg<UserTicket[]>(
+      `user_tickets?subscriber_id=eq.${subscriberId}&select=*&order=created_at.desc`,
+    )) ?? []
+  );
+}
+
+export async function countTickets(subscriberId: string): Promise<number> {
+  const rows = await pg<{ id: number }[]>(`user_tickets?subscriber_id=eq.${subscriberId}&select=id`);
+  return rows?.length ?? 0;
+}
+
+export async function createTicket(
+  fields: Partial<UserTicket> & { subscriber_id: string; ticket_type: "draw" | "scratch" },
+): Promise<UserTicket> {
+  const rows = await pg<UserTicket[]>(`user_tickets`, {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify([fields]),
+  });
+  return rows[0];
+}
+
+/** Scoped by subscriber_id as well as id so one account can never mutate
+ *  another's ticket by guessing a row id. */
+export async function updateTicket(
+  id: number,
+  subscriberId: string,
+  fields: Partial<UserTicket>,
+): Promise<UserTicket | null> {
+  const rows = await pg<UserTicket[]>(
+    `user_tickets?id=eq.${id}&subscriber_id=eq.${subscriberId}`,
+    {
+      method: "PATCH",
+      headers: { Prefer: "return=representation" },
+      body: JSON.stringify({ ...fields, updated_at: new Date().toISOString() }),
+    },
+  );
+  return rows?.[0] ?? null;
+}
+
+export async function deleteTicket(id: number, subscriberId: string): Promise<void> {
+  await pg(`user_tickets?id=eq.${id}&subscriber_id=eq.${subscriberId}`, { method: "DELETE" });
+}
+
+export interface PrizeClaim {
+  id: number;
+  subscriber_id: string;
+  source: "ticket" | "combination";
+  source_id: number;
+  game_slug: string | null;
+  draw_date: string | null;
+  matched: number | null;
+  prize_tier: string | null;
+  amount_cents: number | null;
+  amount_source: "published" | "user_entered" | "unknown";
+  claim_deadline: string | null;
+  claimed_at: string | null;
+  reminders_sent: number[];
+}
+
+export async function listPrizeClaims(subscriberId: string): Promise<PrizeClaim[]> {
+  return (
+    (await pg<PrizeClaim[]>(
+      `prize_claims?subscriber_id=eq.${subscriberId}&select=*&order=claim_deadline.asc.nullslast`,
+    )) ?? []
+  );
+}
+
+export async function markClaimCollected(id: number, subscriberId: string): Promise<PrizeClaim | null> {
+  const rows = await pg<PrizeClaim[]>(`prize_claims?id=eq.${id}&subscriber_id=eq.${subscriberId}`, {
+    method: "PATCH",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify({ claimed_at: new Date().toISOString(), updated_at: new Date().toISOString() }),
+  });
+  return rows?.[0] ?? null;
+}

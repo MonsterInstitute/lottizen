@@ -16,6 +16,8 @@ import { getGameBySlug } from "@/lib/data";
 import { provinceForAgency } from "@/config/scratch";
 import { SubscribeForm } from "@/components/site/SubscribeForm";
 import { DashboardClient } from "@/components/dashboard/DashboardClient";
+import { TicketWallet } from "@/components/dashboard/TicketWallet";
+import { GAMES } from "@/config/games";
 
 // A personal, session-gated page — never indexed, always rendered fresh
 // (never cached) since it shows one specific signed-in subscriber's data.
@@ -55,6 +57,15 @@ function SignInPrompt() {
     </>
   );
 }
+
+// Playable draw games only: the wallet stores a number set per ticket, which
+// digit games (Numbers, Win 4) don't have in the same shape.
+const walletGames = GAMES.filter((g) => g.live && g.format !== "digit").map((g) => ({
+  slug: g.slug,
+  name: g.name,
+  pick: g.pick,
+  max: g.max,
+}));
 
 export default async function DashboardPage({ searchParams }: { searchParams: { welcome?: string } }) {
   const subscriber = await getCurrentSubscriber();
@@ -102,6 +113,13 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
       </div>
       <section className="section" style={{ paddingTop: 8 }}>
         <div className="container">
+          <div className="section-eyebrow">My tickets</div>
+          <h2 className="section-headline" style={{ fontSize: "clamp(20px,2.4vw,26px)", marginBottom: 14 }}>
+            Every ticket you&rsquo;re holding.
+          </h2>
+          <TicketWallet games={walletGames} />
+          <div style={{ height: 44 }} />
+
           <DashboardClient
             tier={tier}
             trialEnd={subscription?.status === "trialing" ? subscription.trial_end : null}
