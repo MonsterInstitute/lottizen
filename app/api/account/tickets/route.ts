@@ -9,6 +9,7 @@ import {
   listPrizeClaims,
   listTickets,
   markClaimCollected,
+  recordTicketWin,
   updateTicket,
 } from "@/lib/supabase-admin";
 import { computeClaimDeadline } from "@/config/claim-deadlines";
@@ -146,16 +147,38 @@ export async function POST(req: Request) {
   return NextResponse.json({ ok: true, ticket, deadlineRule: computed.rule.kind });
 }
 
-/** PATCH — set a printed scratch expiry, or mark a prize collected. */
+/** PATCH — set a printed scratch expiry, record a win the owner is telling us
+ *  about, or mark a prize collected. */
 export async function PATCH(req: Request) {
   const subscriber = await getCurrentSubscriber();
   if (!subscriber) return NextResponse.json({ ok: false, error: "Sign in required." }, { status: 401 });
 
-  let body: { ticketId?: number; claimId?: number; claimDeadline?: string; markClaimed?: boolean };
+  let body: {
+    ticketId?: number;
+    claimId?: number;
+    claimDeadline?: string;
+    markClaimed?: boolean;
+    recordWin?: boolean;
+    amountCents?: number | null;
+  };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ ok: false, error: "Invalid request." }, { status: 400 });
+  }
+
+  // A win the owner reports themselves — the only path that writes
+  // amount_source 'user_entered'. The amount is optional: someone who knows
+  // they won but not yet how much still gets the countdown and the reminders,
+  // and the ledger leaves the prize out of its total rather than guessing.
+  if (body.recordWin && body.ticketId) {
+    const amount = body.amountCents;
+    if (amount != null && (!Number.isInteger(amount) || amount < 0)) {
+      return NextResponse.json({ ok: false, error: "Enter a valid amount." }, { status: 400 });
+    }
+    const claim = await recordTicketWin(body.ticketId, subscriber.id, amount ?? null);
+    if (!claim) return NextResponse.json({ ok: false, error: "Not found." }, { status: 404 });
+    return NextResponse.json({ ok: true, claim });
   }
 
   if (body.claimId) {

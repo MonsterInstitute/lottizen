@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { Ledger } from "@/components/dashboard/Ledger";
+import { parseDollarsToCents } from "@/lib/ledger";
 
 interface Ticket {
   id: number;
@@ -13,6 +15,7 @@ interface Ticket {
   draw_date: string | null;
   claim_deadline: string | null;
   deadline_source: "computed" | "user_entered" | "unknown";
+  cost_cents: number | null;
   status: string;
 }
 
@@ -89,6 +92,10 @@ export function TicketWallet({
   const [drawDate, setDrawDate] = useState("");
   const [purchaseDate, setPurchaseDate] = useState("");
   const [deadlineRaw, setDeadlineRaw] = useState("");
+  const [costRaw, setCostRaw] = useState("");
+  // Which ticket's "I won on this" amount box is open, and what's typed in it.
+  const [winFor, setWinFor] = useState<number | null>(null);
+  const [winRaw, setWinRaw] = useState("");
 
   async function load() {
     const res = await fetch("/api/account/tickets");
@@ -123,6 +130,7 @@ export function TicketWallet({
           drawDate: type === "draw" ? drawDate : undefined,
           purchaseDate: purchaseDate || undefined,
           claimDeadline: deadlineRaw || undefined,
+          costCents: parseDollarsToCents(costRaw) ?? undefined,
         }),
       });
       const d = await res.json().catch(() => ({}));
@@ -134,6 +142,7 @@ export function TicketWallet({
       setNumbersRaw("");
       setLabel("");
       setDeadlineRaw("");
+      setCostRaw("");
       await load();
     } finally {
       setBusy(false);
@@ -146,6 +155,21 @@ export function TicketWallet({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ticketId, claimDeadline: value }),
     });
+    await load();
+  }
+
+  /** A win the owner is reporting themselves. The amount is optional — knowing
+   *  you won without knowing how much still earns the countdown, and the
+   *  ledger reports it as unvalued instead of inventing a figure. */
+  async function recordWin(ticketId: number) {
+    const cents = parseDollarsToCents(winRaw);
+    await fetch("/api/account/tickets", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ticketId, recordWin: true, amountCents: cents }),
+    });
+    setWinFor(null);
+    setWinRaw("");
     await load();
   }
 
@@ -173,6 +197,16 @@ export function TicketWallet({
   // breakdown. It stays 'pending' on purpose: the sweep never marks a ticket
   // checked when it had nothing to check it against, and saying so is better
   // than a countdown that quietly never resolves.
+  // Scratch tickets are never auto-checked (there are no numbers to check),
+  // and a draw game with no published breakdown is never checked either — for
+  // both, the owner is the only source. Everything else is resolved from the
+  // operator's own figures, so offering to overwrite that invites a wrong
+  // number into the ledger.
+  const canReportWin = (t: Ticket) =>
+    t.status !== "won_unclaimed" &&
+    t.status !== "claimed" &&
+    (t.ticket_type === "scratch" || games.find((g) => g.slug === t.game_slug)?.checkable === false);
+
   const uncheckable = (t: Ticket) =>
     t.ticket_type === "draw" &&
     t.status === "pending" &&
@@ -190,6 +224,8 @@ export function TicketWallet({
 
   return (
     <div>
+      <Ledger tickets={tickets} claims={claims} />
+
       {openClaims.length > 0 && (
         <div className="card" style={{ padding: 22, marginBottom: 20, border: "2px solid var(--brand)" }}>
           <div className="section-eyebrow" style={{ marginBottom: 10 }}>
@@ -204,7 +240,7 @@ export function TicketWallet({
               >
                 <div>
                   <strong>{prettyTier(c.prize_tier) ?? "Prize"}</strong>
-                  {c.game_slug && <> · {c.game_slug}</>}
+                  {c.game_slug && <> · {games.find((g) => g.slug === c.game_slug)?.name ?? c.game_slug}</>}
                   {c.draw_date && <> · {c.draw_date}</>}
                   <div className="field-hint">
                     {c.amount_cents != null
@@ -297,6 +333,44 @@ export function TicketWallet({
                 />
               </div>
             )}
+
+            {canReportWin(t) &&
+              (winFor === t.id ? (
+                <div style={{ marginTop: 10, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <input
+                    value={winRaw}
+                    onChange={(e) => setWinRaw(e.target.value)}
+                    placeholder="How much? (optional)"
+                    style={{
+                      padding: "8px 10px",
+                      border: "1px solid var(--border-2)",
+                      borderRadius: "var(--radius-sm)",
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 14,
+                      background: "var(--surface)",
+                      color: "var(--ink)",
+                    }}
+                  />
+                  <button type="button" className="btn btn-primary" onClick={() => recordWin(t.id)}>
+                    Save
+                  </button>
+                  <button type="button" className="btn btn-secondary" onClick={() => setWinFor(null)}>
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ marginTop: 10 }}
+                  onClick={() => {
+                    setWinFor(t.id);
+                    setWinRaw("");
+                  }}
+                >
+                  I won on this one
+                </button>
+              ))}
           </div>
         );
       })}
@@ -389,6 +463,18 @@ export function TicketWallet({
               </p>
             </>
           )}
+
+          <label className="field-hint">What you paid (optional)</label>
+          <input
+            value={costRaw}
+            onChange={(e) => setCostRaw(e.target.value)}
+            placeholder="e.g. 5.00"
+            style={{ width: "100%", padding: "10px 12px", marginBottom: 8, borderRadius: "var(--radius-sm)", border: "1px solid var(--border-2)", fontFamily: "var(--font-mono)", background: "var(--surface)", color: "var(--ink)" }}
+          />
+          <p className="field-hint" style={{ marginBottom: 12 }}>
+            Only tickets with a price recorded count towards what you&rsquo;ve spent &mdash; the
+            rest are left out of the total rather than counted as free.
+          </p>
 
           {error && <div className="form-notice error" style={{ marginBottom: 12 }}>{error}</div>}
 

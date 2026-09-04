@@ -632,3 +632,43 @@ export async function markClaimCollected(id: number, subscriberId: string): Prom
   });
   return rows?.[0] ?? null;
 }
+
+/** A prize the owner is telling us about themselves — a scratch win, or a draw
+ *  game whose breakdown no operator publishes (config/prize-sources.ts). The
+ *  nightly sweep creates its own claims from published figures; this is the
+ *  other half, and it is the only path that writes amount_source
+ *  'user_entered'. Scoped by subscriber_id: the ticket must be theirs. */
+export async function recordTicketWin(
+  ticketId: number,
+  subscriberId: string,
+  amountCents: number | null,
+): Promise<PrizeClaim | null> {
+  const ticket = await pg<UserTicket[]>(
+    `user_tickets?id=eq.${ticketId}&subscriber_id=eq.${subscriberId}&select=*`,
+  );
+  const t = ticket?.[0];
+  if (!t) return null;
+
+  const rows = await pg<PrizeClaim[]>(`prize_claims`, {
+    method: "POST",
+    headers: { Prefer: "return=representation" },
+    body: JSON.stringify([
+      {
+        subscriber_id: subscriberId,
+        source: "ticket",
+        source_id: t.id,
+        game_slug: t.game_slug,
+        draw_date: t.draw_date,
+        prize_tier: t.ticket_type === "scratch" ? "Scratch prize" : null,
+        amount_cents: amountCents,
+        amount_source: amountCents == null ? "unknown" : "user_entered",
+        claim_deadline: t.claim_deadline,
+      },
+    ]),
+  });
+  await pg(`user_tickets?id=eq.${ticketId}&subscriber_id=eq.${subscriberId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ status: "won_unclaimed", updated_at: new Date().toISOString() }),
+  });
+  return rows?.[0] ?? null;
+}
