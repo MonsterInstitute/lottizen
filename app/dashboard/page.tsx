@@ -14,6 +14,7 @@ import { getGame } from "@/config/games";
 import { getLatestAll } from "@/lib/draws";
 import { getGameBySlug } from "@/lib/data";
 import { provinceForAgency } from "@/config/scratch";
+import { hasPrizeSource } from "@/config/prize-sources";
 import { SubscribeForm } from "@/components/site/SubscribeForm";
 import { DashboardClient } from "@/components/dashboard/DashboardClient";
 import { TicketWallet } from "@/components/dashboard/TicketWallet";
@@ -59,12 +60,15 @@ function SignInPrompt() {
 }
 
 // Playable draw games only: the wallet stores a number set per ticket, which
-// digit games (Numbers, Win 4) don't have in the same shape.
+// digit games (Numbers, Win 4) don't have in the same shape. `checkable` says
+// whether an operator publishes a prize breakdown we can read for that game —
+// where none does, the wallet says so instead of leaving the ticket in limbo.
 const walletGames = GAMES.filter((g) => g.live && g.format !== "digit").map((g) => ({
   slug: g.slug,
   name: g.name,
   pick: g.pick,
   max: g.max,
+  checkable: hasPrizeSource(g.slug),
 }));
 
 export default async function DashboardPage({ searchParams }: { searchParams: { welcome?: string } }) {

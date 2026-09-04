@@ -317,3 +317,72 @@ def scratch_alert_email(
         unsubscribe_url=unsubscribe_url,
     )
     return subject, html
+
+
+# ---------------------------------------------------------------------------
+# Claim reminder — the one email in this file that is about a deadline rather
+# than a result. It goes out at 30, 7 and 3 days before a prize's claim
+# deadline (config/claim-deadlines.ts REMINDER_DAYS).
+#
+# Deliberately plain. There is nothing to upsell in an email whose entire job
+# is "go and collect your money before the operator keeps it", and a Plus
+# banner under that line would read as taking advantage of the urgency — so
+# shell()'s upsell stays off here.
+#
+# `amount` is None whenever the prize figure isn't a published fact: an OLG
+# game with no breakdown feed, a draw whose breakdown hasn't been fetched yet,
+# or a tier that depends on a ball we don't hold (Daily Grand's Grand Number).
+# The email then says what it knows — the tier and the deadline — and does not
+# name a number. See CLAUDE.md.
+# ---------------------------------------------------------------------------
+def claim_reminder_email(
+    *,
+    days_left: int,
+    deadline: str,
+    game_name: str | None,
+    prize_tier: str | None,
+    amount: str | None,          # pre-formatted, e.g. "$89.30", or None
+    draw_date: str | None,
+    dashboard_url: str,
+    preferences_url: str,
+    unsubscribe_url: str,
+) -> tuple[str, str]:
+    when = "today" if days_left == 0 else ("tomorrow" if days_left == 1 else f"in {days_left} days")
+    subject = (
+        f"Your {game_name} prize expires {when}" if game_name
+        else f"A prize in your Lottizen wallet expires {when}"
+    )
+
+    what = prize_tier or "A prize"
+    if game_name:
+        what += f" on {game_name}"
+    if draw_date:
+        what += f" ({draw_date})"
+
+    value_line = (
+        f'<p style="margin:0 0 18px;font-size:15px;">That tier paid <strong>{amount}</strong> '
+        f'per winning ticket.</p>'
+        if amount
+        else '<p style="margin:0 0 18px;font-size:15px;color:#5c564b;">We don\'t have a published '
+             'amount for this one, so we won\'t guess at what it\'s worth &mdash; the retailer '
+             'or the operator can tell you when you claim it.</p>'
+    )
+
+    parts = [
+        '<p style="margin:0 0 6px;font-weight:600;font-size:13px;text-transform:uppercase;'
+        'letter-spacing:0.04em;color:#9c968a;">Claim deadline</p>',
+        f'<h1 style="font-family:Georgia,\'Times New Roman\',serif;font-size:22px;font-weight:700;'
+        f'color:#1a1815;margin:0 0 10px;">{days_left} day{"" if days_left == 1 else "s"} left to claim</h1>',
+        f'<p style="margin:0 0 14px;font-size:15px;">{what} has to be claimed by '
+        f'<strong>{deadline}</strong>. After that date the operator is no longer required to pay it.</p>',
+        value_line,
+        btn(dashboard_url, "Open your ticket wallet"),
+    ]
+
+    html = shell(
+        preview_text=f"{days_left} days left to claim &mdash; deadline {deadline}.",
+        body_html="".join(parts),
+        preferences_url=preferences_url,
+        unsubscribe_url=unsubscribe_url,
+    )
+    return subject, html

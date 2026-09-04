@@ -29,11 +29,26 @@ interface Claim {
 
 const STATUS_LABEL: Record<string, string> = {
   pending: "Waiting for the draw",
-  checked_no_win: "Checked — no win",
+  // "no cash prize", not "no win": the bottom tier of some games pays a free
+  // play, which the checker deliberately doesn't turn into a claim.
+  checked_no_win: "Checked — no cash prize",
   won_unclaimed: "Won — not yet collected",
   claimed: "Collected",
   expired: "Expired",
 };
+
+/** '5/6+B' -> '5 of 6 + Bonus'. The stored code stays machine-readable so the
+ *  sweep can look the published amount up again later; this is display only. */
+function prettyTier(code: string | null): string | null {
+  if (!code) return null;
+  return code
+    .split(" or ")
+    .map((part) => {
+      const bonus = part.endsWith("+B");
+      return (bonus ? part.slice(0, -2) : part).replace("/", " of ") + (bonus ? " + Bonus" : "");
+    })
+    .join(" or ");
+}
 
 function daysUntil(deadline: string): number {
   const end = new Date(`${deadline}T00:00:00Z`).getTime();
@@ -53,7 +68,11 @@ function daysUntil(deadline: string): number {
  * game and prints it, so a guessed date would drive a real reminder email at
  * the wrong time. See config/claim-deadlines.ts.
  */
-export function TicketWallet({ games }: { games: { slug: string; name: string; pick: number; max: number }[] }) {
+export function TicketWallet({
+  games,
+}: {
+  games: { slug: string; name: string; pick: number; max: number; checkable: boolean }[];
+}) {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [claims, setClaims] = useState<Claim[]>([]);
   const [tier, setTier] = useState<"free" | "plus">("free");
@@ -149,6 +168,16 @@ export function TicketWallet({ games }: { games: { slug: string; name: string; p
   }
 
   const game = games.find((g) => g.slug === gameSlug);
+  const today = new Date().toISOString().slice(0, 10);
+  // A draw ticket whose draw has happened but whose game has no published
+  // breakdown. It stays 'pending' on purpose: the sweep never marks a ticket
+  // checked when it had nothing to check it against, and saying so is better
+  // than a countdown that quietly never resolves.
+  const uncheckable = (t: Ticket) =>
+    t.ticket_type === "draw" &&
+    t.status === "pending" &&
+    Boolean(t.draw_date && t.draw_date <= today) &&
+    games.find((g) => g.slug === t.game_slug)?.checkable === false;
   const atLimit = limit !== null && tickets.length >= limit;
   const openClaims = claims.filter((c) => !c.claimed_at);
 
@@ -174,13 +203,13 @@ export function TicketWallet({ games }: { games: { slug: string; name: string; p
                 style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 14, flexWrap: "wrap", marginBottom: 10 }}
               >
                 <div>
-                  <strong>{c.prize_tier ?? "Prize"}</strong>
+                  <strong>{prettyTier(c.prize_tier) ?? "Prize"}</strong>
                   {c.game_slug && <> · {c.game_slug}</>}
                   {c.draw_date && <> · {c.draw_date}</>}
                   <div className="field-hint">
                     {c.amount_cents != null
                       ? `$${(c.amount_cents / 100).toFixed(2)}`
-                      : "Amount not published yet"}
+                      : "Amount not confirmed — we won't guess it"}
                     {left != null && (
                       <>
                         {" · "}
@@ -223,6 +252,13 @@ export function TicketWallet({ games }: { games: { slug: string; name: string; p
                   </div>
                 )}
                 {t.draw_date && <div className="field-hint">Draw {t.draw_date}</div>}
+                {uncheckable(t) && (
+                  <div className="field-hint" style={{ marginTop: 6 }}>
+                    We can&rsquo;t check this one — no prize breakdown is published for this game
+                    in a form we can read, so we won&rsquo;t tell you it lost. Check it with the
+                    retailer.
+                  </div>
+                )}
               </div>
               <button
                 type="button"

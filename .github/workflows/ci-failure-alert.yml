@@ -21,6 +21,7 @@ on:
       - "Daily draw results"
       - "Daily US draw results"
       - "Daily European draw results"
+      - "Claim reminders"
     types: [completed]
 
 permissions:

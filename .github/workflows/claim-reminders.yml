@@ -1,0 +1,47 @@
+name: Claim reminders
+
+# The daily claim sweep — see scripts/send_claim_reminders.py. Checks wallet
+# tickets against the draws that have happened, turns confirmed wins into
+# prize_claims, fills in amounts once the operator publishes its breakdown,
+# and emails at 30 / 7 / 3 days before a claim deadline.
+#
+# 11:30 UTC (~7:30am ET) puts it after draws-daily.yml (10:10), which fetches
+# both the results and the prize breakdowns this depends on. A prize is worth
+# nothing the day after its deadline, so this is the one email pipeline where
+# a missed day genuinely costs someone money — but the sweep is written to
+# survive that: thresholds are marked as a set, so a run skipped on the 30-day
+# mark still sends once on day 28 rather than silently dropping the notice.
+on:
+  schedule:
+    - cron: "30 11 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: claim-reminders
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: python -m pip install --upgrade pip supabase certifi
+
+      # Exits non-zero only on a real Resend failure (a missing key just logs),
+      # so a broken sending domain shows up as a failed run instead of looking
+      # like a quiet day — same reasoning as send_draw_emails.py.
+      - name: Check tickets, sync claims, send reminders
+        run: python scripts/send_claim_reminders.py

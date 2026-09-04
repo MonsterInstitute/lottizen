@@ -22,11 +22,8 @@ sent_date; weekly digests use game_slug='').
 from __future__ import annotations
 
 import json
-import os
 import re
 import sys
-import urllib.error
-import urllib.request
 from datetime import datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -37,77 +34,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import db  # noqa: E402 — shared Supabase data-layer helper
 from game_meta import GAME_META  # noqa: E402
 from email_templates import weekly_digest_email  # noqa: E402
+from mailer import claim_send, send_email  # noqa: E402 — the single Resend path
 
 ROOT = Path(__file__).resolve().parent.parent
 DRAWS_DIR = ROOT / "data" / "draws"
 STATS_DIR = ROOT / "data" / "stats"
 GUIDES_DIR = ROOT / "content" / "guides"
 SITE_URL = "https://lottizen.com"
-RESEND_API_URL = "https://api.resend.com/emails"
-FROM_EMAIL = os.environ.get("RESEND_FROM_EMAIL", "Lottizen <newsletter@mail.lottizen.com>")
 COUNTRY_SLUG = {"CA": "canada", "US": "usa", "EU": "europe"}
 
 
 def today_toronto():
     return datetime.now(ZoneInfo("America/Toronto")).date()
-
-
-# RFC 8058 one-click unsubscribe. Gmail and Yahoo both require bulk senders to
-# expose these headers, and their absence is a documented spam-placement
-# factor — diagnosed 2026-08-26, when Resend reported "delivered" to Gmail for
-# every send while the mail never reached the inbox. The URL must accept POST
-# (see app/api/subscribe/unsubscribe/route.ts).
-def unsubscribe_headers(unsubscribe_url: str) -> dict:
-    return {
-        "List-Unsubscribe": f"<{unsubscribe_url}>",
-        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-    }
-
-
-def send_email(to: str, subject: str, html: str, unsubscribe_url: str | None = None) -> bool:
-    key = os.environ.get("RESEND_API_KEY")
-    if not key:
-        print(f"  [skip] RESEND_API_KEY not set — would send to {to}: {subject}")
-        return False
-    body = {"from": FROM_EMAIL, "to": to, "subject": subject, "html": html}
-    if unsubscribe_url:
-        body["headers"] = unsubscribe_headers(unsubscribe_url)
-    payload = json.dumps(body).encode()
-    req = urllib.request.Request(
-        RESEND_API_URL, data=payload, method="POST",
-        # See the matching comment in send_draw_emails.py: Cloudflare (in
-        # front of api.resend.com) blocks Python's default UA with an opaque
-        # 403, found during manual QA.
-        headers={
-            "Authorization": f"Bearer {key}",
-            "Content-Type": "application/json",
-            "User-Agent": "lottizen-mailer/1.0",
-        },
-    )
-    try:
-        with urllib.request.urlopen(req, timeout=20) as r:
-            r.read()
-        return True
-    except urllib.error.HTTPError as e:
-        print(f"  [error] Resend {e.code}: {e.read().decode(errors='replace')[:300]}")
-        return False
-    except Exception as e:  # noqa: BLE001
-        print(f"  [error] {type(e).__name__}: {e}")
-        return False
-
-
-def claim_send(subscriber_id: str, type_: str, game_slug: str = "") -> bool:
-    res = (
-        db.get_client()
-        .table("email_log")
-        .upsert(
-            {"subscriber_id": subscriber_id, "type": type_, "game_slug": game_slug},
-            on_conflict="subscriber_id,type,game_slug,sent_date",
-            ignore_duplicates=True,
-        )
-        .execute()
-    )
-    return bool(res.data)
 
 
 def load_json_cache(directory: Path) -> dict:
