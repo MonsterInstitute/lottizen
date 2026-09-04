@@ -29,7 +29,10 @@ export const PLANS = {
       followedGames: 3,
       savedCombinations: 1,
       // Ticket wallet: one at a time, so the whole loop (log it, watch it get
-      // checked, see the countdown) is genuinely usable before paying.
+      // checked, see the countdown, get the reminder) is genuinely usable
+      // before paying. The reminders themselves are NOT gated — see
+      // scripts/send_claim_reminders.py: withholding a claim-deadline notice
+      // from a free account is a decision to let their money expire.
       wallettickets: 1,
     },
     features: [
@@ -37,6 +40,8 @@ export const PLANS = {
       "Full prize-tier detail & remaining counts",
       "Follow scratch tickets in your home province",
       "1 saved number combination",
+      "1 ticket in the wallet — checked against the draw, with a claim countdown",
+      "Claim-deadline reminders at 30, 7 and 3 days",
       "Basic draw-result emails",
     ],
   },
@@ -67,6 +72,9 @@ export const PLANS = {
       "Launch-vs-now odds comparison, per ticket",
       "Unlimited saved number combinations, all 19 draw games",
       "Automatic checking for every saved combination",
+      "Unlimited tickets in the wallet, each with its own claim countdown",
+      "Prize amounts from the operator's published breakdown, where one exists",
+      "A ledger of what you've spent against what's come back",
       "Personalized draw-result emails",
       "Reduced advertising",
     ],

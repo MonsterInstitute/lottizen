@@ -159,6 +159,31 @@ export function PlusPricingClient() {
           </p>
 
           <h2 className="section-headline" style={{ fontSize: "clamp(26px,3.2vw,38px)", marginBottom: 20 }}>
+            The other way people lose money: <em>forgetting.</em>
+          </h2>
+          <div className="prose" style={{ marginBottom: 24 }}>
+            <p>
+              A Canadian draw prize expires one year after the draw &mdash; the same rule at OLG,
+              BCLC, WCLC, ALC and Loto-Qu&eacute;bec. After that date nobody owes you the money.
+              Scratch tickets each carry their own expiry, printed on the back.
+            </p>
+            <p>
+              Log a ticket and it gets checked against the draw, counted down to its deadline, and
+              reminded about at 30, 7 and 3 days. Where the operator publishes what a tier paid, we
+              show that figure. Where none does &mdash; Ontario 49, Lottario, MegaDice &mdash; we
+              say we can&rsquo;t check it rather than telling you it lost. Free accounts get one
+              ticket and every reminder that comes with it; Plus removes the limit and keeps the
+              running total of what you&rsquo;ve spent against what&rsquo;s come back.
+            </p>
+          </div>
+          <p className="field-hint" style={{ marginBottom: 40 }}>
+            Deadline rules are taken from each operator&rsquo;s own published terms, not inferred
+            from one another. Prize amounts come from the operator&rsquo;s published breakdown for
+            that draw &mdash; never an estimate. Knowing what a ticket is worth after the draw
+            doesn&rsquo;t change the odds of anything before it.
+          </p>
+
+          <h2 className="section-headline" style={{ fontSize: "clamp(26px,3.2vw,38px)", marginBottom: 20 }}>
             Free vs <em>Plus.</em>
           </h2>
           <div style={{ overflowX: "auto" }}>

@@ -42,12 +42,34 @@ export const COMPARISON: { label: string; free: string; plus: string; section?: 
   },
   { label: "We check your numbers after every draw and tell you", free: "1 set", plus: "Unlimited" },
   { label: "Exactly which number you missed it by", free: "✓", plus: "✓" },
+  { label: "Your tickets", free: "", plus: "", section: true },
+  { label: "Log a ticket and have it checked against the draw", free: "✓", plus: "✓" },
+  { label: "Tickets tracked at once", free: "1", plus: "Unlimited" },
+  {
+    label: "Claim countdown, and reminders at 30, 7 and 3 days before it expires",
+    free: "✓",
+    plus: "✓",
+  },
+  {
+    label: "What a winning tier actually paid, from the operator's published breakdown",
+    free: "✓",
+    plus: "✓",
+  },
+  { label: "What you've spent against what's come back", free: "✓", plus: "✓" },
 ];
 
 export const FAQ: { q: string; a: string }[] = [
   {
     q: "Does Lottizen Plus improve my odds of winning?",
     a: "No. Every ticket is still a game of chance and the house edge is unchanged. Plus tells you which tickets still have more remaining prize value on the table — it does not predict numbers, and it cannot improve your odds of winning.",
+  },
+  {
+    q: "Can you tell me what my ticket won?",
+    a: "Only where an operator publishes the figure. We store the prize breakdown BCLC and WCLC publish for each draw, which covers Lotto Max, Lotto 6/49, Daily Grand, BC/49, Western Max and Western 6/49 — so for those we can say what a tier paid, because they said it. OLG publishes no breakdown we can read, so Ontario 49, Lottario and MegaDice tickets aren't checked at all and we say so rather than telling you a ticket lost. We never estimate a prize amount.",
+  },
+  {
+    q: "Why do you need me to type in a scratch ticket's expiry date?",
+    a: "Because there's no way to work it out. Canadian draw prizes expire one year after the draw, the same at all five agencies, so we compute that for you. Instant-game expiry is set per game and printed on the ticket — OLG's run roughly 1.5 to 2 years because instants are printed months before they go on sale. A guessed date would drive a real reminder email at the wrong time, so a scratch ticket sits in the wallet without reminders until you enter the printed date.",
   },
   {
     q: "How does the 7-day trial work?",
