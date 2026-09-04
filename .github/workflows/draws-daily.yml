@@ -44,6 +44,16 @@ jobs:
         run: python scripts/scrape_draws.py || echo "draw fetch failed; keeping last-good data in Supabase"
         continue-on-error: true
 
+      # What each prize tier actually paid, from the operator's own published
+      # breakdown (BCLC PlayNow JSON + WCLC prize-details pages). Runs after
+      # the draw fetch because it asks about the draw dates already stored.
+      # Feeds prize_claims.amount_cents — without it the ticket wallet knows
+      # someone matched 4 of 6 but not what that was worth, and the ledger
+      # honestly shows "no data". Never blocks the pipeline.
+      - name: Fetch prize breakdowns -> Supabase
+        run: python scripts/scrape_prize_breakdowns.py --days 10
+        continue-on-error: true
+
       - name: Recompute statistics (reads Supabase -> data/draws + data/stats)
         run: python scripts/calculate_stats.py
 
