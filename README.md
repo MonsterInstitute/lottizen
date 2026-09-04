@@ -1,4 +1,4 @@
-# Lottizen — Smarter Scratch. Better Odds.
+# Lottizen — Smarter Numbers. Real Value.
 
 Independent value rankings for Ontario scratch (instant) tickets. Lottizen
 reads OLG's public remaining-prize data, computes a **Value Score** for every

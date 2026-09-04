@@ -10,7 +10,12 @@ from __future__ import annotations
 from game_meta import CURRENCY_SYMBOL
 
 SITE_NAME = "Lottizen"
-SITE_TAGLINE = "Smarter Scratch. Better Odds."
+# Kept in sync with lib/site.ts's SITE.tagline by hand (Python can't import
+# it). The old "Smarter Scratch. Better Odds." was corrected there but not
+# here, so it was still riding in the header of every automated email —
+# "Better Odds" states exactly the thing CLAUDE.md forbids stating, and no
+# selection strategy or value ranking changes anyone's odds of winning.
+SITE_TAGLINE = "Smarter Numbers. Real Value."
 SITE_URL = "https://lottizen.com"
 
 
