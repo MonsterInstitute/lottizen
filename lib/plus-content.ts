@@ -32,12 +32,12 @@ export const COMPARISON: { label: string; free: string; plus: string; section?: 
   {
     label:
       "Numbers picked by what's actually been drawn — hot, cold, or avoiding the dates everyone else plays",
-    free: "1 free run/month",
+    free: "✓",
     plus: "✓",
   },
   {
     label: "Have your numbers ever actually won? Check them against every draw on record",
-    free: "1 free run/month",
+    free: "✓",
     plus: "✓",
   },
   { label: "We check your numbers after every draw and tell you", free: "1 set", plus: "Unlimited" },

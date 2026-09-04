@@ -1,0 +1,15 @@
+-- ---------------------------------------------------------------------------
+-- Drop feature_usage (added in 0011, never carried production data).
+--
+-- 0011 metered stats-weighted number generation and backtesting at one free
+-- run per month. That was reversed as a product decision: both are RETENTION
+-- features, not monetisation ones. The generator pages are a search entry
+-- point, and a visitor who lands on one and hits a quota wall doesn't
+-- upgrade — they leave. Lottizen Plus differentiates on the ticket wallet
+-- (auto-checking, win alerts, claim-deadline countdowns) and the scratch
+-- analysis tools instead.
+--
+-- Safe: the table held 0 rows outside of verification runs, which were
+-- cleaned up. Restoring it is just re-running 0011.
+-- ---------------------------------------------------------------------------
+drop table if exists public.feature_usage;

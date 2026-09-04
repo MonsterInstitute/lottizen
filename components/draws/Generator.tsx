@@ -1,21 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
+import { useState } from "react";
 import { Balls } from "@/components/draws/Balls";
 import { STRATEGIES, type Strategy } from "@/lib/number-strategy-meta";
 
 /**
- * Number generator. Generation happens SERVER-side (/api/numbers/generate) for
- * every strategy except pure Quick Pick — the metered strategies carry a free
- * -tier monthly quota, and a quota counted in the browser is not a quota.
+ * Number generator. Every strategy is free, unlimited, and available without
+ * an account — generation and backtesting are retention features, not
+ * monetisation ones, and the monthly quota this briefly carried only cost
+ * return visits on pages that are a search entry point.
  *
- * Locked strategies stay visible with their real labels and descriptions
- * rather than being hidden: the point is that a free visitor can see what
- * exists and take one real run at it, not discover a wall.
- *
- * Quick Pick still renders instantly with no round trip — it protects nothing
- * and it's the free baseline every generator page needs to work signed-out.
+ * Generation still runs SERVER-side (/api/numbers/generate): that was right
+ * independently of the gating, keeping the algorithms out of the client bundle
+ * and letting them use the full draw history without shipping it.
  */
 export function Generator({
   gameSlug,
@@ -38,16 +35,7 @@ export function Generator({
   const [line, setLine] = useState<{ nums: number[]; bonuses: number[] } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [needsUpgrade, setNeedsUpgrade] = useState(false);
-  const [needsSignIn, setNeedsSignIn] = useState(false);
-  const [quota, setQuota] = useState<{ signedIn: boolean; isPlus: boolean; runsLeft: number | null } | null>(null);
 
-  useEffect(() => {
-    fetch("/api/numbers/generate")
-      .then((r) => r.json())
-      .then((d) => d?.ok && setQuota({ signedIn: d.signedIn, isPlus: d.isPlus, runsLeft: d.runsLeft }))
-      .catch(() => {});
-  }, []);
 
   const active = STRATEGIES.find((s) => s.id === strategy)!;
   // Secondary balls come from their OWN pool (1..bonusMax), independent of the
@@ -64,8 +52,6 @@ export function Generator({
 
   async function run() {
     setError(null);
-    setNeedsUpgrade(false);
-    setNeedsSignIn(false);
     setBusy(true);
     try {
       const res = await fetch("/api/numbers/generate", {
@@ -74,33 +60,16 @@ export function Generator({
         body: JSON.stringify({ gameSlug, strategy }),
       });
       const data = await res.json().catch(() => ({}));
-      if (res.status === 401) {
-        setNeedsSignIn(true);
-        return;
-      }
-      if (res.status === 403 && data.code === "QUOTA_EXHAUSTED") {
-        setNeedsUpgrade(true);
-        setQuota((q) => (q ? { ...q, runsLeft: 0 } : q));
-        return;
-      }
       if (!res.ok || !data.ok) {
         setError(data.error || "Couldn't generate right now. Try again shortly.");
         return;
       }
       setLine({ nums: data.numbers, bonuses: localBonuses() });
-      if (data.quota && !data.quota.isPlus && data.quota.metered) {
-        setQuota((q) => (q ? { ...q, runsLeft: data.quota.runsLeft } : q));
-      }
     } finally {
       setBusy(false);
     }
   }
 
-  const locked = (s: Strategy) =>
-    STRATEGIES.find((x) => x.id === s)!.metered &&
-    quota !== null &&
-    !quota.isPlus &&
-    (!quota.signedIn || (quota.runsLeft ?? 0) <= 0);
 
   return (
     <div className="card" style={{ maxWidth: 640 }}>
@@ -111,9 +80,7 @@ export function Generator({
             type="button"
             className={`chip ${strategy === s.id ? "active" : ""}`}
             onClick={() => setStrategy(s.id)}
-            style={locked(s.id) ? { opacity: 0.62 } : undefined}
           >
-            {locked(s.id) ? "🔒 " : ""}
             {s.label}
           </button>
         ))}
@@ -121,37 +88,12 @@ export function Generator({
 
       <p style={{ color: "var(--ink-2)", fontSize: 14, marginBottom: 18 }}>{active.blurb}</p>
 
-      {quota && !quota.isPlus && active.metered && quota.signedIn && (quota.runsLeft ?? 0) > 0 && (
-        <p className="field-hint" style={{ marginBottom: 14 }}>
-          {quota.runsLeft} free run left this month on this pick style.
-        </p>
-      )}
 
       <button type="button" className="btn btn-primary" onClick={run} disabled={busy}>
         {busy ? "Generating…" : "Generate numbers"}
       </button>
 
-      {needsSignIn && (
-        <div className="form-notice" style={{ marginTop: 18 }}>
-          <Link href={`/subscribe?next=/`}>Sign in</Link> to use this pick style — free accounts
-          get one run a month on each.
-        </div>
-      )}
 
-      {needsUpgrade && (
-        <div className="card" style={{ marginTop: 18, padding: "18px 20px" }}>
-          <div className="section-eyebrow" style={{ marginBottom: 6 }}>
-            Lottizen Plus
-          </div>
-          <p style={{ fontSize: 15, marginBottom: 14 }}>
-            You&rsquo;ve used this month&rsquo;s free run on this pick style. Plus removes the
-            limit on every style, and on number backtesting.
-          </p>
-          <Link href="/plus" className="btn btn-secondary">
-            See Lottizen Plus
-          </Link>
-        </div>
-      )}
 
       {error && (
         <div className="form-notice error" style={{ marginTop: 18 }}>

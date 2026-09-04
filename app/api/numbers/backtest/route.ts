@@ -1,19 +1,21 @@
 import { NextResponse } from "next/server";
-import { getCurrentSubscriber } from "@/lib/auth";
-import { checkQuota, consumeQuota } from "@/lib/feature-quota";
 import { backtest } from "@/lib/number-strategies";
 import { getDraws } from "@/lib/draws";
 import { GAMES } from "@/config/games";
 
 /**
  * POST /api/numbers/backtest — check a combination against every recorded draw
- * for that game. Plus unlimited; free one run per calendar month.
+ * for that game. Free and unlimited for everyone, signed in or not.
+ *
+ * Briefly metered; ungated for the same reason as /api/numbers/generate — this
+ * is a retention feature, not a monetisation one, and walling it off only cost
+ * return visits. See that route's docstring.
  *
  * Returns match counts and real spend only, never a "you would have won $X".
  * Canadian lotto tiers above the fixed low prizes are pari-mutuel — the payout
  * for "4 of 6" depends on that draw's pool and how many others matched — and
- * historical prize breakdowns aren't scraped, so any dollar figure for
- * winnings would be invented. See CLAUDE.md.
+ * historical prize breakdowns aren't held, so any winnings figure would be
+ * invented. See CLAUDE.md.
  */
 export async function POST(req: Request) {
   let body: { gameSlug?: string; numbers?: unknown };
@@ -44,26 +46,6 @@ export async function POST(req: Request) {
     );
   }
 
-  const subscriber = await getCurrentSubscriber();
-  if (!subscriber) {
-    return NextResponse.json(
-      { ok: false, code: "SIGN_IN_REQUIRED", error: "Sign in to backtest a combination." },
-      { status: 401 },
-    );
-  }
-
-  const verdict = await consumeQuota(subscriber.id, "backtest");
-  if (!verdict.allowed) {
-    return NextResponse.json(
-      {
-        ok: false,
-        code: "QUOTA_EXHAUSTED",
-        error: "You've used this month's free backtest. Lottizen Plus removes the limit.",
-      },
-      { status: 403 },
-    );
-  }
-
   const draws = getDraws(game.slug);
   if (!draws?.draws?.length) {
     return NextResponse.json({ ok: false, error: "No draw history for this game." }, { status: 404 });
@@ -78,24 +60,5 @@ export async function POST(req: Request) {
       game.price ?? null,
       game.currency,
     ),
-    quota: {
-      isPlus: verdict.isPlus,
-      runsLeft: verdict.isPlus ? null : Math.max(0, (verdict.runsLeft ?? 1) - 1),
-    },
-  });
-}
-
-/** GET — quota state for rendering the UI, without consuming a run. */
-export async function GET() {
-  const subscriber = await getCurrentSubscriber();
-  if (!subscriber) {
-    return NextResponse.json({ ok: true, signedIn: false, isPlus: false, runsLeft: 0 });
-  }
-  const verdict = await checkQuota(subscriber.id, "backtest");
-  return NextResponse.json({
-    ok: true,
-    signedIn: true,
-    isPlus: verdict.isPlus,
-    runsLeft: verdict.runsLeft,
   });
 }

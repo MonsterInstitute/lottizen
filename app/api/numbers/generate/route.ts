@@ -1,25 +1,28 @@
 import { NextResponse } from "next/server";
-import { getCurrentSubscriber } from "@/lib/auth";
-import { checkQuota, consumeQuota } from "@/lib/feature-quota";
-import { generate, isMetered, isStrategy, type HistoryInput } from "@/lib/number-strategies";
+import { generate, isStrategy, type HistoryInput } from "@/lib/number-strategies";
 import { getDraws, getStats } from "@/lib/draws";
 import { GAMES } from "@/config/games";
 
 /**
- * POST /api/numbers/generate — server-side number generation.
+ * POST /api/numbers/generate — number generation, free and unlimited for
+ * everyone, signed in or not.
  *
- * Generation moved off the client because the free-tier monthly quota has to
- * be counted somewhere the user can't edit: the whole generator used to run in
- * the browser, where any gate was cosmetic and readable straight out of the JS
- * bundle.
+ * This briefly carried a free-tier monthly quota on the stats-weighted
+ * strategies. That was the wrong call and it's been removed: generation and
+ * backtesting are RETENTION features, not monetisation ones. Metering them
+ * bought no conversions and cost return visits — the generator pages are a
+ * search entry point, and a visitor who lands on one and hits a wall doesn't
+ * upgrade, they leave. Lottizen Plus differentiates on the ticket wallet
+ * (auto-checking, win alerts, claim-deadline countdowns) and the scratch
+ * analysis tools instead.
  *
- * "quick" (pure random) stays unmetered and unauthenticated — it's the free
- * baseline, it protects nothing, and every generator page in the sitemap needs
- * it to work for a signed-out search visitor. Every other strategy is metered:
- * Plus unlimited, free one run per calendar month.
+ * Still server-side rather than back in the browser: that part of the
+ * architecture was right independently of the gating. It keeps the algorithms
+ * out of the client bundle, lets strategies use the full draw history without
+ * shipping it, and leaves one place to change them.
  *
- * NOTE none of these strategies improve the odds of winning, and the responses
- * here must never imply otherwise — see CLAUDE.md.
+ * HONESTY CONSTRAINT (CLAUDE.md): no strategy here improves the odds of
+ * winning, and no response or copy may imply it does.
  */
 export async function POST(req: Request) {
   let body: { gameSlug?: string; strategy?: string };
@@ -44,37 +47,6 @@ export async function POST(req: Request) {
     );
   }
 
-  // Unmetered path: no auth, no quota, no DB round trip.
-  if (!isMetered(strategy)) {
-    return NextResponse.json({
-      ok: true,
-      numbers: generate(strategy, game.max, game.pick, null),
-      strategy,
-      quota: { isPlus: false, runsLeft: null, metered: false },
-    });
-  }
-
-  const subscriber = await getCurrentSubscriber();
-  if (!subscriber) {
-    return NextResponse.json(
-      { ok: false, code: "SIGN_IN_REQUIRED", error: "Sign in to use this pick style." },
-      { status: 401 },
-    );
-  }
-
-  const verdict = await consumeQuota(subscriber.id, "weighted_generator");
-  if (!verdict.allowed) {
-    return NextResponse.json(
-      {
-        ok: false,
-        code: "QUOTA_EXHAUSTED",
-        error: "You've used this month's free run. Lottizen Plus removes the limit.",
-        quota: { isPlus: false, runsLeft: 0, metered: true },
-      },
-      { status: 403 },
-    );
-  }
-
   const stats = getStats(game.slug);
   const draws = getDraws(game.slug);
   const history: HistoryInput | null =
@@ -89,25 +61,5 @@ export async function POST(req: Request) {
     ok: true,
     numbers: generate(strategy, game.max, game.pick, history),
     strategy,
-    quota: {
-      isPlus: verdict.isPlus,
-      runsLeft: verdict.isPlus ? null : Math.max(0, (verdict.runsLeft ?? 1) - 1),
-      metered: true,
-    },
-  });
-}
-
-/** GET — quota state for rendering the UI, without consuming a run. */
-export async function GET() {
-  const subscriber = await getCurrentSubscriber();
-  if (!subscriber) {
-    return NextResponse.json({ ok: true, signedIn: false, isPlus: false, runsLeft: 0 });
-  }
-  const verdict = await checkQuota(subscriber.id, "weighted_generator");
-  return NextResponse.json({
-    ok: true,
-    signedIn: true,
-    isPlus: verdict.isPlus,
-    runsLeft: verdict.runsLeft,
   });
 }

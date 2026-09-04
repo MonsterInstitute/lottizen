@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import Link from "next/link";
+import { useState } from "react";
 
 interface Result {
   drawsChecked: number;
@@ -15,7 +14,9 @@ interface Result {
 }
 
 /**
- * Check a combination against every recorded draw for a game.
+ * Check a combination against every recorded draw for a game. Free,
+ * unlimited, no account needed — this is a retention feature, not a
+ * monetisation one (see /api/numbers/backtest).
  *
  * Shows match counts and real spend, never a "you would have won $X": tiers
  * above the fixed low prizes are pari-mutuel and historical prize breakdowns
@@ -31,21 +32,10 @@ export function Backtest({ gameSlug, pick, max }: { gameSlug: string; pick: numb
   const [result, setResult] = useState<Result | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [needsUpgrade, setNeedsUpgrade] = useState(false);
-  const [needsSignIn, setNeedsSignIn] = useState(false);
-  const [quota, setQuota] = useState<{ signedIn: boolean; isPlus: boolean; runsLeft: number | null } | null>(null);
 
-  useEffect(() => {
-    fetch("/api/numbers/backtest")
-      .then((r) => r.json())
-      .then((d) => d?.ok && setQuota({ signedIn: d.signedIn, isPlus: d.isPlus, runsLeft: d.runsLeft }))
-      .catch(() => {});
-  }, []);
 
   async function run() {
     setError(null);
-    setNeedsUpgrade(false);
-    setNeedsSignIn(false);
     setResult(null);
     const numbers = raw
       .split(/[^0-9]+/)
@@ -63,16 +53,8 @@ export function Backtest({ gameSlug, pick, max }: { gameSlug: string; pick: numb
         body: JSON.stringify({ gameSlug, numbers }),
       });
       const data = await res.json().catch(() => ({}));
-      if (res.status === 401) return setNeedsSignIn(true);
-      if (res.status === 403 && data.code === "QUOTA_EXHAUSTED") {
-        setQuota((q) => (q ? { ...q, runsLeft: 0 } : q));
-        return setNeedsUpgrade(true);
-      }
       if (!res.ok || !data.ok) return setError(data.error || "Couldn't run that right now.");
       setResult(data.result);
-      if (data.quota && !data.quota.isPlus) {
-        setQuota((q) => (q ? { ...q, runsLeft: data.quota.runsLeft } : q));
-      }
     } finally {
       setBusy(false);
     }
@@ -104,36 +86,12 @@ export function Backtest({ gameSlug, pick, max }: { gameSlug: string; pick: numb
         }}
       />
 
-      {quota && !quota.isPlus && quota.signedIn && (quota.runsLeft ?? 0) > 0 && (
-        <p className="field-hint" style={{ marginBottom: 14 }}>
-          {quota.runsLeft} free backtest left this month.
-        </p>
-      )}
 
       <button type="button" className="btn btn-primary" onClick={run} disabled={busy}>
         {busy ? "Checking every draw…" : "Check every draw"}
       </button>
 
-      {needsSignIn && (
-        <div className="form-notice" style={{ marginTop: 18 }}>
-          <Link href="/subscribe">Sign in</Link> to backtest a combination — free accounts get one
-          a month.
-        </div>
-      )}
 
-      {needsUpgrade && (
-        <div className="card" style={{ marginTop: 18, padding: "18px 20px" }}>
-          <div className="section-eyebrow" style={{ marginBottom: 6 }}>
-            Lottizen Plus
-          </div>
-          <p style={{ fontSize: 15, marginBottom: 14 }}>
-            You&rsquo;ve used this month&rsquo;s free backtest. Plus removes the limit.
-          </p>
-          <Link href="/plus" className="btn btn-secondary">
-            See Lottizen Plus
-          </Link>
-        </div>
-      )}
 
       {error && (
         <div className="form-notice error" style={{ marginTop: 18 }}>

@@ -10,9 +10,10 @@
  * jackpot, because a large share of players choose calendar dates and so
  * cluster on 1–31.
  *
- * Lives server-side rather than in the browser because the free-tier monthly
- * quota has to be counted somewhere the user can't edit — see
- * lib/feature-quota.ts.
+ * Lives server-side rather than in the browser to keep the algorithms out of
+ * the client bundle and let them use the full draw history without shipping
+ * it. Every strategy is free and unlimited — an earlier monthly quota was
+ * removed as a product decision (see /api/numbers/generate).
  *
  * Strategy ids/labels/copy live in lib/number-strategy-meta.ts so the client
  * generator UI can import them without pulling these implementations into the
