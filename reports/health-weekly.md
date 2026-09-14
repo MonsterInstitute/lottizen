@@ -1,29 +1,29 @@
 # Lottizen Health — Weekly Report
 
-Generated 2026-09-07T18:01:06.476097+00:00
+Generated 2026-09-14T18:17:31.472818+00:00
 
 ## Data freshness
 
 ⚠️ 1 draw game(s) behind schedule:
 
-- **Numbers** — latest `2026-07-11`, due `2026-09-06` (58d late)
+- **Numbers** — latest `2026-07-11`, due `2026-09-13` (65d late)
 
 ## Deployment
 
-✅ OK — live sitemap last rebuilt `2026-09-07T15:48:34+00:00` (0.2h ago, threshold 12.0h)
+✅ OK — live sitemap last rebuilt `2026-09-14T16:21:12+00:00` (0.1h ago, threshold 12.0h)
 
 ## SEO health
 
 ✅ OK — 0 problem(s) this run
 
-- Sitemap: 2020 URLs, 256 distinct lastmod dates, 20/20 sampled URLs live
-- Link graph: 2021 pages, 2017 reached from home, 0 orphan(s), 0 broken internal link(s), deepest reached 5 clicks
-- Structured data: 78 JSON-LD blocks checked, 0 error(s)
+- Sitemap: 2018 URLs, 263 distinct lastmod dates, 20/20 sampled URLs live
+- Link graph: 2019 pages, 2015 reached from home, 0 orphan(s), 0 broken internal link(s), deepest reached 5 clicks
+- Structured data: 79 JSON-LD blocks checked, 0 error(s)
 - GSC: not integrated yet — skipped, no impact on the other checks
 
 ## Billing & Plus feature health
 
-✅ OK — 0 problem(s) on 2026-09-07
+✅ OK — 0 problem(s) on 2026-09-14
 
 - Test-mode subscribe → webhook → plus → cancel → free: upgrade ✅ OK, downgrade ✅ OK
 - Live product/price/webhook health: ✅ OK
@@ -31,7 +31,7 @@ Generated 2026-09-07T18:01:06.476097+00:00
 
 ## Email delivery
 
-✅ OK — 0 problem(s) on 2026-09-06
+✅ OK — 0 problem(s) on 2026-09-13
 
 - Draw-result: 3 game(s) with real drawn+followed activity checked, 0 missing
 - Weekly digest: not checked today (only runs the Monday after a Sunday digest)
