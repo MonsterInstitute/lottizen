@@ -141,11 +141,31 @@ function faqs(g: GameConfig): FaqItem[] {
   ];
 }
 
+/** The page's own answers, condensed — so each game's description states its
+ * real rules (tax, claim window, anonymity) rather than a shared list of topics. */
+function faqDescription(g: GameConfig): string {
+  const days = g.drawDays.join(" & ");
+  if (g.country === "US") {
+    const anon = g.agency === "NY Lottery" ? "New York names winners" : "anonymity depends on the state";
+    return `${g.name} (${days}) answers: the IRS withholds 24% and most states tax prizes, claims close 90 days to a year after the draw${
+      g.progressive ? ", cash option within ~60 days" : ""
+    }, and ${anon}.`;
+  }
+  if (g.country === "EU") {
+    if (g.agency === "UK National Lottery") {
+      return `${g.name} (${days}) answers: prizes are tax-free, you have 180 days to claim, and winners can stay anonymous. Cut-off and claim steps.`;
+    }
+    return `${g.name} (${days}) answers: you claim and are taxed where you bought the ticket — tax-free in the UK and Ireland, 20% above a threshold in Spain and Portugal.`;
+  }
+  const anon = g.agency === "OLG" ? "OLG publishes winners' names from $1,000" : "big winners are usually named publicly";
+  return `${g.name} (${days}, ${g.agency}) answers: prizes are tax-free in Canada, you have one year to claim, and ${anon}. Cut-off times too.`;
+}
+
 export function generateMetadata({ params }: { params: { country: string; game: string } }): Metadata {
   const g = resolveGame(params.country, params.game);
   if (!g) return {};
   const title = `${g.name} FAQ — Cut-off, Claim Deadline, Taxes`;
-  const description = `${g.name} FAQ: ticket cut-off times, prize claim deadlines, taxes, and winner anonymity rules.`;
+  const description = faqDescription(g);
   return {
     title,
     description,

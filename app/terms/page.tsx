@@ -5,7 +5,7 @@ import { absUrl } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Terms of Service",
-  description: "Lottizen's terms of service, including Lottizen Plus subscription terms.",
+  description: "Lottizen's terms of service: what the site is and isn't, Lottizen Plus subscription and renewal terms, acceptable use of the data, and responsible play.",
   alternates: { canonical: "/terms" },
 };
 

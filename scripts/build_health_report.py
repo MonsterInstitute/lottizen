@@ -101,6 +101,10 @@ def section_seo(seo: dict | None, seo_problems: list | None) -> str:
         )
     sd = seo.get("structuredData", {})
     lines.append(f"- Structured data: {sd.get('blocksChecked', '?')} JSON-LD blocks checked, {sd.get('errors', '?')} error(s)")
+    md = seo.get("metaDescriptions") or {}
+    if md and not md.get("skipped"):
+        lines.append(f"- Meta descriptions: {md.get('pages', '?')} pages, {md.get('tooShort', '?')} under "
+                     f"{md.get('min', 120)} chars, {md.get('duplicated', '?')} duplicated")
     gsc = seo.get("gsc", {})
     if gsc.get("skipped"):
         lines.append("- GSC: not integrated yet — skipped, no impact on the other checks")

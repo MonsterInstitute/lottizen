@@ -62,7 +62,7 @@ KNOWN_NON_HTML_PATHS = {
 }
 
 problems: list[dict] = []
-results: dict = {"checkedAt": None, "categories": {}, "sitemap": {}, "structuredData": {}, "linkGraph": {}, "gsc": {"skipped": True}}
+results: dict = {"checkedAt": None, "categories": {}, "sitemap": {}, "structuredData": {}, "linkGraph": {}, "metaDescriptions": {}, "gsc": {"skipped": True}}
 
 
 def log(*a) -> None:
@@ -442,6 +442,58 @@ def check_link_graph() -> None:
 # ============================================================================
 # 5. GSC indexing/impression trend
 # ============================================================================
+# ============================================================================
+# Meta descriptions — every built page, not a sample
+# ============================================================================
+META_DESC_MIN = 120  # Bing Webmaster flags shorter ones as "too short"
+NO_INDEX_PREFIXES = ("/dashboard", "/subscribe", "/_not-found", "/api/")
+
+
+def check_meta_descriptions() -> None:
+    """Every indexable page in the local build needs a meta description of at
+    least META_DESC_MIN characters, and no two pages of the same kind may share
+    one (Bing reported "too short" on 2026-10-03; the year-archive pages were
+    ~40 characters). Reports per category so a template regression shows up as
+    one problem, not 500."""
+    if not BUILD_DIR.exists():
+        log("skip: meta descriptions (no local build)")
+        results["metaDescriptions"] = {"skipped": True}
+        return
+    import html as _html
+    desc_re = re.compile(r'<meta name="description" content="([^"]*)"')
+    by_cat: dict[str, list[tuple[str, str]]] = defaultdict(list)
+    for f in BUILD_DIR.rglob("*.html"):
+        rel = str(f.relative_to(BUILD_DIR).with_suffix(""))
+        path = "/" if rel == "index" else "/" + rel.removesuffix("/index")
+        if path.startswith(NO_INDEX_PREFIXES):
+            continue
+        m = desc_re.search(f.read_text(encoding="utf-8", errors="ignore"))
+        by_cat[categorize(path)].append((path, _html.unescape(m.group(1)).strip() if m else ""))
+
+    total = short_total = dup_total = 0
+    for cat, pages in sorted(by_cat.items()):
+        total += len(pages)
+        short = [(p, d) for p, d in pages if len(d) < META_DESC_MIN]
+        seen: dict[str, list[str]] = defaultdict(list)
+        for p, d in pages:
+            if d:
+                seen[d].append(p)
+        dups = {d: ps for d, ps in seen.items() if len(ps) > 1}
+        short_total += len(short)
+        dup_total += sum(len(ps) for ps in dups.values())
+        if short:
+            ex = ", ".join(f"{p} ({len(d)})" for p, d in sorted(short, key=lambda x: len(x[1]))[:5])
+            add_problem(f"meta descriptions under {META_DESC_MIN} chars in {cat}",
+                        f"{len(short)}/{len(pages)} pages. Shortest: {ex}")
+        if dups:
+            d, ps = next(iter(dups.items()))
+            add_problem(f"duplicate meta descriptions in {cat}",
+                        f"{sum(len(v) for v in dups.values())} pages share a description with another page, e.g. {ps[:3]}: {d!r}")
+    results["metaDescriptions"] = {"pages": total, "tooShort": short_total, "duplicated": dup_total, "min": META_DESC_MIN}
+    log(f"{'OK' if not short_total and not dup_total else 'PROBLEM'}: meta descriptions — "
+        f"{total} pages, {short_total} under {META_DESC_MIN} chars, {dup_total} duplicated")
+
+
 def check_gsc() -> None:
     creds_raw = os.environ.get("GSC_SERVICE_ACCOUNT_JSON")
     if not creds_raw:
@@ -507,6 +559,7 @@ def main() -> int:
         check_sitemap_integrity(sitemap_urls)
     check_structured_data(sampled)
     check_link_graph()
+    check_meta_descriptions()
     check_gsc()
 
     with open("seo_health_problems.json", "w") as f:

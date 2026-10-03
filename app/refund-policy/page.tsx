@@ -4,7 +4,7 @@ import { PLANS } from "@/lib/plans";
 
 export const metadata: Metadata = {
   title: "Refund Policy",
-  description: "Lottizen Plus refund policy — full refund within 7 days of any charge.",
+  description: "Lottizen Plus refund policy: a full refund within 7 days of any charge, no questions asked — how to request one, and how cancelling differs from a refund.",
   alternates: { canonical: "/refund-policy" },
 };
 

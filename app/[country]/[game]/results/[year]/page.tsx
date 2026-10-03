@@ -13,6 +13,39 @@ export function generateStaticParams() {
   return countryGameYearParams();
 }
 
+/** Month + day in UTC, e.g. "Jun 6". Draw dates are calendar dates, not instants. */
+function shortDate(ymd: string): string {
+  return new Date(`${ymd}T12:00:00Z`).toLocaleDateString("en-CA", { month: "short", day: "numeric", timeZone: "UTC" });
+}
+
+/**
+ * Built from that year's own draws (count, date range, most-drawn numbers),
+ * so no two year pages share a description. "Most drawn" is a plain
+ * historical count for that year — never framed as a prediction.
+ */
+function yearDescription(g: NonNullable<ReturnType<typeof resolveGame>>, year: number): string {
+  const draws = getDrawsByYear(g.slug, year);
+  if (draws.length === 0) return `${g.name} winning numbers for ${year}, every draw listed with its date.`;
+  const dates = draws.map((d) => d.date).sort();
+  const span = dates.length === 1 ? shortDate(dates[0]) : `${shortDate(dates[0])} – ${shortDate(dates.at(-1)!)}`;
+  const extra = g.format === "digit" ? "" : g.hasBonus ? ` and ${g.bonusLabel ?? "bonus"}` : "";
+  const head = `All ${draws.length} ${g.name} draw${draws.length === 1 ? "" : "s"} of ${year} (${span}), with every winning number${extra}.`;
+  if (g.format === "digit") {
+    const last = draws.reduce((a, b) => (a.date > b.date ? a : b));
+    return `${head} Last draw of the year: ${last.numbers.join("-")} on ${shortDate(last.date)}. Full list, newest first.`;
+  }
+  const freq = new Map<number, number>();
+  for (const d of draws) for (const n of d.numbers) freq.set(n, (freq.get(n) ?? 0) + 1);
+  const top = [...freq.entries()].sort((a, b) => b[1] - a[1] || a[0] - b[0]).slice(0, 3);
+  const nums = top.map(([n]) => n);
+  const list = nums.length === 3 ? `${nums[0]}, ${nums[1]} and ${nums[2]}` : nums.join(" and ");
+  const counts = top.map(([, c]) => c);
+  const times = counts.every((c) => c === counts[0])
+    ? `${counts[0]} times each`
+    : `${counts.slice(0, -1).join(", ")} and ${counts.at(-1)} times`;
+  return `${head} Most drawn that year: ${list} (${times}).`;
+}
+
 export function generateMetadata({
   params,
 }: {
@@ -21,7 +54,7 @@ export function generateMetadata({
   const g = resolveGame(params.country, params.game);
   if (!g) return {};
   const title = `${g.name} Results ${params.year} — Winning Numbers`;
-  const description = `All ${g.name} winning numbers from ${params.year}.`;
+  const description = yearDescription(g, Number(params.year));
   return {
     title,
     description,

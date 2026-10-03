@@ -6,8 +6,9 @@ import {
   countryFromSlug,
   countryName,
   gamesByAgency,
+  gamesForCountry,
 } from "@/config/games";
-import { getLatestAll, hasData } from "@/lib/draws";
+import { getDraws, getLatestAll, hasData } from "@/lib/draws";
 import { drawDate } from "@/lib/format";
 import { absUrl } from "@/lib/site";
 import { Balls } from "@/components/draws/Balls";
@@ -23,7 +24,16 @@ export function generateMetadata({ params }: { params: { country: string } }): M
   if (!code) return {};
   const name = countryName(code);
   const title = `${name} Lottery Results & Statistics`;
-  const description = `Winning numbers, statistics, and number tools for every ${name} draw lottery.`;
+  // Names the actual games and how far the archive goes back.
+  const games = gamesForCountry(code).filter((g) => g.live && hasData(g.slug));
+  const since = games
+    .map((g) => getDraws(g.slug)?.dataSince)
+    .filter((d): d is string => Boolean(d))
+    .sort()[0];
+  const names = games.slice(0, 4).map((g) => g.name).join(", ");
+  const description = `Latest winning numbers and number statistics for ${games.length} ${name} lotteries — ${names}${
+    games.length > 4 ? " and more" : ""
+  }. Draw archives${since ? ` back to ${since.slice(0, 4)}` : ""}, updated after every draw.`;
   return {
     title,
     description,

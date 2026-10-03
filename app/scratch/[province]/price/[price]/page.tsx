@@ -43,8 +43,13 @@ export function generateMetadata({
   const games = getGamesByPrice(params.province, p);
   const best = games[0];
   const title = `Best $${p} Scratch Tickets in ${cfg.label} — Ranked by Value`;
-  const description = `The ${games.length} best $${p} ${cfg.agency} instant games ranked by remaining prize value.${
-    best ? ` Top pick: ${best.name} (Value Score ${best.valueScore.toFixed(1)}).` : ""
+  // Remaining-value framing only (see CLAUDE.md): the ranking describes how much
+  // prize money is still unclaimed, never the odds of a ticket winning.
+  const n = games.length;
+  const which = n === 1 ? `The only $${p} ${cfg.agency} scratch ticket` : `All ${n} $${p} ${cfg.agency} scratch tickets`;
+  const description = `${which} on sale in ${cfg.label}, ranked by how much of the prize money is still unclaimed.${
+    // No raw score: WCLC's index runs on a different scale (see /methodology).
+    best && n > 1 ? ` Ranked first today: ${best.name}.` : ""
   } Updated daily.`;
   return {
     title,

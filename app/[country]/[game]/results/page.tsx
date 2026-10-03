@@ -18,7 +18,23 @@ export function generateMetadata({ params }: { params: { country: string; game: 
   const g = resolveGame(params.country, params.game);
   if (!g) return {};
   const title = `${g.name} Results — Past Winning Numbers`;
-  const description = `Full ${g.name} results archive: past winning numbers and bonus for every draw, newest first.`;
+  // From the game's own archive: size, start, latest draw. The old text said
+  // "and bonus" for every game, including ones that have no bonus ball.
+  const draws = getDraws(g.slug);
+  const since = draws?.dataSince ? new Date(`${draws.dataSince}T12:00:00Z`).getUTCFullYear() : null;
+  const latest = draws?.draws.reduce<typeof draws.draws[number] | undefined>((a, b) => (!a || b.date > a.date ? b : a), undefined);
+  const what = g.format === "digit" ? "winning numbers" : g.hasBonus ? `winning numbers and ${g.bonusLabel ?? "bonus"}` : "winning numbers";
+  // Keno draws 20 numbers — too long to quote; name the date only.
+  const latestText = latest && g.format === "keno"
+    ? ` Latest draw: ${drawDate(latest.date)}.`
+    : latest
+    ? ` Latest draw, ${drawDate(latest.date)}: ${latest.numbers.join(g.format === "digit" ? "-" : " ")}${
+        g.format !== "digit" && latest.bonus != null ? ` + ${[latest.bonus, latest.bonus2].filter((x) => x != null).join(" ")}` : ""
+      }.`
+    : "";
+  const description = draws
+    ? `${draws.drawCount.toLocaleString("en-CA")} ${g.name} draws${since ? ` since ${since}` : ""}, every one with its ${what}, by year and newest first.${latestText}`
+    : `${g.name} results archive: every draw's ${what}, newest first.`;
   return {
     title,
     description,
