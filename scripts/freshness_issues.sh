@@ -7,7 +7,10 @@ set -euo pipefail
 
 JSON="${1:?usage: freshness_issues.sh <freshness.json>}"
 REPO="${GITHUB_REPOSITORY:?GITHUB_REPOSITORY not set}"
-PREFIX="Stale data:"
+# Every watchdog-opened issue carries the "[auto] " title prefix and the
+# auto-monitor label, so automated records never read as product bugs.
+PREFIX="[auto] Stale data:"
+LABEL="auto-monitor"
 
 # Titles are keyed on the *oldest* missing draw (missing[] is newest-first, so
 # [-1] is the first draw we lost). That stays constant while a game is stuck, so
@@ -26,7 +29,7 @@ open_or_comment() {
     gh issue comment "$existing" --repo "$REPO" --body "$body" >/dev/null
     echo "updated #$existing — $title"
   else
-    gh issue create --repo "$REPO" --title "$title" --body "$body" >/dev/null
+    gh issue create --repo "$REPO" --title "$title" --body "$body" --label "$LABEL" >/dev/null
     echo "opened — $title"
   fi
 }
@@ -68,7 +71,7 @@ gh issue list --repo "$REPO" --state open --limit 200 --json number,title \
 # audit_site.py). Independent of the draw-game section above so one agency's
 # scrape breaking never gets conflated with a draw-game issue.
 # ============================================================================
-SCRATCH_PREFIX="Stale scratch data:"
+SCRATCH_PREFIX="[auto] Stale scratch data:"
 
 desired_scratch_titles=()
 while IFS= read -r line; do

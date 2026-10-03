@@ -12,14 +12,21 @@ PREFIX="${1:?usage: health_issues.sh <prefix> <problems.json>}"
 JSON="${2:?usage: health_issues.sh <prefix> <problems.json>}"
 REPO="${GITHUB_REPOSITORY:?GITHUB_REPOSITORY not set}"
 
+# Every watchdog-opened issue carries the "[auto] " title prefix and the
+# auto-monitor label, so automated records never read as product bugs. Callers
+# pass the bare prefix ("SEO health:"); the marker is added here, once.
+AUTO="[auto] "
+LABEL="auto-monitor"
+PREFIX="${AUTO}${PREFIX}"
+
 desired_titles=()
 while IFS= read -r line; do
   desired_titles+=("$line")
-done < <(jq -r '.[].title' "$JSON")
+done < <(jq -r --arg a "$AUTO" '.[] | $a + .title' "$JSON")
 
 # 1) Open/update an issue for every current problem.
 jq -c '.[]' "$JSON" | while read -r p; do
-  title=$(jq -r '.title' <<<"$p")
+  title="${AUTO}$(jq -r '.title' <<<"$p")"
   body=$(jq -r '.body' <<<"$p")
   existing=$(gh issue list --repo "$REPO" --state open --limit 200 \
     --json number,title --jq "map(select(.title==\"$title\")) | .[0].number // empty")
@@ -27,7 +34,7 @@ jq -c '.[]' "$JSON" | while read -r p; do
     gh issue comment "$existing" --repo "$REPO" --body "$body" >/dev/null
     echo "updated #$existing — $title"
   else
-    gh issue create --repo "$REPO" --title "$title" --body "$body" >/dev/null
+    gh issue create --repo "$REPO" --title "$title" --body "$body" --label "$LABEL" >/dev/null
     echo "opened — $title"
   fi
 done
