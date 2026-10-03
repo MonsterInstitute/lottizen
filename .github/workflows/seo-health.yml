@@ -108,6 +108,7 @@ jobs:
       - name: Record business metrics
         env:
           STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          BING_WEBMASTER_API_KEY: ${{ secrets.BING_WEBMASTER_API_KEY }}
         run: python scripts/business_metrics.py
 
       - name: Build reports/health-weekly.md

@@ -4,6 +4,7 @@ import { getActivePricePoints, getAllProvinceSlugs, getAllRankings, getAllSlugs,
 import { getDrawsByYear, getLatestAll, getNumberStat, getPlayableSlugs, getResultYears, getStats, hasData } from "@/lib/draws";
 import { getAllGuides } from "@/lib/guides";
 import { absUrl } from "@/lib/site";
+import { SITEMAP_TIER, TIER, type SitemapTier } from "@/config/sitemap";
 
 export const dynamic = "force-static";
 
@@ -26,10 +27,15 @@ export const dynamic = "force-static";
  * documents that an untrustworthy lastmod (e.g. every URL sharing today's
  * build time) gets the signal ignored site-wide — a fabricated date is
  * worse than no date.
+ *
+ * Not every page is listed: each entry has a tier, and only tiers up to
+ * SITEMAP_TIER (config/sitemap.ts) are included. Unlisted pages remain live,
+ * linked and indexable; see that file for why and how to add them back.
  */
 export default function sitemap(): MetadataRoute.Sitemap {
   const entries: MetadataRoute.Sitemap = [];
-  const push = (path: string, lastModified?: Date) => {
+  const push = (path: string, lastModified?: Date, tier: SitemapTier = TIER.core) => {
+    if (tier > SITEMAP_TIER) return;
     const e: MetadataRoute.Sitemap[number] = { url: absUrl(path) };
     if (lastModified) e.lastModified = lastModified;
     entries.push(e);
@@ -101,20 +107,20 @@ export default function sitemap(): MetadataRoute.Sitemap {
       // so listing one in the sitemap would be a dead link, not just a
       // missing lastmod.
       if (getGame(slug)?.format !== "digit") {
-        push(`${g}/generator`); // static tool — no data-driven change signal
+        push(`${g}/generator`, undefined, TIER.gameTools); // static tool — no data-driven change signal
       }
-      push(`${g}/faq`); // static content — no data-driven change signal
+      push(`${g}/faq`, undefined, TIER.gameTools); // static content — no data-driven change signal
 
       for (const y of getResultYears(slug)) {
         const yearDates = getDrawsByYear(slug, y).map((d) => d.date);
-        push(`${g}/results/${y}`, maxDate(yearDates));
+        push(`${g}/results/${y}`, maxDate(yearDates), TIER.resultYears);
       }
 
       const stats = getStats(slug);
       if (stats) {
         for (let n = 1; n <= stats.max; n++) {
           const ns = getNumberStat(slug, n);
-          push(`${g}/number/${n}`, ns?.lastDate ? new Date(ns.lastDate) : undefined);
+          push(`${g}/number/${n}`, ns?.lastDate ? new Date(ns.lastDate) : undefined, TIER.numbers);
         }
       }
     }

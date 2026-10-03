@@ -25,6 +25,13 @@ this run", never zero — a metric we can't read honestly is not estimated:
                           with >=1 impression over the trailing 28 days
   gsc_impressions_28d     GSC API: impressions over the same window
   gsc_clicks_28d          GSC API: clicks over the same window
+  indexnow_urls_7d        Supabase indexnow_batches: URLs accepted by IndexNow
+                          (HTTP 200/202) in the last 7 days — what we sent,
+                          not what any engine indexed
+  sitemap_urls            URLs in the live sitemap.xml (tracks SITEMAP_TIER)
+  bing_in_index           Bing Webmaster API GetCrawlStats, latest day's InIndex.
+                          Needs the BING_WEBMASTER_API_KEY secret (Bing Webmaster
+                          Tools → Settings → API access); blank without it
   gsc_indexed_manual      MANUAL — the Search Console API does not expose the
                           Page indexing report's "Indexed" count; copy it from
                           GSC → Indexing → Pages when you can
@@ -64,6 +71,9 @@ COLUMNS = [
     "gsc_pages_with_impr_28d",
     "gsc_impressions_28d",
     "gsc_clicks_28d",
+    "indexnow_urls_7d",
+    "sitemap_urls",
+    "bing_in_index",
     "gsc_indexed_manual",
     "api_subscribers_manual",
     "notes",
@@ -159,6 +169,67 @@ def gsc_metrics() -> dict:
     }
 
 
+def indexnow_metrics() -> dict:
+    try:
+        import db
+        from datetime import timedelta
+        since = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
+        rows = db.fetch_all("indexnow_batches", "url_count,http_status",
+                            filters=[("gte", "submitted_at", since)])
+    except Exception as e:  # noqa: BLE001
+        print(f"warning: IndexNow metrics unavailable: {e}", file=sys.stderr)
+        return {}
+    return {"indexnow_urls_7d": sum(r["url_count"] for r in rows if r["http_status"] in (200, 202))}
+
+
+def sitemap_metrics() -> dict:
+    import re
+    import ssl
+    import urllib.request
+    try:
+        import certifi
+        ctx = ssl.create_default_context(cafile=certifi.where())
+        site = os.environ.get("SITE_URL", "https://lottizen.com").rstrip("/")
+        with urllib.request.urlopen(f"{site}/sitemap.xml", timeout=30, context=ctx) as r:
+            return {"sitemap_urls": len(re.findall(r"<loc>", r.read().decode()))}
+    except Exception as e:  # noqa: BLE001
+        print(f"warning: sitemap count unavailable: {e}", file=sys.stderr)
+        return {}
+
+
+def bing_metrics() -> dict:
+    """Bing Webmaster API. GetCrawlStats returns daily rows; InIndex is the
+    number of the site's pages in Bing's index that day."""
+    key = os.environ.get("BING_WEBMASTER_API_KEY")
+    if not key:
+        print("skip: Bing metrics (BING_WEBMASTER_API_KEY not set)", file=sys.stderr)
+        return {}
+    import ssl
+    import urllib.parse
+    import urllib.request
+    try:
+        import certifi
+        ctx = ssl.create_default_context(cafile=certifi.where())
+        site = os.environ.get("SITE_URL", "https://lottizen.com").rstrip("/") + "/"
+        url = ("https://ssl.bing.com/webmaster/api.svc/json/GetCrawlStats?"
+               + urllib.parse.urlencode({"siteUrl": site, "apikey": key}))
+        with urllib.request.urlopen(url, timeout=30, context=ctx) as r:
+            rows = json.loads(r.read().decode()).get("d") or []
+        rows = [x for x in rows if x.get("InIndex") is not None]
+        if not rows:
+            return {}
+        import re
+
+        def ms(row: dict) -> int:  # Bing dates look like "/Date(1790892000000-0700)/"
+            m = re.search(r"\((-?\d+)", row.get("Date") or "")
+            return int(m.group(1)) if m else 0
+        latest = max(rows, key=ms)
+        return {"bing_in_index": latest["InIndex"]}
+    except Exception as e:  # noqa: BLE001
+        print(f"warning: Bing metrics unavailable: {e}", file=sys.stderr)
+        return {}
+
+
 def read_rows() -> list[dict]:
     if not CSV_PATH.exists():
         return []
@@ -178,7 +249,7 @@ def write_rows(rows: list[dict]) -> None:
 def main() -> int:
     today = datetime.now(timezone.utc).date().isoformat()
     measured: dict = {}
-    for source in (supabase_metrics, stripe_metrics, gsc_metrics):
+    for source in (supabase_metrics, stripe_metrics, gsc_metrics, indexnow_metrics, sitemap_metrics, bing_metrics):
         measured.update(source())
 
     rows = read_rows()

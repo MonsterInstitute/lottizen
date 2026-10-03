@@ -93,6 +93,17 @@ jobs:
       # (on: workflow_run), which fires even when this job never acquires a runner.
       # Data staleness is separately caught by freshness-watchdog.yml.
 
+      # Tell IndexNow engines (Bing & co.) about pages whose content changed in
+      # this run: only URLs whose sitemap lastmod moved, and only once the new
+      # deploy is live (it waits up to 10 min, so it runs after the emails).
+      # Never fails the refresh.
+      - name: IndexNow — submit changed pages
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: python scripts/indexnow_submit.py --trigger "${{ github.workflow }}"
+        continue-on-error: true
+
       # Last step on purpose: everything above ran on last-good data, so failing
       # here costs nothing but makes the run red, which ci-failure-alert.yml turns
       # into an "[auto] CI failure" issue the same day instead of waiting for the

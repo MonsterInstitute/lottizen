@@ -267,11 +267,24 @@ def check_crawler_view(sitemap_urls: list[tuple[str, str | None]]) -> list[dict]
 # ============================================================================
 # 2. Sitemap integrity
 # ============================================================================
+def sitemap_tier_expectation() -> tuple[int, int]:
+    """SITEMAP_TIER and its minimum URL count, read from config/sitemap.ts so the
+    threshold follows the tier instead of being hard-coded."""
+    src = (Path(__file__).resolve().parent.parent / "config" / "sitemap.ts").read_text()
+    tier = int(re.search(r"SITEMAP_TIER: SitemapTier = (\d)", src).group(1))
+    block = re.search(r"SITEMAP_EXPECTED_MIN[^{]*\{(.*?)\}", src, re.S).group(1)
+    expected = dict((int(k), int(v)) for k, v in re.findall(r"(\d):\s*(\d+)", block))
+    return tier, expected[tier]
+
+
 def check_sitemap_integrity(sitemap_urls: list[tuple[str, str | None]]) -> None:
     n = len(sitemap_urls)
     results["sitemap"]["totalUrls"] = n
-    if n < 1500:
-        add_problem("sitemap URL count dropped sharply", f"sitemap.xml now has {n} URLs — expected roughly 2000+.")
+    tier, expected = sitemap_tier_expectation()
+    results["sitemap"]["tier"] = tier
+    if n < expected:
+        add_problem("sitemap URL count dropped sharply",
+                    f"sitemap.xml now has {n} URLs — expected at least {expected} at SITEMAP_TIER={tier} (config/sitemap.ts).")
 
     non_ascii = [loc for loc, _ in sitemap_urls if any(ord(c) > 127 for c in loc)]
     if non_ascii:

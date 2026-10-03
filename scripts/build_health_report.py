@@ -199,6 +199,9 @@ def section_metrics() -> str:
         ("gsc_pages_with_impr_28d", "GSC pages w/ impr. 28d"),
         ("gsc_impressions_28d", "GSC impr. 28d"),
         ("gsc_clicks_28d", "GSC clicks 28d"),
+        ("sitemap_urls", "Sitemap URLs"),
+        ("indexnow_urls_7d", "IndexNow URLs 7d"),
+        ("bing_in_index", "Bing indexed"),
         ("gsc_indexed_manual", "Indexed (manual)"),
         ("api_subscribers_manual", "API subs (manual)"),
     ]

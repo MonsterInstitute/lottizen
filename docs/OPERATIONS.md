@@ -69,6 +69,16 @@ Key properties:
   hasn't published the new draw.
 - **The deploy gate** (`.github/actions/build-and-audit`) builds the full site
   and audits it before anything is published. Bad data blocks its own deploy.
+- **The sitemap is deliberately partial.** `config/sitemap.ts` →
+  `SITEMAP_TIER` decides which page types are listed (1 = ~550 core pages;
+  4 = everything). Unlisted pages stay live, linked and indexable. Raise the
+  tier one step at a time as Google's indexed share grows, then resubmit the
+  sitemap in Search Console. The SEO health check's minimum URL count follows
+  the tier automatically.
+- **IndexNow.** After each data refresh, `scripts/indexnow_submit.py` sends
+  Bing & co. only the URLs whose sitemap `lastmod` changed, once the new
+  deploy is live. State lives in Supabase (`indexnow_urls`, `indexnow_batches`);
+  the key file is `public/<key>.txt`. Google doesn't use IndexNow.
 - **Pages are static.** Vercel only serves; the only server code is the
   subscribe/auth/account/billing routes and the public `/api/v1` data API.
 
@@ -103,6 +113,7 @@ Key properties:
 | **RapidAPI** | Marketplace listing for the `/api/v1` data API. RapidAPI's proxy adds `X-RapidAPI-Proxy-Secret`; the site verifies it when `API_REQUIRE_RAPIDAPI_SECRET=true`. Listing copy and OpenAPI spec: `docs/rapidapi/`. | rapidapi.com provider dashboard |
 | **Cloudflare** | DNS for `lottizen.com` (nameservers `noor`/`ram.ns.cloudflare.com`). | dash.cloudflare.com |
 | **Registrars** | `lottizen.ca`: registered 2026-05-01, expires **2027-05-01**; managed at Spaceship, whose DNS 301-forwards the whole domain to `https://lottizen.com` (nameservers moved from Cloudflare to `launch1/2.spaceship.net` on 2026-10-03). Until then it served an unrelated early Lovable prototype; `lottizen.lovable.app` still redirects to `lottizen.ca`, so unpublish that Lovable project. `lottizen.com`: registrar not recorded here — check before transfer. | namecheap.com |
+| **Bing Webmaster Tools** | Bing indexing; receives IndexNow pings. The weekly report reads Bing's indexed count when `BING_WEBMASTER_API_KEY` is set (**not set yet**: add the site in Bing Webmaster Tools, import from GSC, then Settings → API access). | bing.com/webmasters |
 | **Google Search Console** | Indexing and search performance. The API integration (`GSC_SERVICE_ACCOUNT_JSON`) is **not configured yet**, so the weekly GSC numbers are blank until it is. | search.google.com/search-console |
 
 ---
@@ -138,6 +149,7 @@ Values are never in the repo. "Where" is where the value must be set.
 | `STRIPE_SECRET_KEY` | **Live** key: billing-health live config check (read-only calls) and weekly MRR/Plus metrics. The owner chose the full key over a restricted one. |
 | `STRIPE_TEST_SECRET_KEY` | billing-health test-mode subscribe/cancel round trip |
 | `STRIPE_WEBHOOK_SECRET_TEST` | Present but not referenced by any workflow (the site uses its Vercel copy) |
+| `BING_WEBMASTER_API_KEY` | **Not set yet.** Bing Webmaster API key; enables the "Bing indexed" metric. Optional. |
 | `GSC_SERVICE_ACCOUNT_JSON` | **Not set yet.** Service-account JSON (raw or base64) with read access to the GSC property. Enables GSC trend + metrics. |
 
 Repository **variable** (optional): `SITE_URL` — origin the monitors check; defaults to `https://lottizen.com`.
@@ -192,7 +204,8 @@ Four layers, each catching what the one before cannot.
 **Weekly report.** Every Monday `seo-health.yml` writes
 `reports/health-weekly.md` (current week), archives it to
 `reports/weekly/<date>.md`, and appends a row to
-`reports/metrics-history.csv` (subscribers, Plus, MRR, GSC). Start any
+`reports/metrics-history.csv` (subscribers, Plus, MRR, GSC, sitemap size,
+IndexNow URLs sent, Bing indexed). Start any
 investigation there.
 
 **Reading the issue list.**
