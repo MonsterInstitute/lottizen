@@ -82,7 +82,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   push("/refund-policy");
 
   for (const g of getAllGuides()) {
-    push(`/guides/${g.slug}`, new Date(`${g.updated ?? g.date}T12:00:00`));
+    push(`/guides/${g.slug}`, new Date(`${g.updated ?? g.date}T12:00:00Z`) /* explicit UTC: without Z it parsed in the build machine's timezone */);
   }
 
   for (const country of COUNTRIES) {
