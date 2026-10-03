@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Playfair_Display, Inter, JetBrains_Mono } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import { Header } from "@/components/site/Header";
 import { Footer } from "@/components/site/Footer";
@@ -7,22 +7,28 @@ import { JsonLd } from "@/components/site/JsonLd";
 import { SITE, absUrl } from "@/lib/site";
 import { COUNTRIES, EU_COUNTRY_CODES } from "@/config/games";
 
-const serif = Playfair_Display({
-  subsets: ["latin"],
-  style: ["normal", "italic"],
-  weight: ["500", "600", "700", "800", "900"],
+// Self-hosted (latin subset, variable weight) rather than next/font/google:
+// the google loader fetches font CSS at build time and intermittently failed
+// CI builds with "Cannot read properties of null (reading '1')" in next/font,
+// which skipped that morning's publish + deploy + draw emails. Files are the
+// OFL-licensed Google Fonts originals, so rendering is unchanged.
+const serif = localFont({
+  src: [
+    { path: "./fonts/PlayfairDisplay-latin-var.woff2", weight: "400 900", style: "normal" },
+    { path: "./fonts/PlayfairDisplay-Italic-latin-var.woff2", weight: "400 900", style: "italic" },
+  ],
   variable: "--font-serif",
   display: "swap",
 });
-const sans = Inter({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+const sans = localFont({
+  src: "./fonts/Inter-latin-var.woff2",
+  weight: "100 900",
   variable: "--font-sans",
   display: "swap",
 });
-const mono = JetBrains_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
+const mono = localFont({
+  src: "./fonts/JetBrainsMono-latin-var.woff2",
+  weight: "100 800",
   variable: "--font-mono",
   display: "swap",
 });
