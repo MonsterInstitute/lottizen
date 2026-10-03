@@ -271,13 +271,34 @@ def max_draw_date(game_id: str) -> str | None:
     return res.data[0]["draw_date"] if res.data else None
 
 
+# Primary key per table (or a unique key, for views), used as the final sort
+# key when paging. Anything not listed has an `id` primary key.
+_PAGE_KEYS: dict[str, tuple[str, ...]] = {
+    "draws": ("game_id", "draw_date"),
+    "games": ("game_number", "agency"),
+    "site_json": ("path",),
+    "game_meta": ("game_id",),
+    "draw_counts": ("game_id",),
+    "subscriber_games": ("subscriber_id", "game_slug"),
+    "scratch_favourites": ("subscriber_id", "agency", "game_slug"),
+}
+
+
 def fetch_all(table: str, columns: str = "*", *, filters: Iterable = (),
               order: str | None = None, page: int = 1000) -> list[dict]:
     """Fetch every row from `table`, paging past PostgREST's 1000-row cap.
 
     `filters` is an iterable of (method, *args) tuples applied to the query,
     e.g. [("eq", "game_id", "lotto-max")].
+
+    Pages are always ordered by the table's key (after `order`, if given).
+    Without a total order, Postgres may return rows in a different order on
+    each page request, so offset paging silently skipped some rows and
+    returned others twice. That made scrape_europe.py's existing() miss 59
+    stored UK Lotto draws and re-insert one as "new" every run (fixed
+    2026-10-03).
     """
+    keys = [k for k in _PAGE_KEYS.get(table, ("id",)) if k != order]
     out: list[dict] = []
     start = 0
     while True:
@@ -286,6 +307,8 @@ def fetch_all(table: str, columns: str = "*", *, filters: Iterable = (),
             q = getattr(q, f[0])(*f[1:])
         if order:
             q = q.order(order)
+        for k in keys:
+            q = q.order(k)
         q = q.range(start, start + page - 1)
         rows = q.execute().data or []
         out.extend(rows)

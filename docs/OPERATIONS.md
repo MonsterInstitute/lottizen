@@ -57,10 +57,16 @@ Key properties:
 
 - **Supabase is the source of truth.** Generated data is not committed to git
   (since 2026-07-16). A Vercel build always pulls the latest `site_json`.
-- **Scrapers never wipe data.** Every scrape step runs `|| echo …` /
-  `continue-on-error`, so a broken source leaves the last good data in place.
-  The consequence: **a green workflow run does not mean fresh data.** Freshness
-  is judged separately by the watchdog (§5).
+- **Scrapers never wipe data, but failures are not hidden.** The scrape step
+  runs with `continue-on-error`, so a broken source leaves the last good data
+  in place and the run still publishes and deploys. The final step of every
+  daily workflow then **fails the run** if the scrape failed, so it goes red
+  and gets an `[auto] CI failure` issue the same day (since 2026-10-03; before
+  that a failed scrape left a green run). The European scraper also writes a
+  per-source table to the run summary and fails on its own threshold (§7).
+  Freshness is still judged independently by the watchdog (§5), which catches
+  what a scraper can't see about itself, e.g. a source that answers but
+  hasn't published the new draw.
 - **The deploy gate** (`.github/actions/build-and-audit`) builds the full site
   and audits it before anything is published. Bad data blocks its own deploy.
 - **Pages are static.** Vercel only serves; the only server code is the
@@ -215,9 +221,10 @@ investigation there.
 ### 6.1 Data stopped updating
 
 1. Open the `[auto] Stale …` issue. It names the game/agency and the missing dates.
-2. Actions → that workflow → latest run → the **Scrape** step log. A scrape
-   failure is printed but does not fail the job (by design), so look at the
-   log even if the run is green.
+2. Actions → that workflow → latest run. A failed scrape makes the run red
+   with a "Scrape failed" annotation; the per-source detail is in the scrape
+   step log (and, for Europe, in the run summary table). A green run with stale
+   data means the source answered without the new draw. Check the source by hand.
 3. Open the source URL from §7 in a browser. Most breakages are upstream: a
    renamed field, a new page layout, bot protection, or the agency simply not
    publishing yet.
@@ -329,7 +336,20 @@ resolve the payment problem. Then dispatch each data workflow once by hand
 `https://lottizen.com/sitemap.xml` that alerts when its `<lastmod>` is older
 than ~36h. This is the one failure mode the in-repo monitoring can't see.
 
-### 6.7 Flaky failure that "fixes itself"
+### 6.7 Rows silently missing when reading Supabase
+
+**Symptom:** a script reads fewer rows than the table has, or the same row
+twice. Found 2026-10-03: `scrape_europe.py` saw 3,145 of 3,204 UK Lotto
+draws and re-inserted the 2026-09-30 draw as "new" on every run, flipping its
+`source`/`verified` attribution.
+**Cause:** `db.fetch_all` paged with `range()` but no total order, and Postgres
+doesn't guarantee a stable order across separate page queries.
+**Fix:** `fetch_all` now always orders by the table's primary key
+(`_PAGE_KEYS` in `scripts/db.py`). When adding a table without an `id` primary
+key, add its key there. `calculate_stats.py` was not affected: it orders by
+`draw_date` within one game, which is already unique.
+
+### 6.8 Flaky failure that "fixes itself"
 
 A `[auto] CI failure` issue that keeps getting reopened, or a closed one with
 many comments, is a recurring cause, not bad luck. Compare the failing step
@@ -366,7 +386,15 @@ No Canadian agency publishes total tickets printed, so the site never shows a
 | Ontario 49 / Lottario / MegaDice history | `ca.lottonumbers.com` | Third-party aggregator, backfill only |
 | Prize breakdowns | PlayNow `gameBreakdown`; `wclc.com/<game>-prize-details.htm` | Pari-mutuel amounts; left blank where no source publishes them |
 | USA | data.ny.gov SODA API (Powerball, Mega Millions, Cash4Life, NY Lotto, Take 5, Pick 10, Numbers, Win 4) | Official open data; updates daily. Matrix changes handled in `calculate_stats.py` |
-| Europe | euro-millions.com, euro-jackpot.net, lotto.net, lottery.co.uk (history + cross-check); national-lottery.co.uk XML (latest EuroMillions + UK Lotto) | **Since 2026-10-01 every third-party site in this group times out from GitHub Actions runners** while working from other networks — likely an IP block. EuroMillions/UK Lotto still update via the official XML; **EuroJackpot has no reachable source** (issue #69). Most fragile group. |
+| EuroMillions | **Official, daily:** national-lottery.co.uk XML (Allwyn) + jogossantacasa.pt result page (Portugal's operator), latest draw each. Third-party history: euro-millions.com, lottery.co.uk | Officials cross-verify each other. Both are latest-draw only, so two missed runs in a row lose a draw until a `--backfill`. |
+| EuroJackpot | **Official, daily:** lotto.de JSON (German Lotto- und Totoblock, latest) + Veikkaus JSON (Finland, last 3 ISO weeks). Third-party history: euro-jackpot.net, lotto.net | lotto.de's `drawDate` is midnight Berlin time, i.e. the previous day in UTC. Always convert in Europe/Berlin. |
+| UK Lotto | **Official, daily:** national-lottery.co.uk XML. Third-party history: lottery.co.uk | Allwyn is the only official publisher, so there is **no independent official backup**; if its XML breaks, only the third-party archive remains. |
+
+The European scraper fails its run if any game has no working official
+source, or if more than one official source failed. Third-party failures only
+produce warnings: since 2026-10-01 these sites intermittently time out from
+GitHub Actions runners (some IP ranges), while working from other networks.
+In daily mode they get one 10-second try; `--backfill` uses full retries.
 
 ---
 

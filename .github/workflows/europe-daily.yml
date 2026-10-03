@@ -38,7 +38,11 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r scripts/requirements.txt
       - name: Fetch latest European draws -> Supabase (append-only)
-        run: python scripts/scrape_europe.py || echo "EU fetch failed; keeping last-good data in Supabase"
+        id: scrape
+        # Keeps last-good data on failure so the rest of the run still
+        # publishes and deploys — but the job is failed at the end (see the
+        # last step) so a broken source is seen the same day.
+        run: python scripts/scrape_europe.py
         continue-on-error: true
       - name: Recompute statistics (reads Supabase -> data/draws + data/stats)
         run: python scripts/calculate_stats.py
@@ -63,3 +67,13 @@ jobs:
         continue-on-error: true
 
       # Failure alerting: ci-failure-alert.yml. Staleness: freshness-watchdog.yml.
+
+      # Last step on purpose: everything above ran on last-good data, so failing
+      # here costs nothing but makes the run red, which ci-failure-alert.yml turns
+      # into an "[auto] CI failure" issue the same day instead of waiting for the
+      # freshness watchdog to notice stale data.
+      - name: Fail the run if the scrape failed
+        if: ${{ steps.scrape.outcome == 'failure' }}
+        run: |
+          echo "::error title=Scrape failed::The scrape step failed; last-good data was kept and published. See that step's log and annotations."
+          exit 1

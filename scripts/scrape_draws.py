@@ -45,6 +45,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import db  # noqa: E402 — shared Supabase data-layer helper (replaces sqlite3)
+from ci_report import annotate  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 CONFLICTS_LOG = ROOT / "data" / "conflicts.log"
@@ -471,6 +472,11 @@ def main() -> int:
     if failures:
         print(f"⚠ {len(failures)} game(s) failed: {', '.join(failures)} "
               f"(others still refreshed)", file=sys.stderr)
+        # Others were still refreshed, but fail the run so it is seen the same
+        # day — the workflow publishes last-good data and turns red at the end.
+        for slug in failures:
+            annotate("error", f"Draw scrape failed: {slug}", "See the scrape step log. Last-good data kept.")
+        return 1
     return 0
 
 

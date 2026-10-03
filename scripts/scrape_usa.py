@@ -32,6 +32,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import db  # noqa: E402 — shared Supabase data-layer helper (replaces sqlite3)
+from ci_report import annotate  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 UA = "Mozilla/5.0 (Lottizen data pipeline)"
@@ -181,6 +182,7 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--game")
     args = ap.parse_args()
+    failures = []
     for cfg in US:
         if args.game and cfg["slug"] != args.game:
             continue
@@ -189,6 +191,7 @@ def main() -> int:
             print(f"✓ {cfg['slug']}: {n} draws, {lo} → {hi} (data.ny.gov)")
         except Exception as e:  # noqa: BLE001
             print(f"✗ {cfg['slug']}: {e}", file=sys.stderr)
+            failures.append((cfg["slug"], f"{type(e).__name__}: {e}"))
     for cfg in US_DIGIT:
         if args.game and cfg["slug"] != args.game:
             continue
@@ -197,9 +200,15 @@ def main() -> int:
             print(f"✓ {cfg['slug']}: {n} digit draws, {lo} → {hi} (data.ny.gov)")
         except Exception as e:  # noqa: BLE001
             print(f"✗ {cfg['slug']}: {e}", file=sys.stderr)
+            failures.append((cfg["slug"], f"{type(e).__name__}: {e}"))
     if not args.game or args.game == "mega-millions":
         mega_millions_meta()
-    return 0
+    # One game failing never stops the others, but it does fail the run: the
+    # workflow keeps publishing last-good data and turns red at the end (see
+    # scripts/ci_report.py), so a broken source is seen the same day.
+    for slug, err in failures:
+        annotate("error", f"US scrape failed: {slug}", f"data.ny.gov — {err}. Last-good data kept.")
+    return 1 if failures else 0
 
 
 if __name__ == "__main__":

@@ -44,9 +44,12 @@ jobs:
           pip install -r scripts/requirements.txt
 
       - name: Scrape WCLC -> Supabase (keep last-good data on failure)
+        id: scrape
         # --live exits non-zero and leaves the data untouched on failure, so a
         # bad morning keeps yesterday's data in Supabase instead of wiping it.
-        run: python scripts/scrape_wclc_scratch.py --live || echo "scrape failed; keeping last-good data in Supabase"
+        # The job is failed at the end (last step) if this fails, after
+        # everything else has run on last-good data.
+        run: python scripts/scrape_wclc_scratch.py --live
         continue-on-error: true
 
       - name: Recompute rankings for all 5 provinces (reads Supabase -> data/rankings/*.json)
@@ -74,3 +77,13 @@ jobs:
 
       # Failure alerting is handled out-of-band by ci-failure-alert.yml
       # (on: workflow_run). Data staleness is caught by freshness-watchdog.yml.
+
+      # Last step on purpose: everything above ran on last-good data, so failing
+      # here costs nothing but makes the run red, which ci-failure-alert.yml turns
+      # into an "[auto] CI failure" issue the same day instead of waiting for the
+      # freshness watchdog to notice stale data.
+      - name: Fail the run if the scrape failed
+        if: ${{ steps.scrape.outcome == 'failure' }}
+        run: |
+          echo "::error title=Scrape failed::The scrape step failed; last-good data was kept and published. See that step's log and annotations."
+          exit 1
