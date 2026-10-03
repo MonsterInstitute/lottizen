@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { SITE, absUrl } from "@/lib/site";
 import { getAllRankings } from "@/lib/data";
+import { getPlayableSlugs } from "@/lib/draws";
 import { JsonLd } from "@/components/site/JsonLd";
 
 const RAPIDAPI_URL = "https://rapidapi.com/l3rundong/api/lottizen-data-api";
@@ -388,7 +389,10 @@ export default function ApiDocsPage() {
   // Computed at build time, not hardcoded — the count actually changes
   // daily as games launch/retire (this exact page previously said "50
   // Ontario (OLG) scratch tickets" long after the API grew to 5 provinces).
+  // Counts come from the data at build time, never hard-coded: a fixed number
+  // in this copy ("428 games") went stale as agencies retired games.
   const totalScratchGames = getAllRankings().reduce((s, r) => s + r.gameCount, 0);
+  const liveDrawGames = getPlayableSlugs().length;
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -445,7 +449,7 @@ export default function ApiDocsPage() {
               <article className="prose guide-prose">
                 <h2 id="overview">Overview</h2>
                 <p>
-                  The Lottizen Data API covers <strong>19 live draw-lottery games</strong> across
+                  The Lottizen Data API covers <strong>{liveDrawGames} live draw-lottery games</strong> across
                   Canada, the US and Europe — Lotto Max, Lotto 6/49, Powerball, Mega Millions,
                   EuroMillions, EuroJackpot, UK Lotto and more — plus{" "}
                   <strong>{totalScratchGames} scratch tickets across all 5 Canadian provinces</strong>
@@ -453,14 +457,16 @@ export default function ApiDocsPage() {
                   by remaining prize value. Canada is our deepest market: every major national and
                   regional draw game, draw history back to 1982, and remaining-prize tracking on
                   scratch tickets that no other lottery API offers, in even one province, let alone
-                  five. All data refreshes daily from official sources.
+                  five. Everything refreshes daily: scratch data comes from each agency&rsquo;s own
+                  published remaining-prize data, and draw results from the operators&rsquo; result
+                  feeds, with some older draw history taken from established results archives.
                 </p>
                 <p>Base URL for every endpoint below:</p>
                 <pre className="formula">{BASE}</pre>
                 <p>
                   Coverage today: <strong>Canada</strong> (national + OLG/BCLC/WCLC/ALC/Loto-Québec),
                   the <strong>US</strong> (multi-state + New York), and <strong>Europe</strong>{" "}
-                  (EuroMillions, EuroJackpot, UK Lotto). Japan is next — <strong>coming soon</strong>.
+                  (EuroMillions, EuroJackpot, UK Lotto).
                 </p>
 
                 <h2 id="authentication">Authentication</h2>
@@ -627,8 +633,10 @@ export default function ApiDocsPage() {
                 <span>
                   Lottizen is an independent data provider — not a lottery operator, and not
                   affiliated with OLG, BCLC, WCLC, ALC, Loto-Québec, MUSL, the NY Lottery,
-                  EuroMillions, EuroJackpot, or Allwyn/The National Lottery. Data is collected from
-                  public official sources; see <Link href="/methodology">methodology</Link>.
+                  EuroMillions, EuroJackpot, or Allwyn/The National Lottery. Scratch data comes from
+                  each agency&rsquo;s published remaining-prize data; draw results come from operator
+                  feeds and, for some older history, established results archives. See{" "}
+                  <Link href="/methodology">methodology</Link>.
                 </span>
               </div>
             </div>

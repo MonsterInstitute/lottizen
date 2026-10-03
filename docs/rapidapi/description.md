@@ -1,19 +1,25 @@
 # Lottizen Data API — RapidAPI listing copy
 
+This copy is pasted into RapidAPI's dashboard by hand, and nothing there is
+recomputed. So it **states no counts that change** (number of games, scratch
+tickets): those go stale silently. "40+ years" stays because it is a lower
+bound that only becomes more true. The live counts are on
+https://lottizen.com/api, which computes them at build time.
+
 ## Short description (RapidAPI "Short Description" field, ~200 chars)
 
-> Canada, US & Europe lottery data — winning numbers, 40+ years of draw
-> history, hot/cold number stats, and the only scratch-ticket remaining-prize
-> tracker covering all 5 Canadian provinces (428 games). Updated daily.
+> Canada, US & Europe lottery data: winning numbers, 40+ years of draw
+> history, number stats, and remaining prizes for every scratch ticket listed
+> by all 5 Canadian lottery agencies. Updated daily.
 
-(197 characters)
+(195 characters)
 
 Alternate, slightly punchier version if the field allows more:
 
 > Lottery data API for Canada, the US and Europe: winning numbers, 40+ years
 > of draw history, number statistics, and Canada's only scratch-ticket
-> remaining-prize tracker — all 5 provincial lottery agencies, 428 games.
-> Rebuilt daily from official sources.
+> remaining-prize tracker covering every game listed by all 5 provincial
+> lottery agencies. Rebuilt daily.
 
 ---
 
@@ -24,7 +30,9 @@ Alternate, slightly punchier version if the field allows more:
 
 A REST/JSON API for North American and European lottery data — built on the
 same pipeline that powers [lottizen.com](https://lottizen.com), rebuilt
-daily from official lottery-operator sources.
+daily. Scratch data comes from each lottery agency's own published
+remaining-prize data; draw results come from the operators' result feeds,
+with some older draw history taken from established results archives.
 
 ## What makes this different
 
@@ -33,8 +41,8 @@ list Canadian games as an afterthought with stale data. Lottizen tracks every
 major national and regional Canadian draw game — Lotto Max, Lotto 6/49,
 Daily Grand, Ontario 49, Lottario, MegaDice, Western Max, Western 6/49,
 BC/49 — alongside Powerball, Mega Millions, EuroMillions, EuroJackpot, UK
-Lotto and more. 19 live games across three regions today, with **Japan
-coverage coming soon.**
+Lotto and more, across three regions. The current game list is always at
+`GET /v1/games`.
 
 **40+ years of draw history.** Lotto 6/49 results go back to 1982. That
 depth powers real statistical analysis, not just "last week's numbers."
@@ -45,8 +53,8 @@ this number"), the most common partner numbers for any given ball, and
 aggregate breakdowns (odd/even split, high/low split, sum distribution,
 consecutive-number rate).
 
-**The only remaining-prize tracker covering all 5 Canadian provinces.** 428
-scratch/instant-win games across Ontario (OLG), British Columbia (BCLC),
+**The only remaining-prize tracker covering all 5 Canadian provinces.** Every
+scratch/instant-win game the agencies currently list, across Ontario (OLG), British Columbia (BCLC),
 Western Canada (WCLC — Alberta/Saskatchewan/Manitoba), Atlantic Canada (ALC —
 New Brunswick/Nova Scotia/PEI/Newfoundland & Labrador), and Quebec
 (Loto-Québec), each ranked by a transparent Value Score with the full
@@ -83,7 +91,6 @@ data.
 - 🇨🇦 **Canada** — national draw games + scratch tickets from OLG, BCLC, WCLC, ALC, Loto-Québec (all 5 provincial agencies)
 - 🇺🇸 **United States** — multi-state (Powerball, Mega Millions) + New York
 - 🇪🇺 **Europe** — EuroMillions, EuroJackpot, UK Lotto
-- 🇯🇵 **Japan** — coming soon
 
 ## Who this is for
 

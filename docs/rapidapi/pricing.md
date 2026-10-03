@@ -16,7 +16,7 @@ Pro and Ultra as additional paid plans).
   and conversion). 25/day is enough to explore every endpoint but not enough
   to build a production integration on — that's the nudge toward Pro.
 - **Pro at $15/mo, 5,000/day** (~208/hour) comfortably covers a single app
-  polling all 19 games + scratch rankings hourly, with headroom.
+  polling every game + scratch rankings hourly, with headroom.
 - **Ultra at $49/mo, 50,000/day** targets integrators serving their own
   users' traffic (a checker app with many end users) rather than a single
   internal poller.
