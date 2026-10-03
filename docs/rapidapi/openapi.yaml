@@ -4,11 +4,13 @@ info:
   version: "1.0.0"
   description: >-
     Lottery data for Canada, the US and Europe: winning numbers, 40+ years of
-    draw history, hot/cold/overdue number statistics, and the only Canadian
-    scratch-ticket remaining-prize tracker — 428 games across all 5 provincial
-    lottery agencies (Ontario/OLG, British Columbia/BCLC, Western Canada/WCLC,
-    Atlantic Canada/ALC, Quebec/Loto-Québec). Every dataset refreshes daily
-    from official lottery-operator sources. Japan coverage is coming soon.
+    draw history, number frequency statistics, and remaining-prize data for
+    every scratch game listed by all 5 Canadian provincial lottery agencies
+    (Ontario/OLG, British Columbia/BCLC, Western Canada/WCLC, Atlantic
+    Canada/ALC, Quebec/Loto-Québec). Refreshed daily from the operators'
+    published data; some draw-game history comes from established results
+    archives. Statistics are historical counts and do not predict draws;
+    scratch data describes unclaimed prizes, not odds.
   contact:
     name: Lottizen
     url: https://lottizen.com/api

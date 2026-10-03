@@ -13,6 +13,9 @@ export const SITE = {
   locale: "en_CA",
   twitter: "@lottizen",
   province: "Ontario",
+  // Shown on /press. lottizen.com had no MX records as of 2026-10-03, so this
+  // only receives mail once Cloudflare Email Routing (or similar) forwards it.
+  pressEmail: "press@lottizen.com",
 } as const;
 
 /**

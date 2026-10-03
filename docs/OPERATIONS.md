@@ -79,6 +79,14 @@ Key properties:
   Bing & co. only the URLs whose sitemap `lastmod` changed, once the new
   deploy is live. State lives in Supabase (`indexnow_urls`, `indexnow_batches`);
   the key file is `public/<key>.txt`. Google doesn't use IndexNow.
+- **Known core bottleneck: inbound links.** As of 2026-10-03 Bing Webmaster
+  ("not enough inbound links from high quality domains") and Google's indexing
+  behaviour (61 of ~2,000 URLs indexed, the rest "Discovered – currently not
+  indexed") both point at the same thing: few external sites link here. No code
+  change fixes that. The assets built for it are `/press`,
+  `/data/canada-lottery-almanac` and the API directory checklist in
+  `docs/BACKLINKS.md`. Track the effect in `reports/metrics-history.csv`
+  (GSC indexed, Bing indexed).
 - **Pages are static.** Vercel only serves; the only server code is the
   subscribe/auth/account/billing routes and the public `/api/v1` data API.
 
@@ -113,7 +121,7 @@ Key properties:
 | **RapidAPI** | Marketplace listing for the `/api/v1` data API. RapidAPI's proxy adds `X-RapidAPI-Proxy-Secret`; the site verifies it when `API_REQUIRE_RAPIDAPI_SECRET=true`. Listing copy and OpenAPI spec: `docs/rapidapi/`. | rapidapi.com provider dashboard |
 | **Cloudflare** | DNS for `lottizen.com` (nameservers `noor`/`ram.ns.cloudflare.com`). | dash.cloudflare.com |
 | **Registrars** | `lottizen.ca`: registered 2026-05-01, expires **2027-05-01**; managed at Spaceship, whose DNS 301-forwards the whole domain to `https://lottizen.com` (nameservers moved from Cloudflare to `launch1/2.spaceship.net` on 2026-10-03). Until then it served an unrelated early Lovable prototype; `lottizen.lovable.app` still redirects to `lottizen.ca`, so unpublish that Lovable project. `lottizen.com`: registrar not recorded here — check before transfer. | namecheap.com |
-| **Bing Webmaster Tools** | Bing indexing; receives IndexNow pings. The weekly report reads Bing's indexed count when `BING_WEBMASTER_API_KEY` is set (**not set yet**: add the site in Bing Webmaster Tools, import from GSC, then Settings → API access). | bing.com/webmasters |
+| **Bing Webmaster Tools** | Bing indexing; receives IndexNow pings. The weekly report reads Bing's indexed count through the API (`BING_WEBMASTER_API_KEY`, set 2026-10-03; Settings → API access). | bing.com/webmasters |
 | **Google Search Console** | Indexing and search performance. The API integration (`GSC_SERVICE_ACCOUNT_JSON`) is **not configured yet**, so the weekly GSC numbers are blank until it is. | search.google.com/search-console |
 
 ---
@@ -149,7 +157,7 @@ Values are never in the repo. "Where" is where the value must be set.
 | `STRIPE_SECRET_KEY` | **Live** key: billing-health live config check (read-only calls) and weekly MRR/Plus metrics. The owner chose the full key over a restricted one. |
 | `STRIPE_TEST_SECRET_KEY` | billing-health test-mode subscribe/cancel round trip |
 | `STRIPE_WEBHOOK_SECRET_TEST` | Present but not referenced by any workflow (the site uses its Vercel copy) |
-| `BING_WEBMASTER_API_KEY` | **Not set yet.** Bing Webmaster API key; enables the "Bing indexed" metric. Optional. |
+| `BING_WEBMASTER_API_KEY` | Bing Webmaster API key; the weekly "Bing indexed" metric |
 | `GSC_SERVICE_ACCOUNT_JSON` | **Not set yet.** Service-account JSON (raw or base64) with read access to the GSC property. Enables GSC trend + metrics. |
 
 Repository **variable** (optional): `SITE_URL` — origin the monitors check; defaults to `https://lottizen.com`.

@@ -74,6 +74,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   // ---- Static / editorial (no real per-page change signal — omit lastmod) ----
   push("/methodology");
+  push("/press", scratchOverallLatest); // quotes live scratch figures
+  push("/data/canada-lottery-almanac", scratchOverallLatest);
   push("/responsible-play");
   push("/guides");
   push("/api");
