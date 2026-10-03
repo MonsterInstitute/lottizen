@@ -89,14 +89,14 @@ Key properties:
 
 | Service | What it does here | Where it is managed |
 |---|---|---|
-| **Vercel** | Hosts and builds the site. Team `publicvision`, project `lottizen`. Production domains `lottizen.com`, `www.lottizen.com`, `lottizen.vercel.app`. Builds are triggered by the deploy hook (and by pushes to `main`). | vercel.com → publicvision → lottizen |
+| **Vercel** | Hosts and builds the site. Team `publicvision`, project `lottizen`. Production domain `lottizen.com`; `www.lottizen.com` 308-redirects to it (Project → Settings → Domains); `lottizen.vercel.app` is the default alias. Builds are triggered by the deploy hook (and by pushes to `main`). | vercel.com → publicvision → lottizen |
 | **Supabase** | Postgres: all scraped data, subscribers, sessions, subscriptions, tickets, email log, published `site_json`. Schema in `supabase/migrations/` (apply with `scripts/apply_sql.py`, which uses the Management API). | supabase.com dashboard (project ref is in the `SUPABASE_URL` secret) |
 | **GitHub** | Code (`MonsterInstitute/lottizen`, **public**), all scheduled jobs (Actions), monitoring issues. | github.com/MonsterInstitute/lottizen → Settings → Secrets / Actions |
 | **Resend** | Transactional + bulk email. Sending domain `mail.lottizen.com` (SPF/DKIM/MX live on `send.mail.lottizen.com`; DMARC not set). From address `newsletter@mail.lottizen.com`. | resend.com → Domains / Logs |
 | **Stripe** | Lottizen Plus subscriptions (monthly + annual). Checkout + Billing Portal + webhook at `https://lottizen.com/api/billing/webhook`. A second **test-mode** webhook endpoint points at the same URL for `billing-health.yml`. | dashboard.stripe.com → Products, Webhooks, Subscriptions |
 | **RapidAPI** | Marketplace listing for the `/api/v1` data API. RapidAPI's proxy adds `X-RapidAPI-Proxy-Secret`; the site verifies it when `API_REQUIRE_RAPIDAPI_SECRET=true`. Listing copy and OpenAPI spec: `docs/rapidapi/`. | rapidapi.com provider dashboard |
-| **Cloudflare** | DNS for `lottizen.com` and `lottizen.ca` (nameservers `noor`/`ram.ns.cloudflare.com`). | dash.cloudflare.com |
-| **Registrars** | `lottizen.ca`: Namecheap, registered 2026-05-01, expires **2027-05-01**. `lottizen.com`: registrar not recorded here — check before transfer. | namecheap.com |
+| **Cloudflare** | DNS for `lottizen.com` (nameservers `noor`/`ram.ns.cloudflare.com`). | dash.cloudflare.com |
+| **Registrars** | `lottizen.ca`: registered 2026-05-01, expires **2027-05-01**; managed at Spaceship, whose DNS 301-forwards the whole domain to `https://lottizen.com` (nameservers moved from Cloudflare to `launch1/2.spaceship.net` on 2026-10-03). Until then it served an unrelated early Lovable prototype; `lottizen.lovable.app` still redirects to `lottizen.ca`, so unpublish that Lovable project. `lottizen.com`: registrar not recorded here — check before transfer. | namecheap.com |
 | **Google Search Console** | Indexing and search performance. The API integration (`GSC_SERVICE_ACCOUNT_JSON`) is **not configured yet**, so the weekly GSC numbers are blank until it is. | search.google.com/search-console |
 
 ---
@@ -366,7 +366,7 @@ No Canadian agency publishes total tickets printed, so the site never shows a
 | Ontario 49 / Lottario / MegaDice history | `ca.lottonumbers.com` | Third-party aggregator, backfill only |
 | Prize breakdowns | PlayNow `gameBreakdown`; `wclc.com/<game>-prize-details.htm` | Pari-mutuel amounts; left blank where no source publishes them |
 | USA | data.ny.gov SODA API (Powerball, Mega Millions, Cash4Life, NY Lotto, Take 5, Pick 10, Numbers, Win 4) | Official open data; updates daily. Matrix changes handled in `calculate_stats.py` |
-| Europe | euro-millions.com, euro-jackpot.net, lottery.co.uk (history + cross-check); national-lottery.co.uk XML (latest) | Third-party HTML for history: most fragile group |
+| Europe | euro-millions.com, euro-jackpot.net, lotto.net, lottery.co.uk (history + cross-check); national-lottery.co.uk XML (latest EuroMillions + UK Lotto) | **Since 2026-10-01 every third-party site in this group times out from GitHub Actions runners** while working from other networks — likely an IP block. EuroMillions/UK Lotto still update via the official XML; **EuroJackpot has no reachable source** (issue #69). Most fragile group. |
 
 ---
 
