@@ -2,7 +2,9 @@
 """build_health_report.py — assembles reports/health-weekly.md from the
 outputs of this week's health checks: data freshness, deploy status, SEO
 health (scripts/seo_health.py), and billing health
-(scripts/billing_health.py). Run at the end of seo-health.yml (the weekly-
+(scripts/billing_health.py), and the business-metrics trend
+(reports/metrics-history.csv). Also archives the report to
+reports/weekly/<date>.md. Run at the end of seo-health.yml (the weekly-
 cadence workflow) after downloading billing-health's latest artifact.
 
 Every JSON input is optional — a missing file renders as "not available
@@ -180,6 +182,44 @@ def section_email_delivery(email: dict | None, email_problems: list | None) -> s
     return "\n".join(lines) + "\n"
 
 
+def section_metrics() -> str:
+    """Trend table from reports/metrics-history.csv (scripts/business_metrics.py).
+    Blank cells were not measured that week — shown as "—", never as zero."""
+    import csv
+    path = ROOT / "reports" / "metrics-history.csv"
+    if not path.exists():
+        return "## Business metrics\n\nNo metrics history yet.\n"
+    with path.open(newline="") as f:
+        rows = list(csv.DictReader(f))[-12:]
+    cols = [
+        ("date", "Week"),
+        ("subscribers_confirmed", "Subscribers"),
+        ("plus_active_stripe", "Plus (Stripe)"),
+        ("mrr", "MRR"),
+        ("gsc_pages_with_impr_28d", "GSC pages w/ impr. 28d"),
+        ("gsc_impressions_28d", "GSC impr. 28d"),
+        ("gsc_clicks_28d", "GSC clicks 28d"),
+        ("gsc_indexed_manual", "Indexed (manual)"),
+        ("api_subscribers_manual", "API subs (manual)"),
+    ]
+    lines = [
+        "## Business metrics\n",
+        "Last 12 weeks from `reports/metrics-history.csv` (full, append-only history there). "
+        "\"—\" = not measured that week, never zero.\n",
+        "| " + " | ".join(h for _, h in cols) + " |",
+        "|" + "---|" * len(cols),
+    ]
+    for r in rows:
+        cells = []
+        for k, _ in cols:
+            v = (r.get(k) or "").strip()
+            if k == "mrr" and v:
+                v = f"{v} {r.get('mrr_currency', '')}".strip()
+            cells.append(v or "—")
+        lines.append("| " + " | ".join(cells) + " |")
+    return "\n".join(lines) + "\n"
+
+
 def section_watch() -> str:
     return (
         "## Watching: number-page content similarity\n\n"
@@ -215,6 +255,7 @@ def main() -> int:
         section_seo(seo, seo_problems),
         section_billing(billing, billing_problems),
         section_email_delivery(email, email_problems),
+        section_metrics(),
         section_watch(),
     ]
     report = "\n".join(parts)
@@ -223,6 +264,12 @@ def main() -> int:
     out_path.parent.mkdir(exist_ok=True)
     out_path.write_text(report)
     print(f"wrote {out_path}")
+    # health-weekly.md is always "this week"; each week is also kept as its own
+    # file so the history is readable without git archaeology.
+    archive = ROOT / "reports" / "weekly" / f"{now[:10]}.md"
+    archive.parent.mkdir(exist_ok=True)
+    archive.write_text(report)
+    print(f"wrote {archive}")
     return 0
 
 

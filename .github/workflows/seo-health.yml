@@ -57,7 +57,7 @@ jobs:
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install supabase certifi google-api-python-client google-auth
+          pip install supabase certifi google-api-python-client google-auth stripe
 
       - name: Run SEO health checks
         id: seo
@@ -102,14 +102,22 @@ jobs:
             echo "no successful email-delivery-watchdog run found yet — report will note it's unavailable"
           fi
 
+      # Append-only weekly row in reports/metrics-history.csv: subscribers,
+      # Plus, MRR, GSC trend. A missed week can't be backfilled — none of the
+      # sources keep their own history — so this runs even if checks failed.
+      - name: Record business metrics
+        env:
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+        run: python scripts/business_metrics.py
+
       - name: Build reports/health-weekly.md
         run: python scripts/build_health_report.py
 
-      - name: Commit the weekly report
+      - name: Commit the weekly report and metrics
         run: |
           git config user.name "lottizen-bot"
           git config user.email "bot@lottizen.com"
-          git add reports/health-weekly.md
+          git add reports/health-weekly.md reports/weekly reports/metrics-history.csv
           git diff --staged --quiet && echo "no change" && exit 0
           git commit -m "Weekly health report — $(date -u +%Y-%m-%d)"
           git push

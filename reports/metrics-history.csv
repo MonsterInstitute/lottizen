@@ -1,0 +1,2 @@
+date,subscribers_confirmed,subscribers_total,plus_db,plus_active_stripe,plus_trialing_stripe,mrr,mrr_currency,gsc_pages_with_impr_28d,gsc_impressions_28d,gsc_clicks_28d,gsc_indexed_manual,api_subscribers_manual,notes
+2026-10-03,4,4,0,,,,,,,,,,"First row, seeded locally: Stripe and GSC not measured. Owner-reported from the GSC UI: 1,965 pages ""Discovered – currently not indexed""."

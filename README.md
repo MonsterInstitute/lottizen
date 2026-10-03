@@ -1,75 +1,97 @@
-# Lottizen — Smarter Numbers. Real Value.
+# Lottizen
 
-Independent value rankings for Ontario scratch (instant) tickets. Lottizen
-reads OLG's public remaining-prize data, computes a **Value Score** for every
-game, and tells you which scratch ticket is worth buying right now.
+**[lottizen.com](https://lottizen.com)** is an independent lottery data site
+for Canada, the US and Europe:
 
-Built with **Next.js 14 (App Router) + TypeScript + Tailwind + shadcn-ready
-tokens**. Every page is statically generated (SSG) from build-time data for SEO.
-The visual system (colors, fonts, brutalist offset-shadow cards, the "After
-Hours" dark mode, the interactive scratch-ticket hero) is ported 1:1 from the
-original Lottizen v5 design.
+- **Scratch-ticket value tracker** for all five Canadian lottery agencies
+  (OLG, BCLC, WCLC, ALC, Loto-Québec). It ranks every active instant game by
+  how much of its prize money is still unclaimed, refreshed daily from each
+  agency's published remaining-prize data.
+- **Draw-game results and statistics.** Winning numbers, full draw history,
+  number frequencies and a number generator for the major draw games: Lotto Max,
+  6/49, Daily Grand, regional games, Powerball, Mega Millions, EuroMillions,
+  EuroJackpot, UK Lotto and others.
+- **Accounts and Lottizen Plus** (paid, via Stripe): draw-result emails,
+  scratch alerts, a ticket wallet with claim-deadline reminders, and a weekly
+  digest.
+- **A public data API** (`/api/v1`), listed on RapidAPI.
 
-## Data pipeline
+The site is careful about what the data can and cannot say. Remaining-prize
+analytics describe **unclaimed value, not odds**. No number-selection feature
+claims to improve anyone's chance of winning. No agency publishes total tickets
+printed, so the site never shows an invented "tickets remaining" count. These
+rules are in [`CLAUDE.md`](CLAUDE.md) and on `/methodology`.
+
+## Data sources
+
+All data comes from public, official or long-standing sources: each agency's
+own remaining-prize feeds and pages, WCLC and OLG winning-number feeds, BCLC
+PlayNow, New York State Open Data (US games), and established European results
+archives. The per-source list with URLs, formats and known weak points is in
+[`docs/OPERATIONS.md` §7](docs/OPERATIONS.md#7-data-sources). Lottizen is not
+affiliated with any lottery operator.
+
+## How it runs
 
 ```
-scripts/scrape_olg.py       # OLG instant games -> data/lottizen.db (SQLite)
-scripts/calculate_rankings.py  # value score -> data/rankings.json
+public sources ──► GitHub Actions scrapers (daily, one workflow per source)
+                     │
+                     ▼
+                Supabase Postgres  ──► rankings / statistics ──► build + audit gate
+                                                                     │
+                                       published JSON (site_json) ◄──┘
+                                                │
+                                Vercel deploy hook ──► static Next.js site (≈2,000 pages)
 ```
 
-- **scrape_olg.py** — probes OLG for a public JSON feed; falls back to a
-  Playwright render of `/en/winners/unclaimed-instant-prizes.html` (the data is
-  Vue-rendered behind Akamai) and sniffs the XHR. `--sample` seeds a clearly
-  flagged demo dataset so the build always has data.
-- **calculate_rankings.py** — computes the Value Score (see `/methodology`) and
-  writes `data/rankings.json`, which the Next.js build reads at compile time.
+- **Next.js 14 (App Router), TypeScript, Tailwind.** Pages are statically
+  generated from data pulled from Supabase at build time.
+- **Python scrapers and calculators** in `scripts/`, run on schedule by
+  `.github/workflows/`. A failed scrape keeps the last good data live.
+- **Deploy gate.** Every data refresh builds the site and runs
+  `scripts/audit_site.py` before publishing. Any critical finding blocks the deploy.
+- **Self-monitoring.** Separate watchdog workflows check data freshness, the
+  live deployment, billing, email delivery and SEO health. They open, update
+  and close GitHub issues on their own. Those issues are titled `[auto] …` and
+  labelled `auto-monitor`. Issues without that prefix are real product work.
+- **Weekly report** in [`reports/health-weekly.md`](reports/health-weekly.md),
+  archived per week in `reports/weekly/`. Long-run business metrics
+  (subscribers, Plus, MRR, search) are in
+  [`reports/metrics-history.csv`](reports/metrics-history.csv).
 
-```bash
-npm run data:refresh   # scrape + rank
-npm run data:scrape -- --sample   # reseed demo data
-```
-
-Live scraping needs Playwright:
-
-```bash
-pip install -r scripts/requirements.txt
-python -m playwright install chromium
-python scripts/scrape_olg.py --live
-```
+Day-to-day operation, accounts, secrets, schedules and incident runbooks:
+**[`docs/OPERATIONS.md`](docs/OPERATIONS.md)**.
 
 ## Develop
 
 ```bash
 npm install
-npm run dev      # http://localhost:3000
-npm run build    # static export to ./out
+# create .env.local with SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY
+npm run dev                         # prefetches published data from Supabase, then next dev
+npm run build                       # production build (same prefetch runs as prebuild)
 ```
 
-## Routes
+Data scripts (Python 3.12; `pip install -r scripts/requirements.txt`):
 
-| Route              | Description                                     |
-| ------------------ | ----------------------------------------------- |
-| `/`                | Today's full value ranking + scratch-ticket hero |
-| `/scratch/[slug]`  | Per-game detail: prize breakdown, odds, score    |
-| `/price/[price]`   | Games filtered by ticket price ($1–$50)          |
-| `/methodology`     | How the Value Score is computed                  |
-| `/responsible-play`| PlaySmart / ConnexOntario / self-exclusion       |
+```bash
+npm run data:draws     # Canadian draws  → stats → publish
+npm run data:usa       # US draws        → stats → publish
+npm run data:scratch   # OLG scratch     → rankings → publish
+python scripts/audit_site.py --freshness   # what is stale right now
+```
 
-SEO: per-page `metadata`, `sitemap.xml`, `robots.txt`, and JSON-LD
-(Organization, ItemList, Product, BreadcrumbList, FAQPage).
+The canonical origin is `https://lottizen.com` (`lib/site.ts`). Override it
+with `NEXT_PUBLIC_SITE_URL` only for staging.
 
-## Automation
+## Layout
 
-`.github/workflows/daily.yml` runs ~6 AM ET: scrape → recompute → commit
-`data/rankings.json` → push. Vercel's Git integration redeploys on push (or set
-a `VERCEL_DEPLOY_HOOK` secret to trigger explicitly). If a scrape fails, the
-last-good committed data is kept.
-
-## Notes
-
-- `output: "export"` — fully static; deploy the `out/` directory anywhere.
-- Set `NEXT_PUBLIC_SITE_URL` for canonical/OG/sitemap URLs (default
-  `https://lottizen.ca`).
-- Ad slots are on-brand placeholders (`components/site/AdSlot.tsx`); drop in
-  AdSense markup + loader when ready.
-- Independent tool, **not affiliated with OLG**. 19+. Entertainment only.
+| Path | Contents |
+|---|---|
+| `app/` | Routes: `/[country]` hubs, `/scratch`, `/statistics`, `/generator`, `/plus`, `/dashboard`, `/api/*` |
+| `components/`, `lib/` | UI and shared server logic (Supabase, Stripe, email, analytics) |
+| `config/games.ts` | Every game the site knows about: matrix, schedule, sources |
+| `scripts/` | Scrapers, calculators, publishers, email senders, health checks |
+| `supabase/migrations/` | Database schema, in order |
+| `.github/workflows/` | All scheduled jobs and monitors |
+| `docs/` | Operations handbook, RapidAPI listing material |
+| `reports/` | Weekly health reports and the metrics history |
