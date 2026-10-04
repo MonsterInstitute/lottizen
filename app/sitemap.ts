@@ -79,6 +79,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   push("/responsible-play");
   push("/guides");
   push("/api");
+  push("/embed");
   push("/plus");
   push("/terms");
   push("/refund-policy");

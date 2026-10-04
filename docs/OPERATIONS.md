@@ -158,6 +158,10 @@ Values are never in the repo. "Where" is where the value must be set.
 | `STRIPE_TEST_SECRET_KEY` | billing-health test-mode subscribe/cancel round trip |
 | `STRIPE_WEBHOOK_SECRET_TEST` | Present but not referenced by any workflow (the site uses its Vercel copy) |
 | `BING_WEBMASTER_API_KEY` | Bing Webmaster API key; the weekly "Bing indexed" metric |
+| `OUTREACH_EMAIL` | Outreach + press radar: the one inbox their digests and pitch packages go to |
+| `ANTHROPIC_API_KEY` | **Optional.** Outreach radar reply drafts (Claude); without it, fixed templates are used |
+| `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET` | **Optional.** Reddit "script" app for the outreach radar; without it Reddit is read via RSS, which is rate-limited and has no vote/comment counts |
+| `X_BEARER_TOKEN` | **Optional.** X API recent search (paid tier); without it X is skipped |
 | `GSC_SERVICE_ACCOUNT_JSON` | **Not set yet.** Service-account JSON (raw or base64) with read access to the GSC property. Enables GSC trend + metrics. |
 
 Repository **variable** (optional): `SITE_URL` — origin the monitors check; defaults to `https://lottizen.com`.
@@ -191,6 +195,8 @@ depends on exact timing; the watchdog tolerates it.
 | `30 12 * * *` | Billing health | Stripe round trip, live config, Plus gating | Issue `[auto] Billing health: …` |
 | `0 14 * * *` | Data freshness watchdog | Freshness of every game/agency + deployed site; re-dispatch; issues | If this itself doesn't run, nothing alerts — see §6.6 |
 | `15 14 * * *` | Email delivery watchdog | Were expected draw/digest emails queued | Issue `[auto] Email delivery: …` |
+| `20 0,4,8,16,20 * * *` + `0 12 * * *` | Outreach radar | Scan Reddit / Google News / HN / X for threads our data answers; store with reply drafts (`outreach_opportunities`); the 12:00 run emails one digest to `OUTREACH_EMAIL`, only if something scores ≥ threshold (`config/outreach.toml`) | Missed scan: next run picks up the last 72 h. Missed digest: next day's includes it |
+| `0 13 * * *` | Press radar | Jackpot thresholds + $1M+ unclaimed prizes (OLG, WCLC lists) within 60 days of expiry → one pitch package per event (`press_events`) | Unsent packages retry next run |
 | `0 13 * * 1` | SEO health watchdog | Crawl checks, business metrics, **commits the weekly report** | Report/metrics week missing — re-run manually the same week |
 
 Every workflow also has `workflow_dispatch`, so any of them can be run from

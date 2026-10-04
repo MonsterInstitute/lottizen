@@ -136,6 +136,11 @@ export default function PressPage() {
             page you used, e.g. &ldquo;Source: Lottizen (lottizen.com), compiled from OLG, BCLC, WCLC, ALC and
             Loto-Québec data&rdquo;. For bulk or repeated access, use the <Link href="/api">Lottizen API</Link>.
           </p>
+          <p>
+            Running a live blog or a results page? <Link href="/embed">Free widgets</Link> show the latest numbers,
+            the current jackpot or a province&rsquo;s top scratch tickets by prize money left, updated daily. One
+            iframe, no JavaScript.
+          </p>
 
           <h2>Contact</h2>
           <p>

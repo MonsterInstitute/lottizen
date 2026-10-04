@@ -1,0 +1,68 @@
+name: Outreach radar
+
+# Finds conversations and news where Lottizen's data answers a real question,
+# and prepares replies for the owner to post by hand (scripts/outreach_radar.py).
+# Nothing is posted anywhere; the only email goes to OUTREACH_EMAIL.
+#
+# Collects every 4 hours so busy subreddits' newest-100 feeds are sampled
+# often enough; the 12:00 UTC run (~8am ET) also sends the daily digest. The
+# digest is skipped on days with nothing above the score threshold, and the
+# script itself refuses a second digest on the same Toronto day.
+on:
+  schedule:
+    - cron: "20 0,4,8,16,20 * * *"
+    - cron: "0 12 * * *"
+  workflow_dispatch:
+    inputs:
+      digest:
+        description: "Also send today's digest"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: outreach-radar
+  cancel-in-progress: false
+
+jobs:
+  radar:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      OUTREACH_EMAIL: ${{ secrets.OUTREACH_EMAIL }}
+      # Optional. Without these the radar still runs, with less:
+      #   ANTHROPIC_API_KEY  — reply drafts written per post (else fixed templates)
+      #   REDDIT_CLIENT_ID / REDDIT_CLIENT_SECRET — Reddit OAuth (else rate-limited RSS, no vote counts)
+      #   X_BEARER_TOKEN     — X recent search (paid API tier; else X is skipped)
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
+      REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
+      X_BEARER_TOKEN: ${{ secrets.X_BEARER_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # Figures in drafts come from the same JSON the site is built from.
+      - name: Prefetch published site data
+        run: node scripts/prefetch_supabase.mjs
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: python -m pip install --upgrade pip supabase certifi anthropic
+
+      - name: Collect opportunities
+        run: python scripts/outreach_radar.py collect
+
+      - name: Send daily digest
+        if: github.event.schedule == '0 12 * * *' || inputs.digest
+        run: python scripts/outreach_radar.py digest

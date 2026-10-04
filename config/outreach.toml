@@ -1,0 +1,135 @@
+# Outreach radar settings: scripts/outreach_radar.py and scripts/press_radar.py.
+# Edit freely; both scripts read this file on every run, nothing is cached.
+#
+# Matching is case-insensitive substring matching on title + body. A post is
+# assigned the FIRST topic (in file order) whose keywords match.
+
+[reddit]
+subreddits = [
+  "lottery", "ontario", "vancouver", "alberta", "saskatchewan",
+  "newbrunswickcanada", "PersonalFinanceCanada", "canada",
+]
+# Reddit only searches posts. Comments come from each subreddit's newest-100
+# comment feed, so busy subs are sampled, not fully covered.
+scan_comments = true
+
+[news]
+# Google News RSS queries, Canada edition. "when:2d" keeps each run to recent items.
+queries = [
+  'lottery unclaimed prize (Canada OR Ontario OR OLG OR BCLC OR WCLC OR "Loto-Québec" OR "Atlantic Lottery") when:2d',
+  '"Lotto Max" jackpot when:2d',
+  '"Lotto 6/49" jackpot when:2d',
+  '"scratch ticket" OR "scratch tickets" (Canada OR Ontario OR OLG OR BCLC) when:2d',
+  'lottery spending survey Canada when:7d',
+  'lottery winner claim deadline Canada when:2d',
+]
+# Articles must mention at least one of these to count as Canadian lottery news.
+must_mention_any = [
+  "canada", "canadian", "ontario", "olg", "bclc", "wclc", "loto-québec", "loto-quebec",
+  "atlantic lottery", "alberta", "saskatchewan", "manitoba", "british columbia",
+  "quebec", "nova scotia", "new brunswick",
+]
+# "Lotto Max" and "6/49" also exist in South Africa and the Philippines.
+must_not_mention = ["pcso", "philippine", "swertres", "south africa", "ithuba", "lotto plus"]
+# Results round-ups and "who won" stories score as routine: their reporters
+# still go into the contacts list, but they don't reach the email by themselves.
+routine_patterns = [
+  "winning numbers", "results for", "lottery results", "draw results", "are out", "where all the big winners",
+  "winners across", "produced a new millionaire", "produces many winners", "jackpot grows", "jackpot reaches",
+  "jackpot rolls", "estimated jackpot", "maxmillions", "million jackpot",
+]
+# Fetch each article page to read its byline (JSON-LD / meta author).
+fetch_bylines = true
+
+[hn]
+queries = ["lottery", "lotto", "scratch ticket"]
+# HN items must also mention one of these (keeps out "lottery" as a metaphor).
+must_mention_any = ["data", "api", "dataset", "statistic", "odds", "open data", "scrap", "draw history", "probability"]
+
+[x]
+# Needs X API v2 recent search (paid tier). Without X_BEARER_TOKEN the X
+# source is skipped and the run log says so.
+query = '(lottery OR lotto) (data OR API OR dataset OR statistics) lang:en -is:retweet'
+
+# --------------------------------------------------------------- topics
+# `page` / `data` say which of our pages and figures answer the topic.
+# data keys are computed live in scripts/outreach_common.py (facts_for()).
+
+[[topics]]
+key = "unclaimed"
+keywords = [
+  "unclaimed prize", "unclaimed lottery", "unclaimed ticket", "expired lottery ticket",
+  "expired ticket", "claim deadline", "how long to claim", "lost lottery ticket",
+  "forgot to claim", "lottery ticket expire",
+]
+data = ["claim_deadlines", "unclaimed_list"]
+
+[[topics]]
+key = "scratch"
+keywords = [
+  "scratch ticket odds", "best scratch off", "best scratch ticket", "which scratch ticket",
+  "scratch ticket", "scratch tickets", "scratch off", "scratchers", "instant ticket",
+  "remaining prizes", "top prizes left",
+]
+data = ["scratch_top"]
+
+[[topics]]
+key = "numbers"
+keywords = [
+  "lotto max numbers", "6/49 numbers", "649 numbers", "hot cold numbers", "hot and cold numbers",
+  "most common lotto numbers", "most drawn numbers", "lottery statistics", "lotto statistics",
+  "lucky numbers", "number frequency", "overdue numbers",
+]
+data = ["number_frequency"]
+
+[[topics]]
+key = "jackpot"
+keywords = ["lotto max jackpot", "6/49 jackpot", "649 jackpot", "max millions", "jackpot rolls"]
+data = ["jackpot"]
+
+[[topics]]
+key = "data"
+keywords = ["lottery data", "lottery api", "lotto api", "lottery dataset", "open data", "draw history"]
+data = ["api"]
+
+# --------------------------------------------------------------- scoring
+# value_score = source base + engagement bonus (+ question bonus).
+# Media coverage outranks active questions, which outrank plain discussion.
+[scoring]
+base_news = 70           # news on our topics: unclaimed prizes, scratch tickets, spending, data
+base_news_routine = 25   # results round-ups (see news.routine_patterns)
+base_question = 35        # Reddit/HN post that asks something
+base_discussion = 15
+base_comment = 20         # a Reddit comment that asks something
+engagement_cap = 30       # max points from comments/upvotes
+question_markers = [
+  "?", "which ", "what ", "how ", "should i", "is it worth", "anyone know", "does anyone",
+  "recommend", "best ", "help",
+]
+# Only opportunities at or above this go into the digest email.
+email_threshold = 45
+# Most items per digest (highest score first).
+max_per_email = 12
+# Ignore posts older than this.
+max_age_hours = 72
+
+# --------------------------------------------------------------- press radar
+[press]
+# Fire a jackpot pitch when the next advertised jackpot reaches these amounts
+# (in the game's own currency). Games with no published estimate in our data
+# never fire; press_radar.py says so in its log.
+jackpot_thresholds = { "lotto-max" = 60_000_000, "lotto-6-49" = 30_000_000, "powerball" = 500_000_000, "euromillions" = 150_000_000 }
+unclaimed_min_amount = 1_000_000
+unclaimed_days_ahead = 60
+
+# Unclaimed prizes from agencies whose lists we don't scrape yet (BCLC, WCLC,
+# ALC, Loto-Québec). Add one when a news story or agency release names it;
+# press_radar.py treats these exactly like scraped OLG rows.
+# [[press.manual_unclaimed]]
+# agency = "BCLC"
+# game = "Lotto 6/49"
+# draw_date = "2025-12-20"
+# amount = 2000000
+# location = "Surrey"
+# expires = "2026-12-20"
+# source_url = "https://..."

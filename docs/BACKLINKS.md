@@ -14,17 +14,22 @@ Checklist for listing the Lottizen API in developer directories. Researched
 - Wording: results, statistics, remaining prizes. Never "better odds",
   "predictions" or "win more" (`CLAUDE.md`).
 
-## Submit to
+## Tracker
 
-| # | Directory | How | Notes |
-|---|---|---|---|
-| 1 | [public-apis/public-apis](https://github.com/public-apis/public-apis) | GitHub PR | Biggest reach; large backlog |
-| 2 | [marcelscruz/public-apis](https://github.com/marcelscruz/public-apis) | GitHub PR | Active; automated URL check |
-| 3 | [publicapis.io](https://publicapis.io/submit) | Form | Free listing takes 4–5 weeks; $99 for 72 h |
-| 4 | [APIs.io](https://apis.io/add/) | Form | Human-reviewed; mention the spec URL |
-| 5 | [APIs.guru](https://apis.guru/add-api) | Form | Needs the hosted spec URL (above) |
-| 6 | Postman API Network | Public workspace | Optional; its collection link also fits public-apis' "Call this API" column |
-| 7 | [APIList.fun](https://apilist.fun/new) | Form | Footer says © 2019; may be unmaintained |
+Update **Status** and **Submitted** by hand after each submission. Status is
+one of `To submit` → `Submitted` → `Listed` (or `Rejected`, with the reason
+in Notes). Dates are YYYY-MM-DD. When a listing goes live, put its URL in
+Notes so it can be re-checked.
+
+| # | Directory | Submit at | Materials needed | Status | Submitted | Notes |
+|---|---|---|---|---|---|---|
+| 1 | public-apis/public-apis | [GitHub PR](https://github.com/public-apis/public-apis) (target `master`) | One README table row (below), PR title `Add Lottizen API`, commit `Add Lottizen API to Open Data` | To submit | | Biggest reach; large backlog |
+| 2 | marcelscruz/public-apis | [GitHub PR](https://github.com/marcelscruz/public-apis) (target `main`) | One README table row (below), PR title `Add Lottizen API` | To submit | | Active; automated URL check |
+| 3 | publicapis.io | [publicapis.io/submit](https://publicapis.io/submit) | Name, docs URL, category, 1–2 line description, contact email | To submit | | Free listing takes 4–5 weeks; $99 for 72 h |
+| 4 | APIs.io | [apis.io/add](https://apis.io/add/) | Name, email; website, docs URL; spec URL in notes | To submit | | Human-reviewed |
+| 5 | APIs.guru | [apis.guru/add-api](https://apis.guru/add-api) | Spec URL `https://lottizen.com/openapi.yaml`, OpenAPI 3, "official", category `open_data` | To submit | | They poll the spec URL; keep it stable |
+| 6 | Postman API Network | [postman.com](https://www.postman.com/) public workspace | Public team profile, public workspace, collection with descriptions | To submit | | Optional; its link also fits public-apis' "Call this API" column |
+| 7 | APIList.fun | [apilist.fun/new](https://apilist.fun/new) | Name, URL, logo, description, official = yes, SSL = yes, auth = API key, JSON | To submit | | Footer says © 2019; may be unmaintained |
 
 ### 1. public-apis/public-apis
 
@@ -82,6 +87,14 @@ The first two become possible only if a rate-limited unauthenticated endpoint
 
 ## Other link sources
 
-`/press` and `/data/canada-lottery-almanac` exist to be cited. Use them when
-pitching journalists or bloggers writing about lotteries, unclaimed prizes or
-scratch tickets.
+- `/press` and `/data/canada-lottery-almanac` exist to be cited. Use them when
+  pitching journalists or bloggers writing about lotteries, unclaimed prizes or
+  scratch tickets. `scripts/press_radar.py` emails a pitch package when a
+  jackpot or an expiring unclaimed prize makes that timely.
+- `/embed`: free iframe widgets (latest numbers, jackpot, a province's top 3
+  scratch tickets, one number's history). The copy-paste code carries a plain
+  text credit link under the iframe, which is the part that counts as a link
+  from the host page; links inside an iframe are generally credited to the
+  iframe's own URL, not the page embedding it.
+- `scripts/outreach_radar.py` emails a daily digest of Reddit / news / HN
+  threads where our data answers someone's question, with a reply draft.

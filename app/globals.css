@@ -1695,3 +1695,45 @@ a.game-card:hover {
   color: var(--ink-3);
   margin: 20px 0 10px;
 }
+
+/* ============ /embed configurator ============ */
+.embed-builder {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 32px;
+  align-items: start;
+}
+.embed-builder .chip {
+  cursor: pointer;
+  font-size: 13px;
+  padding: 8px 14px;
+}
+.embed-preview {
+  background: var(--bg-warm);
+  border: 1px dashed var(--border-2);
+  border-radius: var(--radius);
+  padding: 24px;
+}
+.embed-preview.dark {
+  background: #121110;
+}
+.embed-code {
+  font-family: var(--font-mono), monospace;
+  font-size: 12.5px;
+  line-height: 1.5;
+  padding: 12px 14px;
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  resize: vertical;
+  width: 100%;
+}
+@media (max-width: 900px) {
+  .embed-builder {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .embed-preview {
+    padding: 14px;
+  }
+}

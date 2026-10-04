@@ -428,6 +428,10 @@ export default function ApiDocsPage() {
               Browse endpoints
             </Link>
           </div>
+          <p className="field-hint" style={{ marginTop: 14 }}>
+            Just want results on a web page? <Link href="/embed">Embed a free widget</Link> instead: one iframe, no
+            key, no code.
+          </p>
         </div>
       </div>
 

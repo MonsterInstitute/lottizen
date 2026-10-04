@@ -67,6 +67,9 @@ export function Footer() {
                 <Link href="/api">Data API</Link>
               </li>
               <li>
+                <Link href="/embed">Free Widgets</Link>
+              </li>
+              <li>
                 <Link href="/data/canada-lottery-almanac">Lottery Data Almanac</Link>
               </li>
               <li>
