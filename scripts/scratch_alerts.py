@@ -33,7 +33,7 @@ from zoneinfo import ZoneInfo
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import db  # noqa: E402
-from send_draw_emails import send_email, claim_send  # noqa: E402
+from mailer import claim_send, deliver  # noqa: E402
 from email_templates import scratch_alert_email  # noqa: E402
 
 SITE_URL = "https://lottizen.com"
@@ -102,8 +102,10 @@ def favourites_by_agency() -> dict[str, dict[str, list[str]]]:
 
 
 def send_alert(sub: dict, kind: str, game_name: str, game_url: str, province_label: str, detail: str, dedup_key: str) -> bool:
-    if not claim_send(sub["id"], f"scratch_{kind}", dedup_key):
+    log_id = claim_send(sub["id"], f"scratch_{kind}", dedup_key)
+    if not log_id:
         return False
+    unsubscribe_url = f"{SITE_URL}/api/subscribe/unsubscribe?token={sub['magic_token']}"
     subject, html = scratch_alert_email(
         kind=kind,
         game_name=game_name,
@@ -111,9 +113,10 @@ def send_alert(sub: dict, kind: str, game_name: str, game_url: str, province_lab
         province_label=province_label,
         detail=detail,
         preferences_url=f"{SITE_URL}/subscribe/preferences?token={sub['magic_token']}",
-        unsubscribe_url=f"{SITE_URL}/api/subscribe/unsubscribe?token={sub['magic_token']}",
+        unsubscribe_url=unsubscribe_url,
     )
-    return send_email(sub["email"], subject, html)
+    # RFC 8058 headers, like every other subscriber email (CLAUDE.md).
+    return deliver(log_id, sub["email"], subject, html, unsubscribe_url=unsubscribe_url)
 
 
 def main() -> int:

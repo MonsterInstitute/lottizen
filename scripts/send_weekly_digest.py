@@ -34,7 +34,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import db  # noqa: E402 — shared Supabase data-layer helper
 from game_meta import GAME_META  # noqa: E402
 from email_templates import weekly_digest_email  # noqa: E402
-from mailer import claim_send, send_email  # noqa: E402 — the single Resend path
+from mailer import claim_send, deliver  # noqa: E402 — the single Resend path
 
 ROOT = Path(__file__).resolve().parent.parent
 DRAWS_DIR = ROOT / "data" / "draws"
@@ -169,7 +169,8 @@ def main() -> int:
         if not slugs:
             no_games += 1
             continue
-        if not claim_send(sub["id"], "weekly_digest"):
+        log_id = claim_send(sub["id"], "weekly_digest")
+        if not log_id:
             skipped += 1
             continue
 
@@ -185,7 +186,7 @@ def main() -> int:
             preferences_url=preferences_url,
             unsubscribe_url=unsubscribe_url,
         )
-        if send_email(sub["email"], subject, html, unsubscribe_url=unsubscribe_url):
+        if deliver(log_id, sub["email"], subject, html, unsubscribe_url=unsubscribe_url):
             sent += 1
         else:
             failed += 1

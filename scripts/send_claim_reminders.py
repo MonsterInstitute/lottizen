@@ -60,7 +60,7 @@ from game_meta import (  # noqa: E402
     MATRIX,
     REMINDER_DAYS,
 )
-from mailer import claim_send, send_email  # noqa: E402
+from mailer import claim_send, deliver, mask_email  # noqa: E402
 
 SITE_URL = "https://lottizen.com"
 
@@ -423,13 +423,14 @@ def send_reminders(today, dry: bool) -> tuple[int, int, int]:
             continue
         if dry or not configured:
             tag = "dry" if dry else "skip"
-            print(f"  [{tag}] claim {claim['id']} -> {sub['email']}: {left} day(s) left, "
+            print(f"  [{tag}] claim {claim['id']} -> {mask_email(sub['email'])}: {left} day(s) left, "
                   f"would mark {reached}")
             skipped += 1
             continue
         # The claim id is the uniqueness key, so two prizes expiring on the
         # same day each get their own email rather than one silently winning.
-        if not claim_send(sub["id"], "claim_reminder", f"claim-{claim['id']}"):
+        log_id = claim_send(sub["id"], "claim_reminder", f"claim-{claim['id']}")
+        if not log_id:
             skipped += 1
             continue
 
@@ -446,7 +447,7 @@ def send_reminders(today, dry: bool) -> tuple[int, int, int]:
             preferences_url=f"{SITE_URL}/subscribe/preferences?token={sub['magic_token']}",
             unsubscribe_url=unsubscribe_url,
         )
-        if send_email(sub["email"], subject, html, unsubscribe_url=unsubscribe_url):
+        if deliver(log_id, sub["email"], subject, html, unsubscribe_url=unsubscribe_url):
             sent += 1
         else:
             failed += 1

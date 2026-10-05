@@ -176,9 +176,18 @@ def section_email_delivery(email: dict | None, email_problems: list | None) -> s
         lines.append("- Weekly digest: not checked today (only runs the Monday after a Sunday digest)")
     else:
         lines.append(f"- Weekly digest: {wd.get('eligible', 0)} eligible, {wd.get('logged', 0)} logged")
+    oc = email.get("outcomes") or {}
+    if oc:
+        lines.append(f"- Yesterday's email_log outcomes: {oc.get('byStatus', {})}; skip reasons {oc.get('skipReasons', {})}")
+    dl = email.get("delivery") or {}
+    if dl.get("skipped"):
+        lines.append("- Delivery (per Resend): not checked — Resend unreadable")
+    elif dl:
+        lines.append(f"- Delivery (per Resend) of {dl.get('sent', 0)} sent: {dl.get('events', {})}, "
+                     f"{dl.get('notInResend', 0)} unknown to Resend")
     ts = email.get("totalSilence") or {}
     if not ts.get("skipped"):
-        lines.append(f"- Any send in the last 3 days: {fmt_bool(ts.get('anyLogsInWindow', False))}")
+        lines.append(f"- Delivered to subscribers in the last 3 days (per Resend): {ts.get('delivered3d', '?')}")
     if email_problems:
         lines.append("\n**Problems:**")
         for p in email_problems[:10]:

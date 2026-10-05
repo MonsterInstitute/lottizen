@@ -40,7 +40,11 @@ async function pg<T = unknown>(path: string, init: RequestInit = {}): Promise<T>
   });
   if (!res.ok) {
     const text = await res.text().catch(() => "");
-    throw new Error(`Supabase ${init.method ?? "GET"} ${path} -> ${res.status}: ${text.slice(0, 300)}`);
+    // The path can carry a subscriber's address (subscribers?email=eq.…) and
+    // this message ends up in function logs, so mask any address in it.
+    const mask = (v: string) =>
+      v.replace(/([A-Za-z0-9._%+-])[A-Za-z0-9._%+-]*(@|%40)([A-Za-z0-9.-]+\.[A-Za-z]{2,})/g, "$1***$2$3");
+    throw new Error(mask(`Supabase ${init.method ?? "GET"} ${path} -> ${res.status}: ${text.slice(0, 300)}`));
   }
   if (res.status === 204) return null as T;
   const text = await res.text();
@@ -193,10 +197,27 @@ export async function getNumbers(subscriberId: string): Promise<SavedNumbers[]> 
   );
 }
 
-export async function logEmail(subscriberId: string, type: string, gameSlug = ""): Promise<void> {
+/** Records a send that has already happened (unlike the Python senders,
+ *  which claim the slot first): `sent` with Resend's message id, or `failed`
+ *  with the error, so email_delivery_check.py can look the message up. */
+export async function logEmail(
+  subscriberId: string,
+  type: string,
+  outcome: { ok: boolean; id?: string; error?: string },
+  gameSlug = "",
+): Promise<void> {
   await pg(`email_log`, {
     method: "POST",
-    body: JSON.stringify([{ subscriber_id: subscriberId, type, game_slug: gameSlug }]),
+    body: JSON.stringify([
+      {
+        subscriber_id: subscriberId,
+        type,
+        game_slug: gameSlug,
+        status: outcome.ok ? "sent" : "failed",
+        provider_message_id: outcome.id ?? null,
+        error: outcome.ok ? null : (outcome.error ?? "unknown").slice(0, 300),
+      },
+    ]),
   });
 }
 
@@ -211,7 +232,8 @@ export interface EmailLogRow {
 export async function listRecentEmailLog(subscriberId: string, limit = 10): Promise<EmailLogRow[]> {
   return (
     (await pg<EmailLogRow[]>(
-      `email_log?subscriber_id=eq.${subscriberId}&select=id,type,game_slug,sent_at&order=sent_at.desc&limit=${limit}`,
+      // Only mail that actually went out — a capped or failed send is not an alert the user received.
+      `email_log?subscriber_id=eq.${subscriberId}&status=eq.sent&select=id,type,game_slug,sent_at&order=sent_at.desc&limit=${limit}`,
     )) ?? []
   );
 }

@@ -28,6 +28,12 @@ export interface SendResult {
  * "delivered" to Gmail for every send while the mail never reached the inbox.
  * The URL must accept POST (see app/api/subscribe/unsubscribe/route.ts).
  */
+/** a***@gmail.com — for logs. Never log a subscriber's full address. */
+export function maskEmail(email: string): string {
+  const at = email.lastIndexOf("@");
+  return at < 1 ? "***" : `${email[0]}***${email.slice(at)}`;
+}
+
 export async function sendEmail(
   to: string,
   subject: string,
@@ -36,7 +42,7 @@ export async function sendEmail(
 ): Promise<SendResult> {
   const key = process.env.RESEND_API_KEY;
   if (!key) {
-    console.warn(`[email] RESEND_API_KEY not set — skipping send to ${to}: "${subject}"`);
+    console.warn(`[email] RESEND_API_KEY not set — skipping send to ${maskEmail(to)}: "${subject}"`);
     return { ok: false, skipped: true };
   }
   const res = await fetch(RESEND_API_URL, {

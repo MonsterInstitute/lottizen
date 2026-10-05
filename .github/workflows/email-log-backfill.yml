@@ -1,0 +1,31 @@
+name: email_log backfill
+
+# Manual-only, one-off: reconcile email_log rows written before migration
+# 0019 (2026-10-05) against Resend's sent list — see
+# scripts/email_log_backfill.py. Dry run unless `apply` is ticked. Safe to
+# re-run: it only touches rows still at 'queued' and older than an hour.
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Write the results (unticked = dry run)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --upgrade pip supabase certifi
+      - run: python scripts/email_log_backfill.py ${{ inputs.apply && '--apply' || '' }}

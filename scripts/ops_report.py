@@ -59,12 +59,6 @@ RAPIDAPI_STUDIO = "https://rapidapi.com/studio"
 RAPIDAPI_LISTING = "https://rapidapi.com/l3rundong/api/lottizen-data-api"
 # "cancelled" includes a job that never got a runner (see ci-failure-alert.yml).
 FAILED = {"failure", "timed_out", "startup_failure", "cancelled"}
-# The Resend account is shared with another project, so only mail from this
-# site's sending domain counts. The owner is also a subscriber, so the
-# owner-only notifications (these reports, outreach and press radar) are
-# excluded from "sent to subscribers" too.
-SENDING_DOMAIN = "@mail.lottizen.com"
-OWNER_ONLY_SUBJECTS = ("Outreach:", "Press timing:", "Lottizen 日报", "Lottizen 周报", "⚠ ")
 
 
 # --------------------------------------------------------------- time windows
@@ -149,53 +143,44 @@ def tickets(internal_ids: set[str], w) -> int:
 
 
 def email_intent(internal_ids: set[str], first: date, last: date) -> dict[str, dict[str, int]]:
-    """email_log rows by Toronto date and type. Intent to send, NOT delivery."""
+    """email_log outcomes by Toronto date: {"sent": n, "skipped:free_weekly_cap": n,
+    "failed": n, "queued": n}. 'sent' means Resend accepted it — delivery is
+    Resend's to say, not this table's."""
     import db
-    rows = db.fetch_all("email_log", "id,subscriber_id,type,sent_date",
+    rows = db.fetch_all("email_log", "id,subscriber_id,status,skip_reason,sent_date",
                         filters=[("gte", "sent_date", first.isoformat()), ("lte", "sent_date", last.isoformat())])
     out: dict[str, dict[str, int]] = {}
     for r in rows:
         if r["subscriber_id"] in internal_ids:
             continue
+        k = f"skipped:{r['skip_reason'] or '?'}" if r["status"] == "skipped" else r["status"]
         day = out.setdefault(r["sent_date"], {})
-        day[r["type"]] = day.get(r["type"], 0) + 1
+        day[k] = day.get(k, 0) + 1
     return out
+
+
+OUTCOME_CN = {"failed": "发送失败", "queued": "卡在发送中", "skipped:free_weekly_cap": "免费每周上限拦下",
+              "skipped:no_resend_key": "缺 Resend key", "skipped:legacy_not_in_resend": "旧记录·未进入 Resend"}
+
+
+def not_sent_text(outcomes: dict[str, int] | None) -> str:
+    parts = [f"{OUTCOME_CN.get(k, k)} {v}" for k, v in sorted((outcomes or {}).items()) if k != "sent" and v]
+    return " · 未发出：" + "，".join(parts) if parts else ""
 
 
 def resend_sent(addresses: set[str], since: datetime) -> list[dict]:
-    """Every message Resend accepted since `since` addressed to one of
-    `addresses`, newest first. Raises Unavailable if the key can't list."""
-    key = os.environ.get("RESEND_API_KEY")
-    if not key:
-        raise Unavailable("RESEND_API_KEY 未设置")
-    out: list[dict] = []
-    after = None
-    for _ in range(50):  # 5,000 messages — far beyond a week of this site's volume
-        q = {"limit": 100} | ({"after": after} if after else {})
-        req = urllib.request.Request(
-            "https://api.resend.com/emails?" + urllib.parse.urlencode(q),
-            headers={"Authorization": f"Bearer {key}", "User-Agent": "lottizen-ops/1.0"})
-        try:
-            with urllib.request.urlopen(req, timeout=30) as r:
-                page = json.loads(r.read().decode())
-        except urllib.error.HTTPError as e:
-            raise Unavailable(f"Resend {e.code}: {e.read().decode(errors='replace')[:160]}") from e
-        except Exception as e:  # noqa: BLE001
-            raise Unavailable(f"Resend {type(e).__name__}: {e}") from e
-        data = page.get("data") or []
-        for m in data:
-            if ts(m["created_at"]) < since:
-                return out
-            sender = m.get("from") or ""
-            if SENDING_DOMAIN not in sender or "ops@" in sender or (m.get("subject") or "").startswith(OWNER_ONLY_SUBJECTS):
-                continue
-            if any((a or "").lower() in addresses for a in (m.get("to") or [])):
-                out.append(m)
-        if not page.get("has_more") or not data:
-            return out
-        after = data[-1]["id"]
-        time.sleep(0.6)  # Resend's default limit is 2 requests/second
-    return out
+    """Messages Resend accepted since `since` to one of `addresses`, newest
+    first, excluding the owner-only notifications. Raises Unavailable if the
+    key can't list."""
+    import mailer
+    try:
+        msgs = mailer.list_sent(since)
+    except RuntimeError as e:
+        raise Unavailable(str(e)) from e
+    return [m for m in msgs
+            if "ops@" not in (m.get("from") or "")
+            and not (m.get("subject") or "").startswith(mailer.OWNER_ONLY_SUBJECTS)
+            and any((a or "").lower() in addresses for a in (m.get("to") or []))]
 
 
 def resend_counts(msgs: list[dict], w) -> dict:
@@ -450,20 +435,17 @@ def email_volume_rows(cur, prev, intent_cur, intent_prev, resend_err) -> tuple[s
         ev = cur["events"]
         bad = sum(ev.get(k, 0) for k in ("bounced", "complained", "failed"))
         parts = ", ".join(f"{k} {v}" for k, v in sorted(ev.items(), key=lambda kv: -kv[1])) or "无"
-        logged = sum(intent_cur.values()) if intent_cur else 0
-        # email_log claims the slot before sending, and a send skipped after
-        # the claim (e.g. the free weekly alert cap) still leaves its row.
-        gap = f" · email_log 记录 {logged} 次（含被免费额度拦下、未实际发出的）" if logged != cur["sent"] else ""
         r = row("邮件发送量", fmt(cur["sent"]), delta(cur["sent"], prev["sent"] if prev else None),
-                f"Resend 实际发给订阅者 · 最新状态：{E(parts)}{gap}")
+                f"Resend 实际发给订阅者 · 最新状态：{E(parts)}{E(not_sent_text(intent_cur))}")
         if bad:
             alerts.append(f"{bad} 封邮件退信 / 被投诉 / 发送失败（Resend 状态）")
+        if intent_cur and (intent_cur.get("failed") or intent_cur.get("queued")):
+            alerts.append(f"email_log：{intent_cur.get('failed', 0)} 封发送失败，{intent_cur.get('queued', 0)} 封卡在发送中")
         return r, alerts, cur["sent"]
-    n_cur = sum(intent_cur.values()) if intent_cur is not None else None
-    n_prev = sum(intent_prev.values()) if intent_prev is not None else None
-    parts = ", ".join(f"{k} {v}" for k, v in sorted((intent_cur or {}).items()) if v)
+    n_cur = intent_cur.get("sent", 0) if intent_cur is not None else None
+    n_prev = intent_prev.get("sent", 0) if intent_prev is not None else None
     r = row("邮件发送量", fmt(n_cur), delta(n_cur, n_prev),
-            f"email_log 发送意图（不是送达证明）{('：' + E(parts)) if parts else ''} · Resend 未读取：{E(resend_err or '')}")
+            f"email_log 记录为已发出（Resend 未读取，送达未确认：{E(resend_err or '')}）{E(not_sent_text(intent_cur))}")
     return r, alerts, n_cur
 
 

@@ -35,7 +35,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import db  # noqa: E402 — shared Supabase data-layer helper
 from game_meta import GAME_META  # noqa: E402
 from email_templates import check_saved_numbers, draw_result_email, pick_insight  # noqa: E402
-from mailer import claim_send, send_email  # noqa: E402 — the single Resend path
+from mailer import claim_send, deliver, mark_skipped, mask_email  # noqa: E402 — the single Resend path
 
 # Free tier's weekly instant-alert cap — see lib/entitlements.ts's
 # FREE_WEEKLY_ALERT_LIMIT (kept in sync by hand; small, stable number).
@@ -129,16 +129,19 @@ def record_check(subscriber_id: str, combination_id: int, slug: str, draw_date: 
 
 
 def weekly_alert_count(subscriber_id: str) -> int:
-    """draw_result emails logged for this subscriber in the last 7 days —
-    free tier's weekly alert cap (see lib/entitlements.ts's
-    FREE_WEEKLY_ALERT_LIMIT). email_log rows are written by claim_send()
-    regardless of actual delivery, which is exactly what we want to count
-    here: attempts against the cap, not just successful sends."""
-    from datetime import timedelta
-    since = (datetime.now(ZoneInfo("America/Toronto")).date() - timedelta(days=7)).isoformat()
+    """draw_result emails actually sent to this subscriber in the last 7 days
+    (Toronto dates, today included) — what the free tier's weekly alert cap
+    (lib/entitlements.ts's FREE_WEEKLY_ALERT_LIMIT) is counted against.
+
+    Only status 'sent' counts. Until 2026-10-05 this counted every
+    email_log row, including the rows of sends the cap itself had skipped,
+    so once a subscriber went over they stayed over for good: each capped
+    day added more rows to the rolling count."""
+    since = (datetime.now(ZoneInfo("America/Toronto")).date() - timedelta(days=6)).isoformat()
     rows = db.fetch_all(
         "email_log", "id",
-        filters=[("eq", "subscriber_id", subscriber_id), ("eq", "type", "draw_result"), ("gte", "sent_date", since)],
+        filters=[("eq", "subscriber_id", subscriber_id), ("eq", "type", "draw_result"),
+                 ("eq", "status", "sent"), ("gte", "sent_date", since)],
     )
     return len(rows)
 
@@ -152,7 +155,7 @@ def main() -> int:
         return 0
 
     top3 = scratch_top3()
-    sent, skipped, failed = 0, 0, 0
+    sent, already, capped, failed = 0, 0, 0, 0
 
     for game in drawn:
         slug, meta, draws_file, latest = game["slug"], game["meta"], game["draws_file"], game["latest"]
@@ -169,14 +172,16 @@ def main() -> int:
         print(f"{meta['name']} ({slug}): {len(subs)} subscriber(s) following, drew {today}")
 
         for sub in subs:
-            if not claim_send(sub["id"], "draw_result", slug):
-                skipped += 1
+            log_id = claim_send(sub["id"], "draw_result", slug)
+            if not log_id:
+                already += 1
                 continue
 
             is_plus = sub.get("tier") == "plus"
-            if not is_plus and weekly_alert_count(sub["id"]) > FREE_WEEKLY_ALERT_LIMIT:
-                print(f"  [capped] {sub['email']} hit the free weekly alert limit — skipping send (not the claim).")
-                skipped += 1
+            if not is_plus and weekly_alert_count(sub["id"]) >= FREE_WEEKLY_ALERT_LIMIT:
+                print(f"  [capped] {mask_email(sub['email'])} already got {FREE_WEEKLY_ALERT_LIMIT} alerts in 7 days — not sent.")
+                mark_skipped(log_id, "free_weekly_cap")
+                capped += 1
                 continue
 
             saved_combinations: list[dict] = []
@@ -190,7 +195,7 @@ def main() -> int:
                     record_check(sub["id"], combo["id"], slug, latest["date"], match[0], len(numbers), None)
                     saved_combinations.append({"numbers": combo["numbers"], "label": combo.get("label"), "match": match})
             except Exception as e:  # noqa: BLE001 — don't let this block the send
-                print(f"  [warn] combination check failed for {sub['email']}: {e}")
+                print(f"  [warn] combination check failed for {mask_email(sub['email'])}: {type(e).__name__}")
 
             preferences_url = f"{SITE_URL}/subscribe/preferences?token={sub['magic_token']}"
             unsubscribe_url = f"{SITE_URL}/api/subscribe/unsubscribe?token={sub['magic_token']}"
@@ -213,12 +218,13 @@ def main() -> int:
                 preferences_url=preferences_url,
                 unsubscribe_url=unsubscribe_url,
             )
-            if send_email(sub["email"], subject, html, unsubscribe_url=unsubscribe_url):
+            if deliver(log_id, sub["email"], subject, html, unsubscribe_url=unsubscribe_url):
                 sent += 1
             else:
                 failed += 1
 
-    print(f"\nDone: {sent} sent, {skipped} already sent today, {failed} failed/skipped (no RESEND_API_KEY).")
+    print(f"\nDone: {sent} sent, {already} already handled today, {capped} capped (free weekly limit), "
+          f"{failed} failed/skipped (no RESEND_API_KEY).")
     # continue-on-error: true on the workflow step already keeps a bad send
     # from blocking the deploy pipeline — but a real Resend failure (e.g. an
     # unverified sending domain) needs to be VISIBLE, not swallowed. Before

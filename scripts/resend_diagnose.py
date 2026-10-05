@@ -78,7 +78,8 @@ def main() -> int:
     print()
 
     print("=" * 70)
-    print(f"2. PROBE SEND -> {args.to}")
+    local, _, domain = args.to.partition("@")  # public log: never the full address
+    print(f"2. PROBE SEND -> {local[:1]}***@{domain}")
     print("=" * 70)
     if args.template:
         # Exercise the real production template + headers, so a difference in

@@ -56,8 +56,13 @@ export async function POST(req: Request) {
 
     const { subject, html } = renderSignInEmail({ verifyUrl, isNewAccount, preferencesUrl, unsubscribeUrl });
     const result = await sendEmail(subscriber.email, subject, html, unsubscribeUrl);
-    if (result.ok) await logEmail(subscriber.id, isNewAccount ? "confirmation" : "sign_in_link");
-    else console.error("[subscribe] sign-in email send failed:", result.error);
+    const type = isNewAccount ? "confirmation" : "sign_in_link";
+    if (!result.skipped) {
+      // A second sign-in link the same day hits email_log's per-day unique
+      // index; that's a log-only conflict and must not fail the request.
+      await logEmail(subscriber.id, type, result).catch(() => {});
+    }
+    if (!result.ok) console.error("[subscribe] sign-in email send failed:", result.error);
 
     return NextResponse.json({
       ok: true,
