@@ -4,13 +4,13 @@ answers someone's question, and prepare a reply for a human to post.
 
 Nothing here posts, comments or emails anyone but the owner. Two modes:
 
-  collect  (every few hours) scan Reddit, Google News, Hacker News and X;
-           store each new match in outreach_opportunities with a value
-           score, the figures that answer it, and a reply draft. Journalists'
-           bylines on news hits accumulate in outreach_contacts.
-  digest   (once a day) email the owner the un-notified matches at or above
-           the score threshold. No qualifying matches, no email. At most one
-           digest per Toronto calendar day, however often it's invoked.
+  collect  scan Google News, Hacker News and (with a paid key) X; store
+           each new match in outreach_opportunities with a value score, the
+           figures that answer it, and a reply draft. Journalists' bylines on
+           news hits accumulate in outreach_contacts.
+  digest   email the owner the un-notified matches at or above the score
+           threshold. No qualifying matches, no email. At most one digest per
+           Toronto calendar day, however often it's invoked.
 
     python scripts/outreach_radar.py collect [--dry-run]
     python scripts/outreach_radar.py digest  [--dry-run] [--preview out.html]
@@ -19,10 +19,11 @@ Nothing here posts, comments or emails anyone but the owner. Two modes:
 digest HTML is saved to a file instead.
 
 Coverage limits, stated rather than papered over:
-  * Reddit: newest 100 posts and newest 100 comments per subreddit per run.
-    With REDDIT_CLIENT_ID/REDDIT_CLIENT_SECRET (a "script" app) it uses the
-    OAuth API and gets comment/upvote counts; without them it falls back to
-    RSS, which has no counts and is often blocked from cloud IPs.
+  * No Reddit. Evaluated and dropped 2026-10-04: since Reddit's Responsible
+    Builder Policy (2025-11-11) new API apps need manual approval, and the
+    unauthenticated RSS fallback was rate-limited within one request and its
+    search returned nothing. Other sources tried and why they're out:
+    docs/OPERATIONS.md § 7, "Outreach sources".
   * X: needs a paid API tier (X_BEARER_TOKEN); skipped otherwise.
   * Google News: article links are decoded to the publisher URL and the page
     fetched for its byline. Paywalled or bot-blocked pages yield no name.
@@ -30,15 +31,12 @@ Coverage limits, stated rather than papered over:
 from __future__ import annotations
 
 import argparse
-import base64
 import html
 import json
 import math
 import os
 import re
 import sys
-import time
-import urllib.error
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -49,93 +47,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import outreach_common as oc  # noqa: E402
 
-ATOM = "{http://www.w3.org/2005/Atom}"
-
-
 # ================================================================= sources
-
-def _reddit_token() -> str | None:
-    cid, secret = os.environ.get("REDDIT_CLIENT_ID"), os.environ.get("REDDIT_CLIENT_SECRET")
-    if not cid or not secret:
-        return None
-    req = urllib.request.Request(
-        "https://www.reddit.com/api/v1/access_token",
-        data=b"grant_type=client_credentials",
-        headers={"Authorization": "Basic " + base64.b64encode(f"{cid}:{secret}".encode()).decode(),
-                 "User-Agent": oc.BOT_UA},
-    )
-    with urllib.request.urlopen(req, timeout=20) as r:
-        return json.loads(r.read())["access_token"]
-
-
-def _reddit_oauth(sub: str, kind: str, token: str) -> list[dict]:
-    data = oc.http_json(f"https://oauth.reddit.com/r/{sub}/{kind}?limit=100&raw_json=1",
-                        headers={"Authorization": f"Bearer {token}"})
-    out = []
-    for ch in data["data"]["children"]:
-        d = ch["data"]
-        is_comment = ch["kind"] == "t1"
-        out.append({
-            "source": "reddit", "external_id": d["name"], "kind": "comment" if is_comment else "post",
-            "url": "https://www.reddit.com" + d["permalink"],
-            "title": d.get("link_title") if is_comment else d["title"],
-            "body": d.get("body") if is_comment else d.get("selftext", ""),
-            "author": d.get("author"), "community": f"r/{sub}",
-            "published_at": datetime.fromtimestamp(d["created_utc"], timezone.utc),
-            "engagement": {"comments": d.get("num_comments"), "score": d.get("score")},
-        })
-    return out
-
-
-def _reddit_rss(sub: str, kind: str) -> list[dict]:
-    feed = ET.fromstring(oc.http_get(f"https://www.reddit.com/r/{sub}/{kind}/.rss?limit=100"))
-    out = []
-    for e in feed.iter(f"{ATOM}entry"):
-        eid = e.findtext(f"{ATOM}id") or ""
-        is_comment = eid.startswith("t1_")
-        title = e.findtext(f"{ATOM}title") or ""
-        out.append({
-            "source": "reddit", "external_id": eid, "kind": "comment" if is_comment else "post",
-            "url": (e.find(f"{ATOM}link").get("href") if e.find(f"{ATOM}link") is not None else ""),
-            # Comment entries are titled "/u/name on <post title>".
-            "title": re.sub(r"^/u/\S+ on ", "", title),
-            "body": oc.strip_tags(e.findtext(f"{ATOM}content") or ""),
-            "author": (e.findtext(f"{ATOM}author/{ATOM}name") or "").removeprefix("/u/"),
-            "community": f"r/{sub}",
-            "published_at": datetime.fromisoformat(e.findtext(f"{ATOM}published") or e.findtext(f"{ATOM}updated")),
-            "engagement": {},
-        })
-    return out
-
-
-def reddit_items(cfg: dict) -> list[dict]:
-    rc = cfg["reddit"]
-    try:
-        token = _reddit_token()
-    except Exception as e:  # noqa: BLE001
-        print(f"  [warn] reddit OAuth failed ({e}); falling back to RSS")
-        token = None
-    print(f"  reddit: {'OAuth API' if token else 'RSS (no REDDIT_CLIENT_ID; no engagement counts)'}")
-    out: list[dict] = []
-    kinds = ["new", "comments"] if rc.get("scan_comments", True) else ["new"]
-    for sub in rc["subreddits"]:
-        for kind in kinds:
-            for attempt in (1, 2):
-                try:
-                    out += _reddit_oauth(sub, kind, token) if token else _reddit_rss(sub, kind)
-                    break
-                except urllib.error.HTTPError as e:
-                    if e.code == 429 and attempt == 1:
-                        time.sleep(min(int(e.headers.get("Retry-After") or 20), 60))
-                        continue
-                    print(f"  [warn] reddit r/{sub}/{kind}: HTTP {e.code}")
-                    break
-                except Exception as e:  # noqa: BLE001
-                    print(f"  [warn] reddit r/{sub}/{kind}: {type(e).__name__}: {e}")
-                    break
-            time.sleep(1.5 if token else 3)  # stay well inside Reddit's rate limits
-    return out
-
 
 def _gnews_decode(article_id: str) -> str | None:
     """news.google.com/rss/articles/<id> resolves by JavaScript, not a
@@ -336,10 +248,13 @@ def is_question(cfg: dict, item: dict) -> bool:
     return any(m in t for m in cfg["scoring"]["question_markers"])
 
 
-def value_score(cfg: dict, item: dict, question: bool) -> int:
+def value_score(cfg: dict, item: dict, question: bool, topic_key: str | None = None) -> int:
     s = cfg["scoring"]
     if item["source"] == "news":
-        routine = any(pat in item["title"].lower() for pat in cfg["news"].get("routine_patterns", []))
+        nc = cfg["news"]
+        title = f" {item['title'].lower()} "
+        routine = (any(pat in title for pat in nc.get("routine_patterns", []))
+                   and topic_key not in nc.get("routine_exempt_topics", []))
         return s["base_news_routine"] if routine else s["base_news"]
     if item["kind"] == "comment":
         base = s["base_comment"]
@@ -457,7 +372,7 @@ def collect(cfg: dict, dry_run: bool) -> list[dict]:
             print(f"  [dry-run] dedupe lookup unavailable ({type(e).__name__}); treating everything as new")
             return set()
 
-    raw = reddit_items(cfg) + hn_items(cfg, since) + x_items(cfg)
+    raw = hn_items(cfg, since) + x_items(cfg)
     news = news_items(cfg, set())
     news_known = known("news", [n["external_id"] for n in news])
     news = [n for n in news if f"news:{n['external_id']}" not in news_known]
@@ -502,7 +417,7 @@ def collect(cfg: dict, dry_run: bool) -> list[dict]:
             "title": oc.clip(item["title"], 300) or "(untitled)", "excerpt": oc.clip(item["body"], 600),
             "author": item.get("author"), "community": item["community"],
             "published_at": item["published_at"].isoformat(), "engagement": item.get("engagement") or {},
-            "topic": topic["key"] if topic else None, "value_score": value_score(cfg, item, q),
+            "topic": topic["key"] if topic else None, "value_score": value_score(cfg, item, q, topic["key"] if topic else None),
             "data_points": facts,
         }
         row["reply_draft"] = draft(item, row["topic"], facts)
@@ -520,7 +435,7 @@ def collect(cfg: dict, dry_run: bool) -> list[dict]:
     return saved
 
 
-SOURCE_LABEL = {"reddit": "Reddit", "news": "News", "hn": "Hacker News", "x": "X"}
+SOURCE_LABEL = {"news": "News", "hn": "Hacker News", "x": "X"}
 
 
 def digest_html(rows: list[dict]) -> str:

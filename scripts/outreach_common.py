@@ -42,7 +42,7 @@ SITE_URL = "https://lottizen.com"
 TORONTO = ZoneInfo("America/Toronto")
 
 # A browser UA for news sites and agency pages (several 403 anything else);
-# an honest bot UA for APIs that ask for one (Reddit, HN, X).
+# an honest bot UA for APIs that ask for one (HN, X).
 BROWSER_UA = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Safari/537.36"
 BOT_UA = "lottizen-outreach-radar/1.0 (+https://lottizen.com/press)"
 
@@ -112,7 +112,7 @@ PROVINCE_LABEL = {
     "ontario": "Ontario (OLG)", "british-columbia": "British Columbia (BCLC)", "quebec": "Quebec (Loto-Québec)",
     "western": "Alberta, Saskatchewan and Manitoba (WCLC)", "atlantic": "Atlantic Canada (ALC)",
 }
-# Subreddit and text cues for which province a scratch question is about.
+# Text cues for which province a scratch question is about.
 PROVINCE_CUES = [
     ("british-columbia", ["vancouver", "bclc", "british columbia", " b.c.", " bc "]),
     ("western", ["alberta", "saskatchewan", "manitoba", "calgary", "edmonton", "regina", "saskatoon", "winnipeg", "wclc"]),

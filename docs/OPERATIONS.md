@@ -160,7 +160,6 @@ Values are never in the repo. "Where" is where the value must be set.
 | `BING_WEBMASTER_API_KEY` | Bing Webmaster API key; the weekly "Bing indexed" metric |
 | `OUTREACH_EMAIL` | Outreach + press radar: the one inbox their digests and pitch packages go to |
 | `GEMINI_API_KEY` | **Optional.** Outreach radar reply drafts (Gemini, model in `config/outreach.toml` `[drafts]`). Google AI Studio project on **prepaid** billing: when credit runs out the API returns 402 and drafts silently fall back to fixed templates (the run log says `Gemini 402`). Without the key, templates are used |
-| `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET` | **Optional.** Reddit "script" app for the outreach radar; without it Reddit is read via RSS, which is rate-limited and has no vote/comment counts |
 | `X_BEARER_TOKEN` | **Optional.** X API recent search (paid tier); without it X is skipped |
 | `GSC_SERVICE_ACCOUNT_JSON` | **Not set yet.** Service-account JSON (raw or base64) with read access to the GSC property. Enables GSC trend + metrics. |
 
@@ -195,7 +194,7 @@ depends on exact timing; the watchdog tolerates it.
 | `30 12 * * *` | Billing health | Stripe round trip, live config, Plus gating | Issue `[auto] Billing health: …` |
 | `0 14 * * *` | Data freshness watchdog | Freshness of every game/agency + deployed site; re-dispatch; issues | If this itself doesn't run, nothing alerts — see §6.6 |
 | `15 14 * * *` | Email delivery watchdog | Were expected draw/digest emails queued | Issue `[auto] Email delivery: …` |
-| `20 0,4,8,16,20 * * *` + `0 12 * * *` | Outreach radar | Scan Reddit / Google News / HN / X for threads our data answers; store with reply drafts (`outreach_opportunities`); the 12:00 run emails one digest to `OUTREACH_EMAIL`, only if something scores ≥ threshold (`config/outreach.toml`) | Missed scan: next run picks up the last 72 h. Missed digest: next day's includes it |
+| `20 0 * * *` + `0 12 * * *` | Outreach radar | Scan Google News / HN (/ X with a paid key) for stories and threads our data answers; store with reply drafts (`outreach_opportunities`); the 12:00 run emails one digest to `OUTREACH_EMAIL`, only if something scores ≥ threshold (`config/outreach.toml`) | Missed scan: next run picks up the last 72 h. Missed digest: next day's includes it |
 | `0 13 * * *` | Press radar | Jackpot thresholds + $1M+ unclaimed prizes (OLG, WCLC lists) within 60 days of expiry → one pitch package per event (`press_events`) | Unsent packages retry next run |
 | `0 13 * * 1` | SEO health watchdog | Crawl checks, business metrics, **commits the weekly report** | Report/metrics week missing — re-run manually the same week |
 
@@ -422,6 +421,26 @@ source, or if more than one official source failed. Third-party failures only
 produce warnings: since 2026-10-01 these sites intermittently time out from
 GitHub Actions runners (some IP ranges), while working from other networks.
 In daily mode they get one 10-second try; `--backfill` uses full retries.
+
+### Outreach sources (outreach radar)
+
+Live: **Google News** RSS (Canada edition; links decoded to the publisher URL,
+byline read from the article page), **Hacker News** (Algolia search API), and
+**X** recent search only if a paid-tier `X_BEARER_TOKEN` is set.
+
+Evaluated and **not** used. Re-read this before trying any of them again:
+
+| Source | Evaluated | Result | Why it's out |
+|---|---|---|---|
+| **Reddit** | 2026-10-04 | **Dropped for policy reasons** | Reddit's Responsible Builder Policy (announced 2025-11-11) ended self-service API access: new apps need a manual approval request, and we decided not to go that way. Without an app, the RSS fallback was rate-limited: HTTP 429 from the second request on a home connection, and 10 of 16 feeds failed even after a retry on GitHub Actions (run 37242817220). It also carries no vote/comment counts, and its search endpoint returned an empty feed. Code removed in the same commit as this note; it's in git history if approval is ever granted. |
+| Quora | 2026-10-04 | HTTP 403 on search and topic pages | No API; bot-blocked. |
+| Google "People also ask" | 2026-10-04 | Fetchable, but not used | Scraping Google results is against Google's terms and gets blocked unpredictably; no official API exposes PAA. |
+| LotteryPost forums | 2026-10-04 | HTTP 403 | Bot-blocked. |
+| RedFlagDeals forums | 2026-10-04 | Per-forum Atom feeds work; everything else is behind a proof-of-work bot challenge (HTTP 202) | Feeds hold only the latest 15 topics per forum, forum IDs can't be listed without passing the challenge, and lottery threads are rare. Nothing stable to build on. |
+| Bluesky | 2026-10-04 | Public search API returns 403 | Needs a logged-in account (app password) to search. Not pursued. |
+| lemmy.ca (Canadian Lemmy) | 2026-10-04 | Public API works | Matches are global news and jokes; no Canadian lottery questions. Not worth it. |
+| Stack Exchange (money.SE) | 2026-10-04 | Official API works | About one lottery question a year, almost all US tax questions. Not worth it. |
+| Blog comment sections | 2026-10-04 | No common source | Every blog differs; nothing to subscribe to. |
 
 ---
 

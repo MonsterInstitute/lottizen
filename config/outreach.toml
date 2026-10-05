@@ -4,14 +4,9 @@
 # Matching is case-insensitive substring matching on title + body. A post is
 # assigned the FIRST topic (in file order) whose keywords match.
 
-[reddit]
-subreddits = [
-  "lottery", "ontario", "vancouver", "alberta", "saskatchewan",
-  "newbrunswickcanada", "PersonalFinanceCanada", "canada",
-]
-# Reddit only searches posts. Comments come from each subreddit's newest-100
-# comment feed, so busy subs are sampled, not fully covered.
-scan_comments = true
+# Sources: Google News + Hacker News (+ X with a paid key). Reddit was
+# evaluated and dropped on 2026-10-04 (API now needs manual approval); see
+# docs/OPERATIONS.md § 7 "Outreach sources" before trying it again.
 
 [news]
 # Google News RSS queries, Canada edition. "when:2d" keeps each run to recent items.
@@ -37,7 +32,12 @@ routine_patterns = [
   "winning numbers", "results for", "lottery results", "draw results", "are out", "where all the big winners",
   "winners across", "produced a new millionaire", "produces many winners", "jackpot grows", "jackpot reaches",
   "jackpot rolls", "estimated jackpot", "maxmillions", "million jackpot",
+  # individual-winner stories
+  "millionaire", " wins ", " win ", "winner", "winning ticket", "thousands win", "big win",
 ]
+# A routine-looking title still scores as full news when the article is about
+# one of these topics (e.g. "Winning ticket worth $1M unclaimed, expires soon").
+routine_exempt_topics = ["unclaimed", "scratch", "data"]
 # Fetch each article page to read its byline (JSON-LD / meta author).
 fetch_bylines = true
 
@@ -101,17 +101,23 @@ keywords = ["lottery data", "lottery api", "lotto api", "lottery dataset", "open
 data = ["api"]
 
 # --------------------------------------------------------------- scoring
-# value_score = source base + engagement bonus (+ question bonus).
-# Media coverage outranks active questions, which outrank plain discussion.
+# value_score = source base + engagement bonus. Only two sources score now:
+#   news  70 on our topics (unclaimed prizes, scratch tickets, spending, data),
+#         25 for results round-ups. No engagement data exists for articles.
+#   HN    base by kind, plus up to engagement_cap from comments and points:
+#         4*log2(1+comments) + 2*log2(1+points). An Ask HN with 10 comments /
+#         15 points ≈ 40 + 22 = 62; a busy link thread (50 / 100) = 20 + 30 = 50;
+#         a quiet one (5 / 8) ≈ 37 and stays out of the email.
+# X (if X_BEARER_TOKEN is set) is scored like HN, with replies and likes.
 [scoring]
-base_news = 70           # news on our topics: unclaimed prizes, scratch tickets, spending, data
-base_news_routine = 25   # results round-ups (see news.routine_patterns)
-base_question = 35        # Reddit/HN post that asks something
-base_discussion = 15
-base_comment = 20         # a Reddit comment that asks something
-engagement_cap = 30       # max points from comments/upvotes
+base_news = 70
+base_news_routine = 25   # see news.routine_patterns
+base_question = 40       # HN post that asks something (incl. every "Ask HN")
+base_discussion = 20     # HN link/discussion post
+base_comment = 25        # an HN comment that asks something
+engagement_cap = 30
 question_markers = [
-  "?", "which ", "what ", "how ", "should i", "is it worth", "anyone know", "does anyone",
+  "?", "ask hn", "which ", "what ", "how ", "should i", "is it worth", "anyone know", "does anyone",
   "recommend", "best ", "help",
 ]
 # Only opportunities at or above this go into the digest email.

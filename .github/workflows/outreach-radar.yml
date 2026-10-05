@@ -4,13 +4,14 @@ name: Outreach radar
 # and prepares replies for the owner to post by hand (scripts/outreach_radar.py).
 # Nothing is posted anywhere; the only email goes to OUTREACH_EMAIL.
 #
-# Collects every 4 hours so busy subreddits' newest-100 feeds are sampled
-# often enough; the 12:00 UTC run (~8am ET) also sends the daily digest. The
-# digest is skipped on days with nothing above the score threshold, and the
-# script itself refuses a second digest on the same Toronto day.
+# Sources are Google News and Hacker News (both searchable by date, so one
+# 72-hour lookback catches everything) plus X with a paid key. Reddit was
+# dropped 2026-10-04; see docs/OPERATIONS.md § 7. Collects twice a day; the
+# 12:00 UTC run (~8am ET) also sends the digest, skipped on days with nothing
+# above the score threshold. The script refuses a second digest per day.
 on:
   schedule:
-    - cron: "20 0,4,8,16,20 * * *"
+    - cron: "20 0 * * *"
     - cron: "0 12 * * *"
   workflow_dispatch:
     inputs:
@@ -36,11 +37,8 @@ jobs:
       OUTREACH_EMAIL: ${{ secrets.OUTREACH_EMAIL }}
       # Optional. Without these the radar still runs, with less:
       #   GEMINI_API_KEY     — reply drafts written per post (else fixed templates)
-      #   REDDIT_CLIENT_ID / REDDIT_CLIENT_SECRET — Reddit OAuth (else rate-limited RSS, no vote counts)
       #   X_BEARER_TOKEN     — X recent search (paid API tier; else X is skipped)
       GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-      REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
-      REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
       X_BEARER_TOKEN: ${{ secrets.X_BEARER_TOKEN }}
     steps:
       - uses: actions/checkout@v4
