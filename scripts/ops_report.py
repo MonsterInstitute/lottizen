@@ -59,8 +59,11 @@ RAPIDAPI_STUDIO = "https://rapidapi.com/studio"
 RAPIDAPI_LISTING = "https://rapidapi.com/l3rundong/api/lottizen-data-api"
 # "cancelled" includes a job that never got a runner (see ci-failure-alert.yml).
 FAILED = {"failure", "timed_out", "startup_failure", "cancelled"}
-# The owner is also a subscriber, so the owner-only notifications (these
-# reports, outreach and press radar) are excluded from "sent to subscribers".
+# The Resend account is shared with another project, so only mail from this
+# site's sending domain counts. The owner is also a subscriber, so the
+# owner-only notifications (these reports, outreach and press radar) are
+# excluded from "sent to subscribers" too.
+SENDING_DOMAIN = "@mail.lottizen.com"
 OWNER_ONLY_SUBJECTS = ("Outreach:", "Press timing:", "Lottizen 日报", "Lottizen 周报", "⚠ ")
 
 
@@ -183,7 +186,8 @@ def resend_sent(addresses: set[str], since: datetime) -> list[dict]:
         for m in data:
             if ts(m["created_at"]) < since:
                 return out
-            if "ops@" in (m.get("from") or "") or (m.get("subject") or "").startswith(OWNER_ONLY_SUBJECTS):
+            sender = m.get("from") or ""
+            if SENDING_DOMAIN not in sender or "ops@" in sender or (m.get("subject") or "").startswith(OWNER_ONLY_SUBJECTS):
                 continue
             if any((a or "").lower() in addresses for a in (m.get("to") or [])):
                 out.append(m)
@@ -446,8 +450,12 @@ def email_volume_rows(cur, prev, intent_cur, intent_prev, resend_err) -> tuple[s
         ev = cur["events"]
         bad = sum(ev.get(k, 0) for k in ("bounced", "complained", "failed"))
         parts = ", ".join(f"{k} {v}" for k, v in sorted(ev.items(), key=lambda kv: -kv[1])) or "无"
+        logged = sum(intent_cur.values()) if intent_cur else 0
+        # email_log claims the slot before sending, and a send skipped after
+        # the claim (e.g. the free weekly alert cap) still leaves its row.
+        gap = f" · email_log 记录 {logged} 次（含被免费额度拦下、未实际发出的）" if logged != cur["sent"] else ""
         r = row("邮件发送量", fmt(cur["sent"]), delta(cur["sent"], prev["sent"] if prev else None),
-                f"Resend 已接收、发给订阅者的邮件 · 最新状态：{E(parts)}")
+                f"Resend 实际发给订阅者 · 最新状态：{E(parts)}{gap}")
         if bad:
             alerts.append(f"{bad} 封邮件退信 / 被投诉 / 发送失败（Resend 状态）")
         return r, alerts, cur["sent"]
