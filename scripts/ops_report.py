@@ -196,6 +196,10 @@ def resend_sent(addresses: set[str], since: datetime) -> list[dict]:
 
 def resend_counts(msgs: list[dict], w) -> dict:
     sel = [m for m in msgs if within(m["created_at"], w)]
+    by_subject: dict[str, int] = {}
+    for m in sel:  # to the job log only — subjects carry no addresses
+        by_subject[m.get("subject") or ""] = by_subject.get(m.get("subject") or "", 0) + 1
+    print(f"Resend {w[0]:%Y-%m-%d %H:%M}Z..{w[1]:%H:%M}Z: " + "; ".join(f"{v}× {k}" for k, v in by_subject.items()))
     events: dict[str, int] = {}
     for m in sel:
         e = m.get("last_event") or "unknown"
@@ -313,7 +317,11 @@ def workflow_health(w, check_missing: bool) -> dict:
     missing = []
     if check_missing:
         ran = {r["path"] for r in runs}
-        missing = [name for path, name in daily_workflows().items() if path not in ran]
+        # A workflow added after the window opened couldn't have run in it.
+        created = {wf["path"]: wf["created_at"] for wf in
+                   (gh_json(["api", f"repos/{repo()}/actions/workflows?per_page=100"]) or {}).get("workflows", [])}
+        missing = [name for path, name in daily_workflows().items()
+                   if path not in ran and path in created and ts(created[path]) < w[0]]
     return {"failures": failures, "missing": missing, "total": len(runs)}
 
 
