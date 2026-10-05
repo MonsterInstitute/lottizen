@@ -169,7 +169,7 @@ def main() -> int:
         subs = subscribers_following(slug)
         if not subs:
             continue
-        print(f"{meta['name']} ({slug}): {len(subs)} subscriber(s) following, drew {today}")
+        print(f"{meta['name']} ({slug}): {len(subs)} subscriber(s) following, drew {latest['date']}")
 
         for sub in subs:
             log_id = claim_send(sub["id"], "draw_result", slug)

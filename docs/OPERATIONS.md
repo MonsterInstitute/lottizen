@@ -103,10 +103,11 @@ Key properties:
 | `freshness-watchdog.yml` | Monitoring: data freshness + deployed-site freshness, self-heal by re-dispatch |
 | `ci-failure-alert.yml` | Monitoring: opens/closes an issue when any data workflow fails |
 | `billing-health.yml` | Monitoring: real Stripe test-mode round trip + live config + Plus gating |
-| `email-delivery-watchdog.yml` | Monitoring: did expected emails get queued |
+| `email-delivery-watchdog.yml` | Monitoring: expected sends were attempted, every `email_log` row has an outcome, and every `sent` row is `delivered` in Resend |
 | `seo-health.yml` | Monitoring: crawl/sitemap/structured-data checks, business metrics, weekly report commit |
 | `admin-daily.yml` | Owner's daily operating email (`scripts/ops_report.py daily`): yesterday vs the day before, current totals, anomalies on top |
-| `resend-diagnose.yml` | Manual only: end-to-end Resend delivery probe |
+| `resend-diagnose.yml` | Manual only: end-to-end Resend delivery probe, sent to the `OPS_REPORT_EMAIL` secret |
+| `email-log-backfill.yml` | Manual only, one-off (run 2026-10-05): gave pre-0019 `email_log` rows an outcome from Resend's sent list |
 
 ---
 
