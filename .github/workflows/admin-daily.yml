@@ -16,6 +16,10 @@ on:
         description: "Render only (artifact), don't email"
         type: boolean
         default: false
+      force:
+        description: "Send even if today's report already went out"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -47,7 +51,7 @@ jobs:
         run: python -m pip install --upgrade pip supabase certifi stripe
 
       - name: Build and send the daily report
-        run: python scripts/ops_report.py daily --out daily-report.html ${{ inputs.no_send && '--no-send' || '' }}
+        run: python scripts/ops_report.py daily --out daily-report.html ${{ inputs.no_send && '--no-send' || '' }} ${{ inputs.force && '--force' || '' }}
 
       - name: Keep the rendered email
         if: always()
