@@ -23,6 +23,7 @@ on:
       - "Daily US draw results"
       - "Daily European draw results"
       - "Claim reminders"
+      - "Owner daily report"
     types: [completed]
 
 permissions:

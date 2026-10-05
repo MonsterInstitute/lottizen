@@ -1,0 +1,53 @@
+name: Owner daily report
+
+# The owner's morning operating email — scripts/ops_report.py daily. Yesterday
+# (Toronto calendar day) vs the day before: new subscribers, unsubscribes, new
+# Plus (trial / paid), Plus cancellations, emails sent (Resend's own record),
+# tickets entered; current subscribers, Plus and MRR vs 24h earlier; and any
+# anomaly (unsubscribes, cancellations, failed or missing workflow runs, zero
+# sends) listed on top. A quiet day still sends, in a short form. The weekly
+# counterpart runs at the end of seo-health.yml.
+on:
+  schedule:
+    - cron: "0 11 * * *" # 11:00 UTC (~7am ET); GitHub often starts it hours late
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  actions: read # lists yesterday's workflow runs
+  issues: read
+
+concurrency:
+  group: admin-daily
+  cancel-in-progress: false
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+      RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+      OPS_REPORT_EMAIL: ${{ secrets.OPS_REPORT_EMAIL }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: python -m pip install --upgrade pip supabase certifi stripe
+
+      - name: Build and send the daily report
+        run: python scripts/ops_report.py daily --out daily-report.html
+
+      - name: Keep the rendered email
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: daily-report
+          path: daily-report.html
+          retention-days: 14

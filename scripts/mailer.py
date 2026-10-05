@@ -44,14 +44,22 @@ def unsubscribe_headers(unsubscribe_url: str) -> dict:
     }
 
 
-def send_email(to: str, subject: str, html: str, unsubscribe_url: str | None = None) -> bool:
+# Resend's id for the most recent accepted send — lets a caller look the
+# message up afterwards (GET /emails/{id}) to see whether it was delivered.
+last_message_id: str | None = None
+
+
+def send_email(to: str, subject: str, html: str, unsubscribe_url: str | None = None,
+               from_email: str | None = None) -> bool:
     """True only when Resend accepted the message. A missing RESEND_API_KEY
     logs and returns False — safe to wire in before the key exists."""
+    global last_message_id
+    last_message_id = None
     key = os.environ.get("RESEND_API_KEY")
     if not key:
         print(f"  [skip] RESEND_API_KEY not set — would send to {to}: {subject}")
         return False
-    body = {"from": FROM_EMAIL, "to": to, "subject": subject, "html": html}
+    body = {"from": from_email or FROM_EMAIL, "to": to, "subject": subject, "html": html}
     if unsubscribe_url:
         body["headers"] = unsubscribe_headers(unsubscribe_url)
     req = urllib.request.Request(
@@ -64,7 +72,10 @@ def send_email(to: str, subject: str, html: str, unsubscribe_url: str | None = N
     )
     try:
         with urllib.request.urlopen(req, timeout=20) as r:
-            r.read()
+            try:
+                last_message_id = json.loads(r.read().decode()).get("id")
+            except ValueError:
+                pass
         return True
     except urllib.error.HTTPError as e:
         print(f"  [error] Resend {e.code}: {e.read().decode(errors='replace')[:300]}")

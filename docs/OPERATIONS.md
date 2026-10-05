@@ -105,6 +105,7 @@ Key properties:
 | `billing-health.yml` | Monitoring: real Stripe test-mode round trip + live config + Plus gating |
 | `email-delivery-watchdog.yml` | Monitoring: did expected emails get queued |
 | `seo-health.yml` | Monitoring: crawl/sitemap/structured-data checks, business metrics, weekly report commit |
+| `admin-daily.yml` | Owner's daily operating email (`scripts/ops_report.py daily`): yesterday vs the day before, current totals, anomalies on top |
 | `resend-diagnose.yml` | Manual only: end-to-end Resend delivery probe |
 
 ---
@@ -220,6 +221,16 @@ Four layers, each catching what the one before cannot.
 `reports/metrics-history.csv` (subscribers, Plus, MRR, GSC, sitemap size,
 IndexNow URLs sent, Bing indexed). Start any
 investigation there.
+
+**Owner emails.** Two emails go to the `OPS_REPORT_EMAIL` secret, both built by
+`scripts/ops_report.py` and sent through Resend from `ops@mail.lottizen.com`:
+a **daily** report (`admin-daily.yml`, ~7am ET) and a **weekly** report (last
+step of `seo-health.yml`, Mondays). Days are Toronto calendar days. Email
+volume comes from Resend's own sent list, filtered to subscriber addresses;
+Plus/MRR at past moments are reconstructed from Stripe timestamps. RapidAPI
+exposes no provider API for subscribers/revenue on the public hub, so both
+emails link to RapidAPI Studio instead. Each daily run also upserts the day's
+totals into the `ops_snapshots` table.
 
 **Reading the issue list.**
 

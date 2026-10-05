@@ -114,6 +114,17 @@ jobs:
       - name: Build reports/health-weekly.md
         run: python scripts/build_health_report.py
 
+      # The owner reads this email, not the committed report. Runs even if
+      # a check above failed — that's exactly the week the email matters.
+      - name: Email the weekly report to the owner
+        if: always()
+        env:
+          STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          OPS_REPORT_EMAIL: ${{ secrets.OPS_REPORT_EMAIL }}
+          GH_TOKEN: ${{ github.token }}
+        run: python scripts/ops_report.py weekly --out weekly-report.html
+
       - name: Commit the weekly report and metrics
         run: |
           git config user.name "lottizen-bot"
