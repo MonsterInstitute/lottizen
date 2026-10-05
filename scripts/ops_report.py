@@ -810,12 +810,33 @@ def confirm_delivery(msg_id: str) -> None:
             return
 
 
+def already_sent_today(marker: str) -> bool:
+    """True if Resend already accepted a report containing `marker` from the
+    ops address today (Toronto). GitHub often starts a scheduled run hours
+    late, so a manual run and the scheduled one can land on the same day."""
+    key = os.environ.get("RESEND_API_KEY")
+    if not key:
+        return False
+    start = day_window(datetime.now(TZ).date())[0]
+    req = urllib.request.Request("https://api.resend.com/emails?limit=100",
+                                 headers={"Authorization": f"Bearer {key}", "User-Agent": "lottizen-ops/1.0"})
+    try:
+        with urllib.request.urlopen(req, timeout=30) as r:
+            data = json.loads(r.read().decode()).get("data") or []
+    except Exception as e:  # noqa: BLE001 — can't tell, so send rather than go silent
+        print(f"warning: duplicate check failed ({e}); sending anyway", file=sys.stderr)
+        return False
+    return any("ops@" in (m.get("from") or "") and marker in (m.get("subject") or "")
+               and ts(m["created_at"]) >= start for m in data)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("kind", choices=["daily", "weekly"])
     ap.add_argument("--out", help="also write the HTML here")
     ap.add_argument("--no-send", action="store_true")
     ap.add_argument("--date", help="Toronto date the report runs on (default: today)")
+    ap.add_argument("--force", action="store_true", help="send even if one already went out today")
     a = ap.parse_args()
 
     today = date.fromisoformat(a.date) if a.date else datetime.now(TZ).date()
@@ -835,6 +856,10 @@ def main() -> int:
     if not to:
         print("error: OPS_REPORT_EMAIL not set", file=sys.stderr)
         return 1
+    marker = "Lottizen 日报" if a.kind == "daily" else "Lottizen 周报"
+    if not a.force and already_sent_today(marker):
+        print(f"skip: a {a.kind} report already went out today")
+        return 0
     import mailer
     # One recipient, the owner: an internal notification, not a bulk send,
     # so no List-Unsubscribe (same as outreach_common.send_to_owner).
