@@ -9,7 +9,11 @@ name: Owner daily report
 # counterpart runs at the end of seo-health.yml.
 on:
   schedule:
-    - cron: "0 11 * * *" # 11:00 UTC (~7am ET); GitHub often starts it hours late
+    # 07:00 UTC is 3am ET on paper, but GitHub has been starting this repo's
+    # scheduled runs 4–6 hours late (the 10:00 UTC scrapes land 14:30–17:00),
+    # so in practice this arrives around 7–8am ET. Content doesn't depend on
+    # the hour: it always reports the previous Toronto day.
+    - cron: "0 7 * * *"
   workflow_dispatch:
     inputs:
       no_send:

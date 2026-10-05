@@ -730,7 +730,8 @@ def build_weekly(today: date) -> tuple[str, str]:
         health += row("数据新鲜度", "✓ 全部最新" if not stale else f"✗ {len(stale)} 项滞后", "",
                       E(names) if stale else "所有开奖游戏与 5 家刮刮乐机构")
         for s in fresh.get("stale", []):
-            actions.append(f"数据滞后：{E(s['name'])} 最新 {s['latest']}，应有 {s['due']}（晚 {s['daysLate']} 天）")
+            missing = "、".join(cn_date(date.fromisoformat(d)) for d in s.get("missing") or [s["due"]])
+            actions.append(f"数据滞后：{E(s['name'])} 缺 {missing} 的开奖（库里最新 {s['latest']}）")
         for s in fresh.get("staleScratch", []):
             actions.append(f"刮刮乐数据滞后：{E(s['agency'])} — {E(str(s.get('reason') or s.get('latest')))}")
 
