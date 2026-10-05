@@ -51,6 +51,13 @@ must_mention_any = ["data", "api", "dataset", "statistic", "odds", "open data", 
 # source is skipped and the run log says so.
 query = '(lottery OR lotto) (data OR API OR dataset OR statistics) lang:en -is:retweet'
 
+# --------------------------------------------------------------- drafts
+[drafts]
+# Gemini model for reply drafts (needs GEMINI_API_KEY). gemini-3.8-flash
+# costs about $0.002 a draft. gemini-3.5-flash-lite is cheaper but got claim
+# deadlines vague in testing (2026-10-04).
+model = "gemini-3.8-flash"
+
 # --------------------------------------------------------------- topics
 # `page` / `data` say which of our pages and figures answer the topic.
 # data keys are computed live in scripts/outreach_common.py (facts_for()).
@@ -60,7 +67,8 @@ key = "unclaimed"
 keywords = [
   "unclaimed prize", "unclaimed lottery", "unclaimed ticket", "expired lottery ticket",
   "expired ticket", "claim deadline", "how long to claim", "lost lottery ticket",
-  "forgot to claim", "lottery ticket expire",
+  "forgot to claim", "lottery ticket expire", "still claim", "can i claim", "is it expired",
+  "how long do you have", "old lottery ticket", "old lotto",
 ]
 data = ["claim_deadlines", "unclaimed_list"]
 

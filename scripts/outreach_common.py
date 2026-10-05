@@ -329,61 +329,97 @@ BANNED = [
 ]
 
 
+# Deterministic rewrites applied to every model draft, for claims that are
+# true of some games but not all, so nobody has to remember to fix them by
+# hand. Not every game keeps selling after its top prizes are claimed, so a
+# blanket "OLG keeps selling..." becomes "OLG sometimes keeps selling...".
+FIXUPS = [
+    (re.compile(r"(?<!sometimes )(?<!some games )(?<!can )\b(keeps|keep|continues to|continue to) (selling|sell)\b", re.I),
+     r"sometimes \1 \2"),
+]
+
+
+def apply_fixups(text: str) -> str:
+    for pattern, repl in FIXUPS:
+        text = pattern.sub(repl, text)
+    return text
+
+
 def check_honesty(text: str) -> list[str]:
     return [p for p in BANNED if re.search(p, text or "", flags=re.I)]
 
 
-# ------------------------------------------------------------------ Claude drafting
+# ------------------------------------------------------------------ LLM drafting (Gemini)
 
 DRAFT_SYSTEM = """You draft replies that the founder of Lottizen (lottizen.com, a free site that compiles Canadian, US and European lottery results, number history and Canadian scratch-ticket remaining-prize data) will read, edit and post by hand.
 
 Rules, in priority order:
 1. Answer the person's actual question or add something useful to the discussion first, in plain words, as a knowledgeable person would. If the right answer is "check with the lottery corporation" or "set a budget", say that.
-2. Use only the figures given in FACTS. Never invent a number, date or statistic. If no fact helps, write a genuinely helpful reply with no link.
+2. Use only the figures given in FACTS. Never invent a number, date or statistic. Don't state claim procedures, payout limits, apps or portals unless FACTS states them; for "how do I claim" details, tell people to check with the lottery corporation. If no fact helps, write a genuinely helpful reply with no link.
 3. Honesty constraints (non-negotiable): lottery draws are independent, so no number-picking strategy, hot/cold number, frequency count or "overdue" number changes anyone's chance of winning; never say or imply otherwise. Scratch-ticket figures describe how much prize money is still unclaimed, not the odds of any ticket winning. Nobody publishes how many tickets remain unsold. The only real benefit of avoiding popular numbers (birthdays 1-31) is sharing a jackpot with fewer people if you win.
-4. At most one link, only if it directly supports the answer, presented as a source ("the remaining-prize table is here: URL"). When you link to Lottizen, disclose it briefly ("I run a site that tracks this").
-5. Tone: conversational, specific, no marketing language, no exclamation marks, no emojis, no headers. Keep it under 130 words.
+4. At most one link, only if it directly supports the answer, introduced in plain words that describe what the linked page actually shows. When you link to Lottizen, disclose it briefly ("I run a site that tracks this").
+5. Dates: TODAY is given in the input. When a deadline matters, compute it and state the date and how far away it is (e.g. "a draw from mid-November 2025 can be claimed until mid-November 2026, about six weeks from now, so claim soon"). Never say "plenty of time" or "well within" without the date.
+6. Tone: conversational, specific, no marketing language, no exclamation marks, no emojis, no headers. Keep it under 130 words. Don't describe the data as real-time; it updates daily.
+7. Not every scratch game keeps selling after its top prizes are claimed; say "some games keep selling", never a blanket "they keep selling".
+8. Never use the phrases "more likely to win", "better odds", "improve your chances" or "overdue", even to deny them; an automated filter rejects any draft that contains them. Say "every ticket/number has the same chance" instead.
+9. If the post has nothing to do with lotteries, or there is no genuinely useful thing to say, output exactly SKIP and nothing else. Never steer an unrelated conversation toward lotteries.
 
-Output only the reply text."""
+Output only the reply text (or SKIP)."""
 
 NEWS_SYSTEM = """You draft a short note the founder of Lottizen (lottizen.com, free Canadian lottery data: draw history, number statistics, scratch-ticket prizes still unclaimed for all 5 Canadian agencies, unclaimed-prize deadlines) will send, after editing, to the journalist who wrote the article below. The goal is to be a useful source for their next story, not to sell anything.
 
-Rules: under 110 words; reference their article specifically; offer one or two concrete data angles drawn only from FACTS (never invent numbers); say the data is free to use with a credit; no flattery, no marketing language. Honesty constraints: no strategy changes the odds of winning; scratch figures describe unclaimed prize money, not odds; number frequencies are history. Output only the note body (no subject line, no signature)."""
+Rules: under 110 words; reference their article specifically; offer only data angles that connect to what the article is actually about, drawn only from FACTS (never invent numbers), and leave out any FACT that doesn't connect; say the data is free to use with a credit; it updates daily, so never call it real-time; no flattery, no marketing language. Honesty constraints: no strategy changes the odds of winning; scratch figures describe unclaimed prize money, not odds; number frequencies are history. Output only the note body (no subject line, no signature)."""
 
 
-def draft_with_claude(system: str, user: str) -> str | None:
-    """None when no ANTHROPIC_API_KEY or the call fails — callers fall back
-    to a template. A draft that trips the honesty guard is discarded."""
-    if not os.environ.get("ANTHROPIC_API_KEY"):
+# Stable Gemini Flash model (ai.google.dev/gemini-api/docs/models + /pricing,
+# 2026-10-04: $0.75 in / $3.75 out per 1M tokens, about $0.002 a draft).
+# gemini-3.5-flash-lite costs less but, side by side on the same questions,
+# fudged claim deadlines ("the deadline is approaching") where this model
+# computed them. Override with [drafts] model in config/outreach.toml.
+DEFAULT_DRAFT_MODEL = "gemini-3.8-flash"
+
+# Set after an account-level failure (no credit, bad key) so the rest of the
+# run goes straight to templates instead of failing once per item.
+_LLM_DISABLED = False
+# Held for the whole run: a client created inline and used once
+# (genai.Client(...).interactions.create) can be garbage-collected and closed
+# before its request is sent ("client has been closed").
+_GENAI_CLIENT = None
+
+
+def draft_with_llm(system: str, user: str) -> str | None:
+    """A Gemini-written draft, or None — callers then fall back to a fixed
+    template. None when GEMINI_API_KEY is unset, the SDK is missing, or the
+    call fails. A draft that trips the honesty guard is discarded too."""
+    global _LLM_DISABLED, _GENAI_CLIENT
+    key = os.environ.get("GEMINI_API_KEY")
+    if not key or _LLM_DISABLED:
         return None
     try:
-        import anthropic
+        from google import genai
     except ImportError:
-        print("  [warn] anthropic not installed; using template drafts")
+        print("  [warn] google-genai not installed; using template drafts")
+        _LLM_DISABLED = True
         return None
-    client = anthropic.Anthropic()
+    model = load_config().get("drafts", {}).get("model", DEFAULT_DRAFT_MODEL)
     try:
-        resp = client.beta.messages.create(
-            model="claude-opus-5-5",
-            max_tokens=2000,
-            output_config={"effort": "medium"},
-            betas=["server-side-fallback-2026-07-01"],
-            fallbacks="default",
-            system=system,
-            messages=[{"role": "user", "content": user}],
+        if _GENAI_CLIENT is None:
+            _GENAI_CLIENT = genai.Client(api_key=key)
+        interaction = _GENAI_CLIENT.interactions.create(
+            model=model,
+            system_instruction=system,
+            input=user,
+            generation_config={"max_output_tokens": 1024, "temperature": 0.6},
         )
-    except anthropic.RateLimitError:
-        print("  [warn] Claude rate-limited; using template draft")
+    # The Interactions API raises from the SDK's private error module, not
+    # google.genai.errors, so catch broadly and read the status off it.
+    except Exception as e:  # noqa: BLE001
+        status = getattr(e, "status_code", None) or getattr(e, "code", None)
+        print(f"  [warn] Gemini {status or type(e).__name__}: {str(e)[:160]}; using template draft")
+        if status in (401, 402, 403):  # no credit / bad key: same answer for every item this run
+            _LLM_DISABLED = True
         return None
-    except anthropic.APIStatusError as e:
-        print(f"  [warn] Claude API {e.status_code}; using template draft")
-        return None
-    except anthropic.APIConnectionError:
-        print("  [warn] Claude unreachable; using template draft")
-        return None
-    if resp.stop_reason == "refusal":
-        return None
-    text = "".join(b.text for b in resp.content if b.type == "text").strip()
+    text = apply_fixups((interaction.output_text or "").strip())
     bad = check_honesty(text)
     if bad:
         print(f"  [warn] discarded a draft that matched {bad}")

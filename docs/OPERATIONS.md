@@ -159,7 +159,7 @@ Values are never in the repo. "Where" is where the value must be set.
 | `STRIPE_WEBHOOK_SECRET_TEST` | Present but not referenced by any workflow (the site uses its Vercel copy) |
 | `BING_WEBMASTER_API_KEY` | Bing Webmaster API key; the weekly "Bing indexed" metric |
 | `OUTREACH_EMAIL` | Outreach + press radar: the one inbox their digests and pitch packages go to |
-| `ANTHROPIC_API_KEY` | **Optional.** Outreach radar reply drafts (Claude); without it, fixed templates are used |
+| `GEMINI_API_KEY` | **Optional.** Outreach radar reply drafts (Gemini, model in `config/outreach.toml` `[drafts]`). Google AI Studio project on **prepaid** billing: when credit runs out the API returns 402 and drafts silently fall back to fixed templates (the run log says `Gemini 402`). Without the key, templates are used |
 | `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET` | **Optional.** Reddit "script" app for the outreach radar; without it Reddit is read via RSS, which is rate-limited and has no vote/comment counts |
 | `X_BEARER_TOKEN` | **Optional.** X API recent search (paid tier); without it X is skipped |
 | `GSC_SERVICE_ACCOUNT_JSON` | **Not set yet.** Service-account JSON (raw or base64) with read access to the GSC property. Enables GSC trend + metrics. |

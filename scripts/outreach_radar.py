@@ -353,7 +353,7 @@ def value_score(cfg: dict, item: dict, question: bool) -> int:
 # ================================================================= drafting
 
 def template_draft(item: dict, topic_key: str | None, facts: list[dict]) -> str:
-    """Used when Claude isn't configured or declines. Built only from `facts`."""
+    """Used when Gemini isn't configured or fails. Built only from `facts`."""
     link = facts[0]["url"] if facts else ""
     if item["source"] == "news":
         first = (item.get("_bylines") or ["there"])[0].split()[0]
@@ -368,8 +368,8 @@ def template_draft(item: dict, topic_key: str | None, facts: list[dict]) -> str:
                 "lottery corporation directly rather than mailing the ticket.\n\n"
                 f"I keep a table of the deadlines by province, with sources, here: {link} (my site).")
     if topic_key == "scratch":
-        return ("No ticket is more likely to win than its printed odds say, and nobody publishes how many tickets are left "
-                "unsold. What you can check is how many of the big prizes are still unclaimed, since games keep selling "
+        return ("Every ticket's chance of winning is fixed when the game is printed, and nobody publishes how many tickets "
+                "are left unsold. What you can check is how many of the big prizes are still unclaimed, since some games keep selling "
                 f"after their top prizes are gone. As of the latest update: {fact_line}\n\n"
                 f"I run a site that tracks this for every Canadian province: {link}")
     if topic_key == "numbers":
@@ -387,16 +387,25 @@ def template_draft(item: dict, topic_key: str | None, facts: list[dict]) -> str:
 def draft(item: dict, topic_key: str | None, facts: list[dict]) -> str:
     if item["source"] == "news":
         system = oc.NEWS_SYSTEM
-        user = (f"ARTICLE: {item['title']} ({item['community']}, {item['published_at']:%Y-%m-%d})\n"
+        user = (f"TODAY: {oc.today_toronto():%B %-d, %Y}\n"
+                f"ARTICLE: {item['title']} ({item['community']}, {item['published_at']:%Y-%m-%d})\n"
                 f"JOURNALIST: {item.get('author') or 'unknown'}\nSUMMARY: {oc.clip(item['body'], 800)}\n\n"
                 f"FACTS:\n{oc.facts_block(facts)}")
     else:
         system = oc.DRAFT_SYSTEM
         where = item["community"] + (" (a comment on a post)" if item["kind"] == "comment" else "")
-        user = (f"WHERE: {where}\nPOST TITLE: {item['title']}\n"
+        user = (f"TODAY: {oc.today_toronto():%B %-d, %Y}\nWHERE: {where}\nPOST TITLE: {item['title']}\n"
                 f"{'COMMENT' if item['kind'] == 'comment' else 'POST TEXT'}: {oc.clip(item['body'], 2500)}\n\n"
                 f"FACTS:\n{oc.facts_block(facts)}")
-    return oc.draft_with_claude(system, user) or template_draft(item, topic_key, facts)
+    text = oc.draft_with_llm(system, user)
+    if text and text.strip().upper().startswith("SKIP"):
+        return SKIP
+    return text or template_draft(item, topic_key, facts)
+
+
+# The model found nothing genuinely useful to say; collect() keeps the row
+# (so it isn't re-fetched) but scores it below the email threshold.
+SKIP = "(No draft: the model judged there was nothing useful to add. Skip this one.)"
 
 
 # ================================================================= storage
@@ -497,6 +506,8 @@ def collect(cfg: dict, dry_run: bool) -> list[dict]:
             "data_points": facts,
         }
         row["reply_draft"] = draft(item, row["topic"], facts)
+        if row["reply_draft"] == SKIP:
+            row["value_score"] = 0
         print(f"  + [{row['value_score']:>3}] {row['source']:<6} {row['community']}: {oc.clip(row['title'], 70)}")
         if not dry_run:
             import db

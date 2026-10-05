@@ -35,10 +35,10 @@ jobs:
       RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
       OUTREACH_EMAIL: ${{ secrets.OUTREACH_EMAIL }}
       # Optional. Without these the radar still runs, with less:
-      #   ANTHROPIC_API_KEY  — reply drafts written per post (else fixed templates)
+      #   GEMINI_API_KEY     — reply drafts written per post (else fixed templates)
       #   REDDIT_CLIENT_ID / REDDIT_CLIENT_SECRET — Reddit OAuth (else rate-limited RSS, no vote counts)
       #   X_BEARER_TOKEN     — X recent search (paid API tier; else X is skipped)
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
       REDDIT_CLIENT_ID: ${{ secrets.REDDIT_CLIENT_ID }}
       REDDIT_CLIENT_SECRET: ${{ secrets.REDDIT_CLIENT_SECRET }}
       X_BEARER_TOKEN: ${{ secrets.X_BEARER_TOKEN }}
@@ -58,7 +58,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: python -m pip install --upgrade pip supabase certifi anthropic
+        run: python -m pip install --upgrade pip supabase certifi google-genai
 
       - name: Collect opportunities
         run: python scripts/outreach_radar.py collect
