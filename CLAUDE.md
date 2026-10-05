@@ -54,7 +54,8 @@ filtering even when delivery succeeds.
 `email_log` rows are written *before* the send call to claim the idempotency
 slot, then updated with the outcome: `status` is `queued` → `sent` (with
 Resend's `provider_message_id`) / `skipped` (with `skip_reason`, e.g.
-`free_weekly_cap`) / `failed` (with `error`). Even `sent` only means Resend
+`free_weekly_cap`) / `failed` (with `error`); `unknown` marks only pre-2026-09-06 legacy rows
+nothing could verify. Even `sent` only means Resend
 accepted it — **delivery is Resend's `last_event`, never this table.** Never
 count rows without filtering on `status`, and never cite them as proof an
 email arrived. New Python senders go through `mailer.claim_send()` +

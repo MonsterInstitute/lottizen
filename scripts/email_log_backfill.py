@@ -14,8 +14,8 @@ claiming). The migration left every existing row at the column default,
                    skip_reason 'legacy_not_in_resend': Resend never accepted
                    it. Whether it was skipped (cap, no key) or rejected wasn't
                    recorded back then; not inventing a reason.
-  * unmatched, older than Resend's oldest message -> left 'queued' and
-                   reported: nothing to check it against.
+  * unmatched, older than Resend's oldest message -> status 'unknown'
+                   (migration 0020): nothing left to check it against.
 
     python scripts/email_log_backfill.py            # dry run: report only
     python scripts/email_log_backfill.py --apply
@@ -98,7 +98,9 @@ def main() -> int:
     for r in skipped:
         client.table("email_log").update({"status": "skipped", "skip_reason": "legacy_not_in_resend", "updated_at": now}) \
             .eq("id", r["id"]).execute()
-    print(f"applied: {len(sent)} -> sent, {len(skipped)} -> skipped")
+    for r in unknown:
+        client.table("email_log").update({"status": "unknown", "updated_at": now}).eq("id", r["id"]).execute()
+    print(f"applied: {len(sent)} -> sent, {len(skipped)} -> skipped, {len(unknown)} -> unknown")
     return 0
 
 

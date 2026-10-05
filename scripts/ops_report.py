@@ -160,7 +160,8 @@ def email_intent(internal_ids: set[str], first: date, last: date) -> dict[str, d
 
 
 OUTCOME_CN = {"failed": "发送失败", "queued": "卡在发送中", "skipped:free_weekly_cap": "免费每周上限拦下",
-              "skipped:no_resend_key": "缺 Resend key", "skipped:legacy_not_in_resend": "旧记录·未进入 Resend"}
+              "skipped:no_resend_key": "缺 Resend key", "skipped:legacy_not_in_resend": "旧记录·未进入 Resend",
+              "unknown": "旧记录·无法核实"}
 
 
 def not_sent_text(outcomes: dict[str, int] | None) -> str:

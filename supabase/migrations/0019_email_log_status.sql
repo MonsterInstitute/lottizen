@@ -17,7 +17,7 @@
 -- "sent" still isn't "delivered" — delivery lives in Resend and is checked
 -- against it, never inferred from this table.
 -- Rows written before this migration are reconciled against Resend's sent
--- list by scripts/email_log_backfill.py.
+-- list by scripts/email_log_backfill.py (and see 0020 for 'unknown').
 -- ---------------------------------------------------------------------------
 alter table public.email_log
   add column if not exists status text not null default 'queued',
