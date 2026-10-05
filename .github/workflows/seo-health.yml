@@ -125,6 +125,14 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: python scripts/ops_report.py weekly --out weekly-report.html
 
+      - name: Keep the rendered weekly email
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: weekly-report
+          path: weekly-report.html
+          retention-days: 30
+
       - name: Commit the weekly report and metrics
         run: |
           git config user.name "lottizen-bot"
@@ -132,6 +140,9 @@ jobs:
           git add reports/health-weekly.md reports/weekly reports/metrics-history.csv
           git diff --staged --quiet && echo "no change" && exit 0
           git commit -m "Weekly health report — $(date -u +%Y-%m-%d)"
+          # Anything pushed to main during this ~10-minute run would reject a
+          # plain push; these files are only ever written here, so rebase is safe.
+          git pull --rebase origin main
           git push
 
       - name: Fail the job if problems were found
