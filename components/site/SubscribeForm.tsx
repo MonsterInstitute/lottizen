@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import type { PrefCountry } from "@/lib/subscribe";
+import { PREF_PROVINCES, type PrefCountry } from "@/lib/subscribe";
 
 interface SubscribeFormProps {
   /** Region hint from the page this form is embedded on (e.g. a Canada game
@@ -15,6 +15,7 @@ interface SubscribeFormProps {
 
 export function SubscribeForm({ defaultCountry, title, description, buttonLabel = "Subscribe" }: SubscribeFormProps) {
   const [email, setEmail] = useState("");
+  const [province, setProvince] = useState("");
   const [state, setState] = useState<"idle" | "submitting" | "sent" | "already" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
 
@@ -26,7 +27,7 @@ export function SubscribeForm({ defaultCountry, title, description, buttonLabel 
       const res = await fetch("/api/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, country: defaultCountry }),
+        body: JSON.stringify({ email, country: defaultCountry, province: province || undefined }),
       });
       const body = await res.json();
       if (!res.ok || !body.ok) {
@@ -66,6 +67,26 @@ export function SubscribeForm({ defaultCountry, title, description, buttonLabel 
         />
         {description ? <span className="field-hint">{description}</span> : null}
       </div>
+      {defaultCountry === undefined || defaultCountry === "CA" ? (
+        <div className="field">
+          <label htmlFor="subscribe-province" className="field-hint">
+            Province (optional): adds this week&rsquo;s scratch pick for it to the weekly email
+          </label>
+          <select
+            id="subscribe-province"
+            value={province}
+            onChange={(e) => setProvince(e.target.value)}
+            disabled={state === "submitting"}
+          >
+            <option value="">Not chosen</option>
+            {PREF_PROVINCES.map((p) => (
+              <option key={p.slug} value={p.slug}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+        </div>
+      ) : null}
       <button type="submit" className="btn btn-primary" disabled={state === "submitting"}>
         {state === "submitting" ? "Sending…" : buttonLabel}
       </button>

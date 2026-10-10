@@ -59,6 +59,8 @@ export interface Subscriber {
   id: string;
   email: string;
   country: string;
+  /** For the weekly email's pick section (0029); null = not chosen. */
+  province: string | null;
   frequency: "instant" | "weekly" | "both";
   tier: string;
   magic_token: string;
@@ -90,11 +92,11 @@ export async function confirmSubscriberById(id: string): Promise<void> {
   });
 }
 
-export async function createSubscriber(email: string, country: string): Promise<Subscriber> {
+export async function createSubscriber(email: string, country: string, province: string | null = null): Promise<Subscriber> {
   const rows = await pg<Subscriber[]>(`subscribers`, {
     method: "POST",
     headers: { Prefer: "return=representation" },
-    body: JSON.stringify([{ email, country, magic_token: newToken() }]),
+    body: JSON.stringify([{ email, country, province, magic_token: newToken() }]),
   });
   return rows[0];
 }
@@ -133,11 +135,11 @@ export async function unsubscribeByToken(token: string): Promise<boolean> {
 
 export async function updatePreferences(
   subscriberId: string,
-  prefs: { country: string; frequency: string; games: string[] },
+  prefs: { country: string; province: string | null; frequency: string; games: string[] },
 ): Promise<void> {
   await pg(`subscribers?id=eq.${subscriberId}`, {
     method: "PATCH",
-    body: JSON.stringify({ country: prefs.country, frequency: prefs.frequency }),
+    body: JSON.stringify({ country: prefs.country, province: prefs.province, frequency: prefs.frequency }),
   });
   // Replace the full follow-list: delete then insert. Small N (<=19), simplest
   // correct diff, and matches the "save whole form" UX of the preferences page.

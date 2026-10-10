@@ -8,7 +8,7 @@ import {
   resetForResubscribe,
 } from "@/lib/supabase-admin";
 import { renderSignInEmail, sendEmail } from "@/lib/email";
-import { isValidCountry } from "@/lib/subscribe";
+import { isValidCountry, isValidProvince } from "@/lib/subscribe";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -26,7 +26,7 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  * IS signing in.
  */
 export async function POST(req: Request) {
-  let body: { email?: string; country?: string };
+  let body: { email?: string; country?: string; province?: string };
   try {
     body = await req.json();
   } catch {
@@ -35,6 +35,7 @@ export async function POST(req: Request) {
 
   const email = (body.email || "").trim().toLowerCase();
   const country = body.country && isValidCountry(body.country) ? body.country : "CA";
+  const province = body.province && isValidProvince(body.province) ? body.province : null;
   if (!EMAIL_RE.test(email)) {
     return NextResponse.json({ ok: false, error: "Enter a valid email address." }, { status: 400 });
   }
@@ -43,7 +44,7 @@ export async function POST(req: Request) {
     let subscriber = await findSubscriberByEmail(email);
     const isNewAccount = !subscriber;
     if (!subscriber) {
-      subscriber = await createSubscriber(email, country);
+      subscriber = await createSubscriber(email, country, province);
     } else if (subscriber.unsubscribed_at) {
       // Re-subscribing after opting out: fresh consent, fresh sign-in.
       subscriber = await resetForResubscribe(subscriber.id);

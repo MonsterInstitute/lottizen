@@ -85,3 +85,18 @@ export function validateCombinationNumbers(
   }
   return { ok: true, numbers: list };
 }
+
+/** Province, for the weekly email's "this week's pick / skip" — tickets can
+ *  only be bought in your own province. Optional (null = no pick section). */
+export const PREF_PROVINCES = [
+  { slug: "ontario", label: "Ontario" },
+  { slug: "quebec", label: "Quebec" },
+  { slug: "british-columbia", label: "British Columbia" },
+  { slug: "western", label: "Alberta, Saskatchewan, Manitoba or the territories" },
+  { slug: "atlantic", label: "New Brunswick, Nova Scotia, PEI or Newfoundland and Labrador" },
+] as const;
+export type PrefProvince = (typeof PREF_PROVINCES)[number]["slug"];
+
+export function isValidProvince(p: string): p is PrefProvince {
+  return PREF_PROVINCES.some((x) => x.slug === p);
+}

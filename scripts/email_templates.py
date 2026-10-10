@@ -220,6 +220,74 @@ def draw_result_email(
 # ---------------------------------------------------------------------------
 # Weekly digest
 # ---------------------------------------------------------------------------
+PICK_NOTE = "This is about prize money left, not your odds."
+BAND_LABEL = {"1-5": "$1–5", "10": "$6–10", "20+": "Over $10"}
+
+
+def _top_prize(g: dict) -> str:
+    from prize_values import is_annuity
+    label = " ".join(str(g.get("top_label") or "").split())
+    if label and is_annuity(label):
+        return label
+    return money(g["top_amount"]) if g.get("top_amount") is not None else (label or "top prize")
+
+
+def pick_sentences(p: dict, g: dict) -> tuple[str, str]:
+    """(why it ranks first, what it still has) — the same wording rules as
+    the homepage (components/home/ProvinceBlock.tsx): the reason is stated in
+    the terms of the agency's scoring method, never as odds."""
+    among = f"the {p['onSaleCount']} {p['agencyName']} scratch tickets on sale"
+    if p["agency"] == "WCLC":
+        why = f"It has the most disclosed prize money still unclaimed per $1 of ticket price among {among}."
+    elif p["agency"] == "ALC":
+        why = (f"It has the highest share of its top prizes still unclaimed among {among} "
+               f"(ties go to the one with the most top prizes left).")
+    else:
+        why = f"It has the highest Value Score among {among}: its big prizes are being claimed more slowly than its small ones."
+    left = g.get("top_remaining") or 0
+    if g.get("top_total") is not None:
+        tops = (f"all {g['top_total']} of its top prizes ({_top_prize(g)})" if left == g["top_total"]
+                else f"{left} of its {g['top_total']} top prizes ({_top_prize(g)})")
+    else:
+        tops = f"{left} top prize{'' if left == 1 else 's'} ({_top_prize(g)}) unclaimed"
+    share = f" and {g['share_left_pct']}% of its printed prize money unclaimed" if g.get("share_left_pct") is not None else ""
+    return why, f"It still has {tops}{share}."
+
+
+def picks_section(p: dict) -> str:
+    """This week's pick + skip list for the subscriber's province (from
+    data/picks/canada.json, scripts/weekly_picks.py)."""
+    url = lambda g: f"{SITE_URL}/scratch/{g['province']}/{g['slug']}"  # noqa: E731
+    head = ('<p style="margin:0 0 6px;font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:0.04em;'
+            f'color:#9c968a;">This week&rsquo;s pick &middot; {p["label"]}</p>')
+    out = [head]
+    g = (p.get("picks") or {}).get("overall")
+    if g:
+        why, has = pick_sentences(p, g)
+        out.append(f'<p style="margin:0 0 6px;font-family:Georgia,serif;font-size:20px;font-weight:700;">'
+                   f'<a href="{url(g)}" style="color:#1a1815;text-decoration:none;">{g["name"]}</a> '
+                   f'<span style="font-size:14px;color:#6d685f;">{money(g["price"])}</span></p>')
+        out.append(f'<p style="margin:0 0 6px;font-size:14.5px;">{why} {has}</p>')
+        out.append(f'<p style="margin:0 0 10px;font-size:12.5px;color:#9c968a;">{PICK_NOTE}</p>')
+        bands = []
+        for b in ("1-5", "10", "20+"):
+            bg = p["picks"].get(b)
+            if bg:
+                bands.append(f'{BAND_LABEL[b]}: <a href="{url(bg)}" style="color:#c2652a;">{bg["name"]}</a> ({money(bg["price"])})')
+        if bands:
+            out.append(f'<p style="margin:0 0 14px;font-size:13.5px;">{" &middot; ".join(bands)}</p>')
+    skip = p.get("skip") or []
+    if skip:
+        names = ", ".join(f'{x["name"]} ({money(x["price"])})' for x in skip[:5]) + (", …" if len(skip) > 5 else "")
+        out.append(f'<p style="margin:0 0 4px;font-size:14.5px;"><strong>Skip:</strong> {len(skip)} '
+                   f'{"ticket" if len(skip) == 1 else "tickets"} still on sale in {p["label"]} '
+                   f'{"has" if len(skip) == 1 else "have"} no top prize left: {names}</p>')
+    out.append(f'<p style="margin:0 0 20px;font-size:13px;"><a href="{SITE_URL}/" style="color:#c2652a;">'
+               f'See this week&rsquo;s pick and skip list for {p["label"]} &rarr;</a></p>')
+    return ('<div style="margin:0 0 24px;padding:16px 18px;border:1px solid #e6e0d4;border-radius:10px;">'
+            + "".join(out) + "</div>")
+
+
 def weekly_digest_email(
     *,
     game_sections: list[dict],  # [{name, url, draws: [{date, numbers, bonus, bonus2}]}]
@@ -227,13 +295,19 @@ def weekly_digest_email(
     guide: dict | None,  # {title, url}
     preferences_url: str,
     unsubscribe_url: str,
+    province_picks: dict | None = None,  # data/picks/canada.json provinces[<subscriber.province>]
 ) -> tuple[str, str]:
     subject = "Your Lottizen weekly digest"
+    pick = (province_picks or {}).get("picks", {}).get("overall") if province_picks else None
+    if pick:
+        subject = f"This week in {province_picks['label']}: {pick['name']}, and what to skip"
     parts = [
         '<h1 style="font-family:Georgia,\'Times New Roman\',serif;font-size:22px;font-weight:700;color:#1a1815;margin:0 0 16px;">This week, by the numbers</h1>'
     ]
+    if province_picks and province_picks.get("onSaleKnown"):
+        parts.append(picks_section(province_picks))
 
-    if not game_sections:
+    if not game_sections and not province_picks:
         parts.append(
             '<p style="margin:0 0 18px;color:#6d685f;">No results this week for the games you follow &mdash; '
             '<a href="https://lottizen.com/subscribe/preferences" style="color:#c2652a;">follow more games</a>.</p>'

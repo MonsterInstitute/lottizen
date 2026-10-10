@@ -162,11 +162,18 @@ def main() -> int:
         print("No weekly-digest subscribers.")
         return 0
     followed = followed_games_by_subscriber([s["id"] for s in subs])
+    # This week's pick / skip per province (scripts/weekly_picks.py), prefetched
+    # from site_json like draws/stats. Missing file = no pick section.
+    picks_path = Path(__file__).resolve().parent.parent / "data" / "picks" / "canada.json"
+    picks = json.loads(picks_path.read_text()).get("provinces", {}) if picks_path.exists() else {}
 
     sent, skipped, failed, no_games = 0, 0, 0, 0
     for sub in subs:
         slugs = followed.get(sub["id"], [])
-        if not slugs:
+        province_picks = picks.get(sub.get("province") or "")
+        # A subscriber with a province gets the pick section even if they
+        # follow no draw games; one with neither gets nothing to read.
+        if not slugs and not province_picks:
             no_games += 1
             continue
         log_id = claim_send(sub["id"], "weekly_digest")
@@ -185,6 +192,7 @@ def main() -> int:
             guide=guide,
             preferences_url=preferences_url,
             unsubscribe_url=unsubscribe_url,
+            province_picks=province_picks,
         )
         if deliver(log_id, sub["email"], subject, html, unsubscribe_url=unsubscribe_url):
             sent += 1
@@ -193,7 +201,7 @@ def main() -> int:
 
     print(
         f"\nDone: {sent} sent, {skipped} already sent this week, "
-        f"{no_games} skipped (no followed games), {failed} failed/no-key."
+        f"{no_games} skipped (no followed games and no province), {failed} failed/no-key."
     )
     # See the matching comment in send_draw_emails.py: continue-on-error on
     # the workflow step already keeps a bad send from blocking anything, but

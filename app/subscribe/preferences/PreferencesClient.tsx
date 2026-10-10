@@ -8,6 +8,7 @@ import {
   FREQUENCIES,
   FREQUENCY_LABELS,
   PREF_COUNTRIES,
+  PREF_PROVINCES,
   gamesByBucket,
   type Frequency,
   type PrefCountry,
@@ -18,6 +19,7 @@ interface PrefsResponse {
   error?: string;
   email?: string;
   country?: PrefCountry;
+  province?: string | null;
   frequency?: Frequency;
   games?: string[];
   savedNumbers?: { game_slug: string; numbers: number[]; label: string | null } | null;
@@ -40,6 +42,7 @@ function PreferencesInner() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [country, setCountry] = useState<PrefCountry>("CA");
+  const [province, setProvince] = useState<string>("");
   const [frequency, setFrequency] = useState<Frequency>("both");
   const [games, setGames] = useState<Set<string>>(new Set());
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -71,6 +74,7 @@ function PreferencesInner() {
         setEmail(body.email || "");
         const c = body.country || "CA";
         setCountry(c);
+        setProvince(body.province || "");
         setFrequency(body.frequency || "both");
         const existing = body.games || [];
         setGames(new Set(existing.length ? existing : DEFAULT_GAMES[c]));
@@ -106,7 +110,7 @@ function PreferencesInner() {
       const res = await fetch("/api/subscribe/preferences", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, country, frequency, games: [...games] }),
+        body: JSON.stringify({ token, country, province: province || null, frequency, games: [...games] }),
       });
       const body = await res.json();
       if (!res.ok || !body.ok) {
@@ -211,6 +215,21 @@ function PreferencesInner() {
             ))}
           </select>
           <span className="field-hint">Just controls which games are pre-checked below.</span>
+        </div>
+        <div className="field">
+          <label htmlFor="pref-province">Province (optional)</label>
+          <select id="pref-province" value={province} onChange={(e) => setProvince(e.target.value)}>
+            <option value="">Not chosen</option>
+            {PREF_PROVINCES.map((p) => (
+              <option key={p.slug} value={p.slug}>
+                {p.label}
+              </option>
+            ))}
+          </select>
+          <span className="field-hint">
+            Adds this week&rsquo;s scratch pick and skip list for your province to the weekly email. Tickets can
+            only be bought in your own province.
+          </span>
         </div>
 
         <div className="field-group-title">Follow these games</div>

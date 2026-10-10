@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getFollowedGames, getNumbers, getSubscriberByToken, updatePreferences } from "@/lib/supabase-admin";
-import { isValidCountry, isValidFrequency, isValidGameSlug } from "@/lib/subscribe";
+import { isValidCountry, isValidFrequency, isValidGameSlug, isValidProvince } from "@/lib/subscribe";
 
 /** GET /api/subscribe/preferences?token= — current state for the preferences page to render. */
 export async function GET(req: Request) {
@@ -15,6 +15,7 @@ export async function GET(req: Request) {
     ok: true,
     email: subscriber.email,
     country: subscriber.country,
+    province: subscriber.province,
     frequency: subscriber.frequency,
     confirmed: Boolean(subscriber.confirmed_at),
     unsubscribed: Boolean(subscriber.unsubscribed_at),
@@ -23,9 +24,9 @@ export async function GET(req: Request) {
   });
 }
 
-/** POST /api/subscribe/preferences — save country / frequency / followed games. */
+/** POST /api/subscribe/preferences — save country / province / frequency / followed games. */
 export async function POST(req: Request) {
-  let body: { token?: string; country?: string; frequency?: string; games?: string[] };
+  let body: { token?: string; country?: string; province?: string | null; frequency?: string; games?: string[] };
   try {
     body = await req.json();
   } catch {
@@ -39,10 +40,13 @@ export async function POST(req: Request) {
 
   const country = body.country && isValidCountry(body.country) ? body.country : subscriber.country;
   const frequency = body.frequency && isValidFrequency(body.frequency) ? body.frequency : subscriber.frequency;
+  // "" / null clears it; an unknown value leaves it as it was.
+  const province =
+    body.province === undefined ? subscriber.province : body.province && isValidProvince(body.province) ? body.province : body.province ? subscriber.province : null;
   const games = Array.isArray(body.games) ? body.games.filter(isValidGameSlug) : [];
 
   try {
-    await updatePreferences(subscriber.id, { country, frequency, games });
+    await updatePreferences(subscriber.id, { country, province, frequency, games });
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error("[subscribe/preferences] error:", e);
