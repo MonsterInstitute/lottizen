@@ -94,7 +94,7 @@ Key properties:
 
 | Workflow | Role |
 |---|---|
-| `scratch-olg-daily.yml`, `scratch-bclc-daily.yml`, `scratch-wclc-daily.yml`, `scratch-alc-daily.yml`, `scratch-quebec-daily.yml` | One per agency: scrape → rankings (all 5 agencies) → gate → Plus scratch alerts → publish → deploy |
+| `scratch-olg-daily.yml`, `scratch-bclc-daily.yml`, `scratch-wclc-daily.yml`, `scratch-alc-daily.yml`, `scratch-quebec-daily.yml` | One per agency: scrape → rankings (all 5 agencies) → gate → scratch alerts → publish → deploy |
 | `draws-daily.yml` | Canadian draw games (OLG, WCLC, PlayNow) → stats → gate → publish → deploy → draw-result emails |
 | `usa-daily.yml` | US draw games from data.ny.gov → same chain |
 | `europe-daily.yml` | EuroMillions / EuroJackpot / UK Lotto → same chain |
@@ -102,7 +102,7 @@ Key properties:
 | `weekly-digest.yml` | Sunday digest email |
 | `freshness-watchdog.yml` | Monitoring: data freshness + deployed-site freshness, self-heal by re-dispatch |
 | `ci-failure-alert.yml` | Monitoring: opens/closes an issue when any data workflow fails |
-| `billing-health.yml` | Monitoring: real Stripe test-mode round trip + live config + Plus gating |
+| `billing-health.yml` | **Disabled** (Plus retired 2026-10-09). Was: real Stripe test-mode round trip + live config + Plus gating |
 | `email-delivery-watchdog.yml` | Monitoring: expected sends were attempted, every `email_log` row has an outcome, and every `sent` row is `delivered` in Resend |
 | `seo-health.yml` | Monitoring: crawl/sitemap/structured-data checks, business metrics, weekly report commit |
 | `admin-daily.yml` | Owner's daily operating email (`scripts/ops_report.py daily`): yesterday vs the day before, current totals, anomalies on top |
@@ -119,7 +119,7 @@ Key properties:
 | **Supabase** | Postgres: all scraped data, subscribers, sessions, subscriptions, tickets, email log, published `site_json`. Schema in `supabase/migrations/` (apply with `scripts/apply_sql.py`, which uses the Management API). | supabase.com dashboard (project ref is in the `SUPABASE_URL` secret) |
 | **GitHub** | Code (`MonsterInstitute/lottizen`, **public**), all scheduled jobs (Actions), monitoring issues. | github.com/MonsterInstitute/lottizen → Settings → Secrets / Actions |
 | **Resend** | Transactional + bulk email. Sending domain `mail.lottizen.com` (SPF/DKIM/MX live on `send.mail.lottizen.com`; DMARC not set). From address `newsletter@mail.lottizen.com`. | resend.com → Domains / Logs |
-| **Stripe** | Lottizen Plus subscriptions (monthly + annual). Checkout + Billing Portal + webhook at `https://lottizen.com/api/billing/webhook`. A second **test-mode** webhook endpoint points at the same URL for `billing-health.yml`. | dashboard.stripe.com → Products, Webhooks, Subscriptions |
+| **Stripe** | **Dormant.** Lottizen Plus was retired on 2026-10-09 (0 subscribers at the time); every feature is free and nothing is sold on lottizen.com (Data API plans are billed by RapidAPI). The Stripe code and account are kept so billing could be re-enabled. Was: Lottizen Plus subscriptions (monthly + annual). Checkout + Billing Portal + webhook at `https://lottizen.com/api/billing/webhook`. A second **test-mode** webhook endpoint points at the same URL for `billing-health.yml`. | dashboard.stripe.com → Products, Webhooks, Subscriptions |
 | **RapidAPI** | Marketplace listing for the `/api/v1` data API. RapidAPI's proxy adds `X-RapidAPI-Proxy-Secret`; the site verifies it when `API_REQUIRE_RAPIDAPI_SECRET=true`. Listing copy and OpenAPI spec: `docs/rapidapi/`. | rapidapi.com provider dashboard |
 | **Cloudflare** | DNS for `lottizen.com` (nameservers `noor`/`ram.ns.cloudflare.com`). | dash.cloudflare.com |
 | **Registrars** | `lottizen.ca`: registered 2026-05-01, expires **2027-05-01**; managed at Spaceship, whose DNS 301-forwards the whole domain to `https://lottizen.com` (nameservers moved from Cloudflare to `launch1/2.spaceship.net` on 2026-10-03). Until then it served an unrelated early Lovable prototype; `lottizen.lovable.app` still redirects to `lottizen.ca`, so unpublish that Lovable project. `lottizen.com`: registrar not recorded here — check before transfer. | namecheap.com |
@@ -193,7 +193,7 @@ depends on exact timing; the watchdog tolerates it.
 | `0 23 * * 2,3,5,6` | Daily European draw results | same, evening of draw days | same |
 | `30 11 * * *` | Claim reminders | Ticket wallet checks + claim-deadline reminders | Reminders delayed a day; CI-failure issue opens |
 | `0 15 * * 0` | Weekly digest | Sunday digest to subscribers | No digest that week; email watchdog flags it Monday |
-| `30 12 * * *` | Billing health | Stripe round trip, live config, Plus gating | Issue `[auto] Billing health: …` |
+| — | Billing health (**disabled** since Plus was retired 2026-10-09) | Was: Stripe round trip, live config, Plus gating | — |
 | `0 14 * * *` | Data freshness watchdog | Freshness of every game/agency + deployed site; re-dispatch; issues | If this itself doesn't run, nothing alerts — see §6.6 |
 | `15 14 * * *` | Email delivery watchdog | Were expected draw/digest emails queued | Issue `[auto] Email delivery: …` |
 | `20 0 * * *` + `0 12 * * *` | Outreach radar | Scan Google News / HN (/ X with a paid key) for stories and threads our data answers; store with reply drafts (`outreach_opportunities`); the 12:00 run emails one digest to `OUTREACH_EMAIL`, only if something scores ≥ threshold (`config/outreach.toml`) | Missed scan: next run picks up the last 72 h. Missed digest: next day's includes it |
@@ -214,7 +214,7 @@ Four layers, each catching what the one before cannot.
 | **1. Execution** | Did each data workflow finish successfully? | `ci-failure-alert.yml` fires on `workflow_run` completion — works even when the job never got a runner | Issue `[auto] CI failure: <workflow>`; a later success comments and auto-closes it |
 | **2. Data freshness** | Is the newest stored draw on schedule for every game? Is every scratch agency scraped within 48h? | `audit_site.py --freshness` reads Supabase directly — never trusts exit codes | Issue `[auto] Stale data: <game> (missing <date>)` or `[auto] Stale scratch data: <AGENCY>`; workflows re-dispatched automatically; auto-close on recovery |
 | **3. Deployment** | Is the live site actually rebuilding? | `check_deploy_freshness.py` compares the live sitemap's build `<lastmod>` to now (threshold 12h) | Issue `[auto] Deployment stale: live site not updating`; deploy hook pinged |
-| **4. Product health** | Search visibility, billing, email | `seo_health.py` (weekly), `billing_health.py` (daily), `email_delivery_check.py` (daily) | Issues `[auto] SEO health: …`, `[auto] Billing health: …`, `[auto] Email delivery: …` |
+| **4. Product health** | Search visibility, email (billing check disabled since Plus was retired 2026-10-09) | `seo_health.py` (weekly), `email_delivery_check.py` (daily); `billing_health.py` dormant | Issues `[auto] SEO health: …`, `[auto] Email delivery: …` |
 
 **Weekly report.** Every Monday `seo-health.yml` writes
 `reports/health-weekly.md` (current week), archives it to
@@ -335,6 +335,8 @@ Work through these in order. In August 2026 there were three separate causes at 
    Yahoo filter the mail even though Resend reports `delivered`.
 
 ### 6.4 Payments look wrong
+
+_Dormant: Lottizen Plus was retired on 2026-10-09 and nothing is sold on lottizen.com. Kept for if billing is ever re-enabled._
 
 1. Check the latest **Billing health** run and any `[auto] Billing health:` issue.
    It does a real test-mode subscribe → webhook → Plus → cancel → free cycle
@@ -464,7 +466,7 @@ Evaluated and **not** used. Re-read this before trying any of them again:
       and update `VERCEL_DEPLOY_HOOK`; add the new owner's git email so their
       commits aren't author-blocked.
 - [ ] Supabase: transfer the project (or `pg_dump` + restore and update `SUPABASE_URL`/keys everywhere).
-- [ ] Stripe: subscriptions live in the Stripe account. Either hand over
+- [ ] Stripe (dormant since Plus was retired 2026-10-09 — nothing is billed): subscriptions would live in the Stripe account. Either hand over
       ownership of the account itself, or migrate (Stripe can copy customers
       and payment methods to another account; subscriptions are re-created
       there). Update the price IDs and webhook secrets afterwards.

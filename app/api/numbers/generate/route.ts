@@ -12,9 +12,8 @@ import { GAMES } from "@/config/games";
  * backtesting are RETENTION features, not monetisation ones. Metering them
  * bought no conversions and cost return visits — the generator pages are a
  * search entry point, and a visitor who lands on one and hits a wall doesn't
- * upgrade, they leave. Lottizen Plus differentiates on the ticket wallet
- * (auto-checking, win alerts, claim-deadline countdowns) and the scratch
- * analysis tools instead.
+ * upgrade, they leave. (Lottizen Plus itself was retired on 2026-10-09; every
+ * feature is now free.)
  *
  * Still server-side rather than back in the browser: that part of the
  * architecture was right independently of the gating. It keeps the algorithms

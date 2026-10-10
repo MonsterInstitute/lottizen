@@ -79,7 +79,9 @@ export function FollowButton({ kind, slug, agency, label }: FollowButtonProps) {
     return (
       <div className="card" style={{ padding: 20, maxWidth: 420 }}>
         <p style={{ marginBottom: 12, fontSize: 14.5 }}>
-          Create a free account to save this and check it automatically after future draws.
+          {kind === "scratch"
+            ? "Create a free account to follow this ticket — we'll email you if its top prize is claimed."
+            : "Create a free account to save this and check it automatically after future draws."}
         </p>
         <SubscribeForm buttonLabel="Continue" />
       </div>

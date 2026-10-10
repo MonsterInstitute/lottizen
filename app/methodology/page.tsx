@@ -30,7 +30,7 @@ const faqJsonLd = {
       name: "What is a scratch ticket Value Score?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "The Value Score compares how much prize money is still unclaimed in a game to how many prizes remain by head-count, using each lottery agency's published printed-vs-unclaimed counts. When the big prizes are draining slower than the overall count, the score rises above its ~62 baseline. Higher means more prize value is still on the table per dollar. Not every agency publishes the same data, so Western Canada and Atlantic Canada use different formulas — see below.",
+        text: "The Value Score compares how much prize money is still unclaimed in a game to how many prizes remain by head-count, using each lottery agency's published printed-vs-unclaimed counts. When the big prizes are draining slower than the overall count, the score rises above its ~62 baseline. Higher means more of the game's prize money is still unclaimed, relative to how many prizes are left. Not every agency publishes the same data, so Western Canada and Atlantic Canada use different formulas — see below.",
       },
     },
     {
@@ -54,7 +54,7 @@ const faqJsonLd = {
       name: "Does a high Value Score improve my odds of winning?",
       acceptedAnswer: {
         "@type": "Answer",
-        text: "No. Every ticket is still a game of chance and the house edge is unchanged. A higher score only means the remaining tickets hold more expected prize value than a lower-scoring game. Play for entertainment only.",
+        text: "No. Every ticket is still a game of chance and the house edge is unchanged. A higher score only means more of that game's prize money is still unclaimed, relative to how many prizes are left, than in a lower-scoring game. It is not an expected return. Play for entertainment only.",
       },
     },
   ],
@@ -228,9 +228,10 @@ export default function MethodologyPage() {
             </div>
             <p>
               The <code>0.62</code> is a rough instant-game return-to-player,
-              used only so a baseline game reads about <strong>62</strong> —
-              roughly &ldquo;cents of prize value left per dollar.&rdquo; It&rsquo;s
-              a fixed multiplier, so it never changes the <em>order</em> of the
+              used only so a baseline game reads about <strong>62</strong> on a
+              familiar scale. No agency publishes a per-game return-to-player, so
+              the score is not &ldquo;cents back per dollar&rdquo; or an expected
+              return. It&rsquo;s a fixed multiplier, so it never changes the <em>order</em> of the
               ranking within a province; that&rsquo;s driven entirely by the
               agency&rsquo;s own counts. We list every game highest score first.
             </p>

@@ -1,11 +1,8 @@
 import { NextResponse } from "next/server";
 import { getCurrentSubscriber } from "@/lib/auth";
-import { effectiveTier } from "@/lib/entitlements";
 import {
-  countTickets,
   createTicket,
   deleteTicket,
-  getSubscription,
   listPrizeClaims,
   listTickets,
   markClaimCollected,
@@ -14,13 +11,11 @@ import {
 } from "@/lib/supabase-admin";
 import { computeClaimDeadline } from "@/config/claim-deadlines";
 import { GAMES } from "@/config/games";
-import { PLANS } from "@/lib/plans";
 
 /**
  * The ticket wallet: physical tickets a subscriber logs by hand.
  *
- * Free keeps one ticket so the whole loop is genuinely usable before paying —
- * log it, watch it get checked, see the countdown. Plus removes the limit.
+ * There is no limit on how many tickets an account logs.
  *
  * Claim deadlines are never guessed. Canadian draw tickets get draw date + 1
  * year from config/claim-deadlines.ts (every rule sourced from the operator).
@@ -31,27 +26,12 @@ import { PLANS } from "@/lib/plans";
  * reminders, because a countdown built on a made-up date would email someone
  * a false urgency (or, worse, none at all).
  */
-// NOT exported: Next.js route files may only export the HTTP handlers and a
-// fixed set of config keys, and any other export fails the build.
-const FREE_TICKET_LIMIT = PLANS.free.limits.wallettickets;
-
 export async function GET() {
   const subscriber = await getCurrentSubscriber();
   if (!subscriber) return NextResponse.json({ ok: false, error: "Sign in required." }, { status: 401 });
 
-  const [tickets, claims, subscription] = await Promise.all([
-    listTickets(subscriber.id),
-    listPrizeClaims(subscriber.id),
-    getSubscription(subscriber.id),
-  ]);
-  const tier = effectiveTier(subscription);
-  return NextResponse.json({
-    ok: true,
-    tickets,
-    claims,
-    tier,
-    limit: tier === "plus" ? null : FREE_TICKET_LIMIT,
-  });
+  const [tickets, claims] = await Promise.all([listTickets(subscriber.id), listPrizeClaims(subscriber.id)]);
+  return NextResponse.json({ ok: true, tickets, claims });
 }
 
 export async function POST(req: Request) {
@@ -75,21 +55,6 @@ export async function POST(req: Request) {
   }
 
   const ticketType = body.ticketType === "scratch" ? "scratch" : "draw";
-
-  const [subscription, existing] = await Promise.all([
-    getSubscription(subscriber.id),
-    countTickets(subscriber.id),
-  ]);
-  if (effectiveTier(subscription) !== "plus" && existing >= FREE_TICKET_LIMIT) {
-    return NextResponse.json(
-      {
-        ok: false,
-        code: "LIMIT_REACHED",
-        error: "Free accounts track one ticket at a time. Lottizen Plus removes the limit.",
-      },
-      { status: 403 },
-    );
-  }
 
   let game = null;
   let numbers: number[] | null = null;

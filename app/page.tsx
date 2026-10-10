@@ -10,7 +10,6 @@ import { getLatestAll, getLatestGeneratedAt, hasData } from "@/lib/draws";
 import { getAllRankings, getTopPick } from "@/lib/data";
 import { drawDate, money, humanDate, resolveNextDraw } from "@/lib/format";
 import { SITE, absUrl } from "@/lib/site";
-import { PLANS } from "@/lib/plans";
 import { Balls } from "@/components/draws/Balls";
 import { AdSlot } from "@/components/site/AdSlot";
 import { JsonLd } from "@/components/site/JsonLd";
@@ -220,7 +219,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ============ LOTTIZEN PLUS ============ */}
+      {/* ============ EVERYTHING FREE ============ */}
       <section className="section">
         <div className="container">
           <div
@@ -229,44 +228,53 @@ export default function HomePage() {
           >
             <div>
               <div className="section-eyebrow" style={{ marginBottom: 14 }}>
-                Lottizen Plus
+                No paid plan
               </div>
               <h2 className="section-headline" style={{ fontSize: "clamp(28px,3.4vw,44px)", marginBottom: 12 }}>
-                Never buy an <em>empty ticket</em> again.
+                Every tool on Lottizen is <em>free.</em>
               </h2>
               <p className="section-lede" style={{ marginBottom: 22 }}>
-                {PLANS.plus.priceMonthlyLabel} — the price of one Lotto 6/49 ticket. Alerts when a
-                top prize is claimed, all 5 provinces, estimated real value per dollar, and a
-                budget optimizer. Avoid buying one wrong $20 ticket and you&rsquo;ve paid for half
-                a year.
+                No limits and nothing to unlock. Follow as many games and scratch tickets as you
+                like, save as many number combinations as you want, log every ticket you buy with
+                its claim-deadline countdown, and get an email when the top prize of a scratch
+                ticket you follow is claimed.
               </p>
-              <Link href="/plus" className="btn btn-primary">
-                Explore Lottizen Plus
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                  <path d="M5 12h14M13 5l7 7-7 7" />
-                </svg>
-              </Link>
+              <div className="hero-cta-row">
+                <Link href="/subscribe" className="btn btn-primary">
+                  Get free email alerts
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                    <path d="M5 12h14M13 5l7 7-7 7" />
+                  </svg>
+                </Link>
+                <Link href="/dashboard" className="btn btn-secondary">
+                  Open My Lottizen
+                </Link>
+              </div>
             </div>
             <div className="data-card" style={{ boxShadow: "var(--shadow-sm)" }}>
               <div className="data-card-head">
-                <span className="data-card-title">Free vs Plus</span>
-                <span className="status-pill">7-day trial</span>
+                <span className="data-card-title">What&rsquo;s included</span>
+                <span className="status-pill">Free</span>
+              </div>
+              <div className="data-row">
+                <span className="k">Full scratch board, all 5 provinces</span>
+                <span className="v">Free</span>
               </div>
               <div className="data-row">
                 <span className="k">Top-prize-claimed alerts</span>
-                <span className="v" style={{ color: "var(--brand-deep)", fontWeight: 700 }}>Plus</span>
-              </div>
-              <div className="data-row">
-                <span className="k">Provinces followed</span>
-                <span className="v">1 → 5</span>
+                <span className="v">Free</span>
               </div>
               <div className="data-row">
                 <span className="k">Saved number combinations</span>
-                <span className="v">1 → Unlimited</span>
+                <span className="v">Unlimited</span>
+              </div>
+              <div className="data-row">
+                <span className="k">Tickets in your wallet</span>
+                <span className="v">Unlimited</span>
               </div>
               <div className="data-card-foot">
-                <span>{PLANS.plus.priceAnnualLabel} annual ({PLANS.plus.annualSavingsLabel})</span>
-                <Link href="/plus" style={{ color: "var(--brand-deep)", textDecoration: "none" }}>See all →</Link>
+                <span>No card, no trial — just your email.</span>
+                <Link href="/subscribe" style={{ color: "var(--brand-deep)", textDecoration: "none" }}>Sign up →</Link>
               </div>
             </div>
           </div>

@@ -1,6 +1,6 @@
 /**
  * Server-only Supabase data layer for accounts, subscriptions, and the
- * Lottizen Plus tracking features. Unlike lib/data.ts / lib/draws.ts
+ * tracking features (followed games, saved combinations, ticket wallet). Unlike lib/data.ts / lib/draws.ts
  * (build-time JSON, read by every page), this talks to Supabase's PostgREST
  * API at REQUEST TIME with the service-role key — subscribers sign up,
  * sign in, and edit their tracked games/combinations live.
@@ -161,11 +161,11 @@ export async function getFollowedGames(subscriberId: string): Promise<string[]> 
   return (rows ?? []).map((r) => r.game_slug);
 }
 
-/** Free tier: one saved number set. Phase 4 (Plus) raises this — see the
- *  brief's "号码存储：免费版限 1 组...代码里用常量控制". Enforced here (replace-
- *  on-save keeps storage at exactly one row) and again in the API route
- *  (explicit check) and the preferences form (single input, not a list). */
-export const FREE_NUMBER_SET_LIMIT = 1;
+/** The token-based /subscribe/preferences flow stores exactly one number set
+ *  by design (replace-on-save keeps storage at one row; the form is a single
+ *  input, not a list). This is a storage shape, not a plan limit — unlimited
+ *  saved combinations live in the signed-in dashboard (/api/account/combinations). */
+export const PREFERENCES_NUMBER_SET_LIMIT = 1;
 
 export interface SavedNumbers {
   game_slug: string;
@@ -316,10 +316,10 @@ export async function deleteAccount(subscriberId: string): Promise<void> {
 }
 
 // ============================================================================
-// Saved combinations — full CRUD (Lottizen Plus: multiple per subscriber).
+// Saved combinations — full CRUD (any number per subscriber).
 // The older saveNumbers()/getNumbers()/clearNumbers() above stay in place
 // unchanged for the token-based /subscribe/preferences page (no login,
-// free-tier single combination, "replace on save" is the whole UX there).
+// single combination, "replace on save" is the whole UX there).
 // These are the richer, id-addressable versions the session-authenticated
 // dashboard and /api/account/combinations use.
 // ============================================================================

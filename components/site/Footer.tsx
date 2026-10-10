@@ -53,11 +53,6 @@ export function Footer() {
             <h5>More</h5>
             <ul>
               <li>
-                <Link href="/plus" style={{ color: "var(--brand-deep)", fontWeight: 600 }}>
-                  Lottizen Plus
-                </Link>
-              </li>
-              <li>
                 <Link href="/dashboard">My Lottizen</Link>
               </li>
               <li>
@@ -83,9 +78,6 @@ export function Footer() {
               </li>
               <li>
                 <Link href="/terms">Terms</Link>
-              </li>
-              <li>
-                <Link href="/refund-policy">Refund Policy</Link>
               </li>
               <li>
                 <a href="https://www.playsmart.ca/" target="_blank" rel="noopener noreferrer nofollow">

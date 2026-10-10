@@ -29,7 +29,7 @@ export interface Game {
   launchDate?: string | null;
   /** "1 in N" overall odds of winning ANY prize, as published at launch.
    * Only ALC's adapter currently scrapes this — null elsewhere. See
-   * lib/plus-analytics.ts's launchVsNowOdds(). */
+   * Not displayed anywhere (an odds figure — see CLAUDE.md). */
   launchOddsN?: number | null;
   /** Real "prize data last changed" timestamp — NOT when it was scraped
    * (which happens daily regardless of whether anything moved). Sitemap

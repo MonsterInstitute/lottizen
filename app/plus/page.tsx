@@ -1,73 +1,92 @@
 import type { Metadata } from "next";
-import { PLANS } from "@/lib/plans";
-import { FAQ } from "@/lib/plus-content";
-import { SITE, absUrl } from "@/lib/site";
-import { JsonLd } from "@/components/site/JsonLd";
-import { PlusPricingClient } from "@/components/site/PlusPricingClient";
+import Link from "next/link";
 
-const TITLE = "Lottizen Plus — Know Which Scratch Ticket Still Has Money Left";
-const DESCRIPTION =
-  "Two $20 scratch tickets can be worth wildly different amounts once the big prizes are claimed. Lottizen Plus tracks remaining prize data across all 5 Canadian lottery agencies. $3 CAD/month or $30 CAD/year, 7-day free trial.";
-
+// Lottizen Plus was retired on 2026-10-09 and everything it included became
+// free. This URL stays live (old links, bookmarks, past emails) but only to
+// explain that and point to where each feature lives now. Not indexed, no
+// Product/Offer structured data, no prices.
 export const metadata: Metadata = {
-  title: TITLE,
-  description: DESCRIPTION,
-  alternates: { canonical: "/plus" },
-  openGraph: {
-    title: TITLE,
-    description: DESCRIPTION,
-    url: absUrl("/plus"),
-    type: "website",
-  },
+  title: "Lottizen Plus has been retired",
+  description: "Lottizen Plus has been retired. Everything it included is now free for everyone.",
+  robots: { index: false, follow: true },
 };
 
-export default function PlusPricingPage() {
-  // This page previously shipped with NO metadata and NO structured data at
-  // all (it was a "use client" component — Next.js can't export metadata
-  // from one). Split into this server component (metadata + JSON-LD,
-  // guaranteed present in the initial HTML) and a client sub-component for
-  // the interactive checkout buttons.
-  const productJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Product",
-    name: "Lottizen Plus",
-    description: metadata.description,
-    brand: { "@type": "Brand", name: SITE.name },
-    url: absUrl("/plus"),
-    offers: [
-      {
-        "@type": "Offer",
-        name: "Lottizen Plus — Monthly",
-        price: PLANS.plus.priceMonthly.toFixed(2),
-        priceCurrency: "CAD",
-        url: absUrl("/plus"),
-        availability: "https://schema.org/InStock",
-      },
-      {
-        "@type": "Offer",
-        name: "Lottizen Plus — Annual",
-        price: PLANS.plus.priceAnnual.toFixed(2),
-        priceCurrency: "CAD",
-        url: absUrl("/plus"),
-        availability: "https://schema.org/InStock",
-      },
-    ],
-  };
+const FEATURES: { text: string; href: string; where: string }[] = [
+  {
+    text: "The full scratch-ticket board for all 5 provinces, with price filters and ranking modes",
+    href: "/scratch",
+    where: "Scratch value tracker",
+  },
+  {
+    text: "The budget planner and each ticket's share of prize money still unclaimed",
+    href: "/scratch",
+    where: "On every province board",
+  },
+  {
+    text: "Follow scratch tickets in any province, with an email when a followed ticket's top prize is claimed or it drops in the rankings",
+    href: "/scratch",
+    where: "Follow button on any ticket page",
+  },
+  {
+    text: "Follow any number of draw games and save any number of number combinations, checked after every draw",
+    href: "/dashboard",
+    where: "My Lottizen",
+  },
+  {
+    text: "A ticket wallet with no limit on tickets, claim-deadline countdowns and reminders, and a ledger of what you've spent and won",
+    href: "/dashboard",
+    where: "My Lottizen",
+  },
+  {
+    text: "Draw-result emails for the games you follow",
+    href: "/subscribe",
+    where: "Email sign-up",
+  },
+];
 
-  const faqJsonLd = {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    mainEntity: FAQ.map((f) => ({
-      "@type": "Question",
-      name: f.q,
-      acceptedAnswer: { "@type": "Answer", text: f.a },
-    })),
-  };
-
+export default function PlusRetiredPage() {
   return (
     <>
-      <JsonLd data={[productJsonLd, faqJsonLd]} />
-      <PlusPricingClient />
+      <div className="page-head">
+        <div className="container">
+          <div className="section-eyebrow">Lottizen Plus</div>
+          <h1 className="section-headline">
+            Lottizen Plus has been <em>retired.</em>
+          </h1>
+          <p className="section-lede">
+            Everything it included is now free for everyone. There&rsquo;s no paid plan, nothing to
+            unlock and no limits — sign in with your email to save your games, numbers and tickets.
+          </p>
+        </div>
+      </div>
+
+      <section className="section" style={{ paddingTop: 40 }}>
+        <div className="container">
+          <div className="prose">
+            <h2>Where everything lives now</h2>
+            <ul>
+              {FEATURES.map((f) => (
+                <li key={f.text}>
+                  {f.text} — <Link href={f.href}>{f.where}</Link>
+                </li>
+              ))}
+            </ul>
+            <p>
+              The scratch-ticket figures describe how much prize money is still unclaimed, from each
+              lottery agency&rsquo;s published data. They don&rsquo;t change the odds of any ticket
+              winning — see <Link href="/methodology">how the scores work</Link>.
+            </p>
+            <div className="hero-cta-row" style={{ marginTop: 24 }}>
+              <Link href="/subscribe" className="btn btn-primary">
+                Get free email alerts
+              </Link>
+              <Link href="/dashboard" className="btn btn-secondary">
+                Open My Lottizen
+              </Link>
+            </div>
+          </div>
+        </div>
+      </section>
     </>
   );
 }

@@ -3,13 +3,11 @@ import Link from "next/link";
 import { getCurrentSubscriber } from "@/lib/auth";
 import {
   getFollowedGames,
-  getSubscription,
   listCombinations,
   listRecentChecks,
   listRecentEmailLog,
   listScratchFavourites,
 } from "@/lib/supabase-admin";
-import { effectiveTier } from "@/lib/entitlements";
 import { getGame } from "@/config/games";
 import { getLatestAll } from "@/lib/draws";
 import { getGameBySlug } from "@/lib/data";
@@ -75,15 +73,13 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
   const subscriber = await getCurrentSubscriber();
   if (!subscriber) return <SignInPrompt />;
 
-  const [followedSlugs, combinations, recentChecks, favouriteSlugs, alerts, subscription] = await Promise.all([
+  const [followedSlugs, combinations, recentChecks, favouriteSlugs, alerts] = await Promise.all([
     getFollowedGames(subscriber.id),
     listCombinations(subscriber.id),
     listRecentChecks(subscriber.id, 8),
     listScratchFavourites(subscriber.id),
     listRecentEmailLog(subscriber.id, 8),
-    getSubscription(subscriber.id),
   ]);
-  const tier = effectiveTier(subscription);
 
   const followedGames = followedSlugs
     .map((slug) => {
@@ -125,8 +121,6 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
           <div style={{ height: 44 }} />
 
           <DashboardClient
-            tier={tier}
-            trialEnd={subscription?.status === "trialing" ? subscription.trial_end : null}
             frequency={subscriber.frequency}
             followedGames={followedGames}
             combinations={combinations}

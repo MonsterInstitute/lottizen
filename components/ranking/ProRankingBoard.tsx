@@ -6,7 +6,7 @@ import type { Game } from "@/lib/types";
 import type { ScratchFavouriteRef } from "@/lib/supabase-admin";
 import { money, price } from "@/lib/format";
 import { ScoreBadge } from "@/components/ranking/ScoreBadge";
-import { GOAL_MODES, estimateRemainingValue, goalModeScore, launchVsNowOdds, rankByGoalMode, type GoalMode } from "@/lib/plus-analytics";
+import { GOAL_MODES, estimateRemainingValue, rankByGoalMode, type GoalMode } from "@/lib/plus-analytics";
 
 interface ProRankingBoardProps {
   games: Game[];
@@ -16,12 +16,14 @@ interface ProRankingBoardProps {
 const favKey = (agency: string, slug: string) => `${agency}:${slug}`;
 
 /**
- * Lottizen Plus's full, filterable scratch board for one province — the
- * product's strongest differentiator (see the brief). Free visitors only
- * ever see the top-3 teaser (RankingTable in app/scratch/[province]/page.tsx);
- * this component only renders for a confirmed Plus session (server-checked
- * in the page). All filtering/sorting happens client-side over the full
- * ranked list already passed down — no extra data fetch per filter change.
+ * The full, filterable scratch board for one province, shown to every
+ * visitor (no sign-in needed). Favouriting needs the free email sign-in;
+ * anonymous visitors get a pointer to it instead of a silent failure. All
+ * filtering/sorting happens client-side over the full ranked list already
+ * passed down — no extra data fetch per filter change.
+ *
+ * Everything shown describes prize money still unclaimed — never odds, never
+ * a ticket count, never an expected return (see lib/plus-analytics.ts).
  */
 export function ProRankingBoard({ games, initialFavourites }: ProRankingBoardProps) {
   const [priceFilter, setPriceFilter] = useState<number | "all">("all");
@@ -34,6 +36,7 @@ export function ProRankingBoard({ games, initialFavourites }: ProRankingBoardPro
   );
   const [expanded, setExpanded] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [needsSignIn, setNeedsSignIn] = useState(false);
 
   const prices = useMemo(() => [...new Set(games.map((g) => Math.round(g.price)))].sort((a, b) => a - b), [games]);
 
@@ -55,6 +58,10 @@ export function ProRankingBoard({ games, initialFavourites }: ProRankingBoardPro
       body: JSON.stringify({ gameSlug: g.slug, agency: g.agency }),
     });
     setBusy(null);
+    if (res.status === 401) {
+      setNeedsSignIn(true);
+      return;
+    }
     if (!res.ok) return;
     setFavourites((prev) => {
       const next = new Set(prev);
@@ -122,6 +129,12 @@ export function ProRankingBoard({ games, initialFavourites }: ProRankingBoardPro
       <p className="field-hint" style={{ marginBottom: 12 }}>
         {filtered.length} of {games.length} games match your filters.
       </p>
+      {needsSignIn ? (
+        <div className="form-notice" style={{ marginBottom: 12 }}>
+          Favourites are saved to a free account — <Link href="/dashboard">sign in with your email</Link> and
+          we&rsquo;ll email you if a favourite&rsquo;s top prize is claimed.
+        </div>
+      ) : null}
 
       <div className="rank-table">
         <div className="rank-head">
@@ -183,19 +196,18 @@ export function ProRankingBoard({ games, initialFavourites }: ProRankingBoardPro
               <>
                 {(() => {
                   const est = estimateRemainingValue(g);
-                  const odds = launchVsNowOdds(g);
                   return (
-                    <div style={{ display: "flex", gap: 16, flexWrap: "wrap", padding: "0 20px 14px", fontSize: 13.5 }}>
-                      <span>
-                        <strong>Remaining value:</strong>{" "}
-                        {est.supported ? `${est.pctRemaining}% of prize pool left · ~${est.evPerDollarCents}¢ EV per $1` : `not supported (${est.reason})`}
-                      </span>
-                      <span>
-                        <strong>Launch vs. now odds:</strong>{" "}
-                        {odds.supported
-                          ? `1 in ${odds.launchOddsN} at launch${odds.nowOddsN ? ` → ~1 in ${odds.nowOddsN} now` : ""}`
-                          : `not supported (${odds.reason})`}
-                      </span>
+                    <div style={{ padding: "0 20px 14px", fontSize: 13.5 }}>
+                      <strong>Prize money still unclaimed:</strong>{" "}
+                      {est.supported
+                        ? `${est.pctPrizeMoneyRemaining}% of the printed prize money (100% at launch) · ${est.pctPrizesRemaining}% of prizes by count`
+                        : `not supported (${est.reason})`}
+                      {est.supported ? (
+                        <div className="field-hint" style={{ marginTop: 4 }}>
+                          Measured from {g.agency}&rsquo;s published prize counts. It describes the prize money
+                          left in the game — not the odds of any ticket winning, and not what you&rsquo;d win back.
+                        </div>
+                      ) : null}
                     </div>
                   );
                 })()}

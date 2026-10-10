@@ -7,10 +7,8 @@ import { LIVE_GAMES, countrySlug, type GameConfig } from "@/config/games";
 import type { LatestGame } from "@/lib/draws";
 import type { Game as ScratchGame } from "@/lib/types";
 import type { Combination, CombinationCheck, EmailLogRow } from "@/lib/supabase-admin";
-import type { Tier } from "@/lib/entitlements";
 import { Balls } from "@/components/draws/Balls";
 import { formatCheckResult, CONFIRMATION_NOTE } from "@/lib/prize-language";
-import { PLANS } from "@/lib/plans";
 
 // Duplicated (not imported) from lib/subscribe.ts deliberately: that module
 // also exports gamesByBucket()/subscribableGames(), which pull in
@@ -27,8 +25,6 @@ const FREQUENCY_LABELS: Record<Frequency, string> = {
 };
 
 interface DashboardClientProps {
-  tier: Tier;
-  trialEnd: string | null;
   frequency: string;
   followedGames: { cfg: GameConfig; latest: LatestGame | null }[];
   combinations: Combination[];
@@ -56,8 +52,6 @@ const ALERT_LABELS: Record<string, string> = {
 };
 
 export function DashboardClient({
-  tier,
-  trialEnd,
   frequency,
   followedGames,
   combinations,
@@ -73,14 +67,6 @@ export function DashboardClient({
   const availableToFollow = LIVE_GAMES.filter((g) => !followedSlugs.has(g.slug));
   const [addGameSlug, setAddGameSlug] = useState(availableToFollow[0]?.slug ?? "");
 
-  const isPlus = tier === "plus";
-  const gameLimit = isPlus ? Infinity : PLANS.free.limits.followedGames;
-  const comboLimit = isPlus ? Infinity : PLANS.free.limits.savedCombinations;
-  const trialDaysLeft =
-    trialEnd != null ? Math.max(0, Math.ceil((new Date(trialEnd).getTime() - Date.now()) / 86400000)) : null;
-  const atGameLimit = followedGames.length >= gameLimit;
-  const atComboLimit = combinations.length >= comboLimit;
-
   async function run(key: string, fn: () => Promise<{ ok: boolean; data: any }>) {
     setBusy(key);
     setError(null);
@@ -94,72 +80,9 @@ export function DashboardClient({
     return true;
   }
 
-  async function upgrade(plan: "monthly" | "annual") {
-    setBusy("upgrade");
-    setError(null);
-    const result = await api("/api/billing/checkout", "POST", { plan });
-    setBusy(null);
-    if (result.status === 501) {
-      setError("Lottizen Plus subscriptions aren't open yet — check back soon.");
-      return;
-    }
-    if (!result.ok) {
-      setError(result.data?.error || "Couldn't start checkout.");
-      return;
-    }
-    if (result.data?.url) window.location.href = result.data.url;
-  }
-
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
       {error ? <div className="form-notice error">{error}</div> : null}
-
-      {!isPlus ? (
-        <div className="card" style={{ padding: 28, background: "var(--brand-soft)", border: "1px solid var(--brand)" }}>
-          <div className="section-eyebrow">Free plan</div>
-          <h2 className="section-headline" style={{ fontSize: "clamp(22px,2.6vw,28px)", marginBottom: 8 }}>
-            Never buy an empty ticket with <em>Lottizen Plus.</em>
-          </h2>
-          <p className="section-lede" style={{ marginBottom: 16, fontSize: 15 }}>
-            Alerts when a top prize is claimed, all 5 provinces (428 games), estimated real value
-            per dollar, a budget optimizer, and unlimited saved number combinations. Try free for
-            7 days.
-          </p>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <button className="btn btn-primary" disabled={busy === "upgrade"} onClick={() => upgrade("monthly")}>
-              {PLANS.plus.priceMonthlyLabel} — Start free trial
-            </button>
-            <button className="btn btn-secondary" disabled={busy === "upgrade"} onClick={() => upgrade("annual")}>
-              {PLANS.plus.priceAnnualLabel} ({PLANS.plus.annualSavingsLabel})
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="notice">
-          <span className="notice-tag">Plus</span>
-          <span>
-            You&rsquo;re on Lottizen Plus — unlimited games, combinations, and the full scratch
-            board.
-            {trialDaysLeft !== null
-              ? ` Trial ends in ${trialDaysLeft} day${trialDaysLeft === 1 ? "" : "s"} — your card will then be charged.`
-              : ""}
-          </span>
-          <button
-            className="nav-signin"
-            style={{ fontSize: 13, marginLeft: "auto" }}
-            disabled={busy === "portal"}
-            onClick={() =>
-              run("portal", async () => {
-                const result = await api("/api/billing/portal", "POST");
-                if (result.ok && result.data?.url) window.location.href = result.data.url;
-                return result;
-              })
-            }
-          >
-            Manage billing
-          </button>
-        </div>
-      )}
 
       {/* ============ FOLLOWED GAMES ============ */}
       <div className="card" style={{ padding: 28 }}>
@@ -216,7 +139,7 @@ export function DashboardClient({
         )}
 
         <div style={{ marginTop: 18, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-          {availableToFollow.length > 0 && !atGameLimit ? (
+          {availableToFollow.length > 0 ? (
             <>
               <select value={addGameSlug} onChange={(e) => setAddGameSlug(e.target.value)} style={{ maxWidth: 260 }}>
                 {availableToFollow.map((g) => (
@@ -233,10 +156,6 @@ export function DashboardClient({
                 Track this game
               </button>
             </>
-          ) : atGameLimit ? (
-            <span className="field-hint">
-              Free plan follows up to {PLANS.free.limits.followedGames} games. Upgrade to Lottizen Plus to follow more.
-            </span>
           ) : null}
         </div>
       </div>
@@ -245,8 +164,6 @@ export function DashboardClient({
       <CombinationsSection
         combinations={combinations}
         followedGames={followedGames.map((g) => g.cfg)}
-        atLimit={atComboLimit}
-        limit={comboLimit}
         onChanged={() => router.refresh()}
       />
 
@@ -416,14 +333,10 @@ export function DashboardClient({
 function CombinationsSection({
   combinations,
   followedGames,
-  atLimit,
-  limit,
   onChanged,
 }: {
   combinations: Combination[];
   followedGames: GameConfig[];
-  atLimit: boolean;
-  limit: number;
   onChanged: () => void;
 }) {
   const candidateGames = followedGames.length ? followedGames : LIVE_GAMES;
@@ -514,58 +427,52 @@ function CombinationsSection({
         </div>
       )}
 
-      {atLimit && editingId === null ? (
-        <p className="field-hint">
-          Free plan saves {limit} number combination. Upgrade to Lottizen Plus to save more.
-        </p>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 420 }}>
-          {!editingId ? (
-            <div className="field">
-              <label>Game</label>
-              <select value={gameSlug} onChange={(e) => setGameSlug(e.target.value)}>
-                {candidateGames.map((g) => (
-                  <option key={g.slug} value={g.slug}>
-                    {g.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ) : null}
+      <div style={{ display: "flex", flexDirection: "column", gap: 10, maxWidth: 420 }}>
+        {!editingId ? (
           <div className="field">
-            <label>Numbers (comma-separated)</label>
-            <input
-              type="text"
-              placeholder={selectedGame ? `e.g. ${Array.from({ length: selectedGame.pick }, (_, i) => i + 1).join(", ")}` : ""}
-              value={numbersInput}
-              onChange={(e) => setNumbersInput(e.target.value)}
-            />
+            <label>Game</label>
+            <select value={gameSlug} onChange={(e) => setGameSlug(e.target.value)}>
+              {candidateGames.map((g) => (
+                <option key={g.slug} value={g.slug}>
+                  {g.name}
+                </option>
+              ))}
+            </select>
           </div>
-          <div className="field">
-            <label>Label (optional)</label>
-            <input type="text" placeholder="e.g. Birthday numbers" value={label} onChange={(e) => setLabel(e.target.value)} />
-          </div>
-          <div style={{ display: "flex", gap: 10 }}>
-            <button className="btn btn-primary" disabled={busy} onClick={save}>
-              {editingId ? "Save changes" : "Save your numbers"}
-            </button>
-            {editingId ? (
-              <button
-                className="btn btn-secondary"
-                onClick={() => {
-                  setEditingId(null);
-                  setNumbersInput("");
-                  setLabel("");
-                  setFormError(null);
-                }}
-              >
-                Cancel
-              </button>
-            ) : null}
-          </div>
-          {formError ? <div className="form-notice error">{formError}</div> : null}
+        ) : null}
+        <div className="field">
+          <label>Numbers (comma-separated)</label>
+          <input
+            type="text"
+            placeholder={selectedGame ? `e.g. ${Array.from({ length: selectedGame.pick }, (_, i) => i + 1).join(", ")}` : ""}
+            value={numbersInput}
+            onChange={(e) => setNumbersInput(e.target.value)}
+          />
         </div>
-      )}
+        <div className="field">
+          <label>Label (optional)</label>
+          <input type="text" placeholder="e.g. Birthday numbers" value={label} onChange={(e) => setLabel(e.target.value)} />
+        </div>
+        <div style={{ display: "flex", gap: 10 }}>
+          <button className="btn btn-primary" disabled={busy} onClick={save}>
+            {editingId ? "Save changes" : "Save your numbers"}
+          </button>
+          {editingId ? (
+            <button
+              className="btn btn-secondary"
+              onClick={() => {
+                setEditingId(null);
+                setNumbersInput("");
+                setLabel("");
+                setFormError(null);
+              }}
+            >
+              Cancel
+            </button>
+          ) : null}
+        </div>
+        {formError ? <div className="form-notice error">{formError}</div> : null}
+      </div>
     </div>
   );
 }

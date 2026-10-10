@@ -134,7 +134,7 @@ export default function GamePage({ params }: { params: { country: string; game: 
                 <h3>Straight &amp; boxed</h3>
                 <p>
                   Bet <strong>straight</strong> to win on an exact-order match, or{" "}
-                  <strong>boxed</strong> to win on any order (better odds, smaller payout).
+                  <strong>boxed</strong> to win on any order (more winning orderings, smaller payout).
                   Exact prizes are set by {operatorName(g)}. Lottizen tracks the numbers and the math,
                   not the ticket sale.
                 </p>

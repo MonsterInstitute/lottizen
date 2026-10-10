@@ -1,11 +1,15 @@
 /**
- * Server-side entitlement checks. The effective tier is computed from the
+ * DORMANT since 2026-10-09: Lottizen Plus is retired and every feature is free
+ * for everyone, so nothing in the product gates on the tier any more. This is
+ * kept only so the dormant Stripe pipeline (webhook, checkout) still compiles
+ * and behaves correctly if billing is ever re-enabled.
+ *
+ * The effective tier is computed from the
  * subscription row's actual Stripe-reported status, not just the cached
  * `subscribers.tier` flag — so "cancelled but still active until period
  * end" resolves correctly even if a sync webhook is delayed.
  */
 import type { SubscriptionRow } from "@/lib/supabase-admin";
-import { PLANS } from "@/lib/plans";
 
 export type Tier = "free" | "plus";
 
@@ -27,21 +31,3 @@ export function effectiveTier(subscription: SubscriptionRow | null): Tier {
   // A payment failure must never grant Plus access.
   return "free";
 }
-
-export function maxFollowedGames(tier: Tier): number {
-  return tier === "plus" ? Infinity : PLANS.free.limits.followedGames;
-}
-
-export function maxSavedCombinations(tier: Tier): number {
-  return tier === "plus" ? Infinity : PLANS.free.limits.savedCombinations;
-}
-
-export function isPlus(tier: Tier): boolean {
-  return tier === "plus";
-}
-
-/** Free tier's weekly instant-alert cap — enforced in
- *  scripts/send_draw_emails.py (Python), documented here so the number has
- *  one home. Naturally rarely hit given the 3-game follow limit, but real
- *  and enforced, not just implied by the follow cap. */
-export const FREE_WEEKLY_ALERT_LIMIT = 7;

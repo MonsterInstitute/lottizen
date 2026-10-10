@@ -253,11 +253,12 @@ function PreferencesInner() {
 
       <div className="card" style={{ padding: 28, marginBottom: 24 }}>
         <div className="field-group-title" style={{ marginTop: 0 }}>
-          Track your numbers (free: 1 set)
+          Track a set of numbers
         </div>
         <p className="field-hint" style={{ marginBottom: 14 }}>
           We&rsquo;ll check these against every new draw of the game you pick and tell you how many
-          matched.
+          matched. This page keeps one set; your <Link href="/dashboard">dashboard</Link> can track as
+          many as you like.
         </p>
         <div className="field">
           <label>Game</label>

@@ -185,7 +185,7 @@ function scratchLine(g: Game): string {
 }
 
 const SCRATCH_NOTE: Record<Game["scoringMethod"], string> = {
-  retention: "Ranked by how much prize money is still unclaimed relative to tickets left. It doesn&rsquo;t change any ticket&rsquo;s odds.",
+  retention: "Ranked by how much prize money is still unclaimed relative to how many prizes are left. It doesn&rsquo;t change any ticket&rsquo;s odds.",
   remaining_value_index:
     "Ranked by unclaimed prize money per $1 of ticket price (WCLC publishes remaining prizes only). It doesn&rsquo;t change any ticket&rsquo;s odds.",
   top_prize_fraction:

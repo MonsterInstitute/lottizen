@@ -6,11 +6,7 @@ import { isProvince, provinceConfig, provinceForAgency, type Province } from "@/
 import { money, humanDate } from "@/lib/format";
 import { SITE, absUrl } from "@/lib/site";
 import { getCurrentSubscriber } from "@/lib/auth";
-import { getSubscription, listScratchFavourites } from "@/lib/supabase-admin";
-import { effectiveTier } from "@/lib/entitlements";
-import { PLANS } from "@/lib/plans";
-import { estimateRemainingValue } from "@/lib/plus-analytics";
-import { RankingTable } from "@/components/ranking/RankingTable";
+import { listScratchFavourites } from "@/lib/supabase-admin";
 import { ProRankingBoard } from "@/components/ranking/ProRankingBoard";
 import { BudgetOptimizer } from "@/components/ranking/BudgetOptimizer";
 import { PriceNav } from "@/components/ranking/PriceNav";
@@ -21,10 +17,10 @@ import { ScoringMethodNotice } from "@/components/site/ScoringMethodNotice";
 import { AdSlot } from "@/components/site/AdSlot";
 import { JsonLd } from "@/components/site/JsonLd";
 
-// Per-visitor entitlement gate (free top-3 teaser vs the full Pro board) —
-// necessarily dynamic, unlike the individual /scratch/[province]/[slug]
-// pages (kept static; FollowButton there self-fetches its state client-side
-// instead).
+// Dynamic only because the session is read to pre-fill the board's
+// favourites for a signed-in visitor (anonymous visitors get the same full
+// board with none favourited). The individual /scratch/[province]/[slug]
+// pages stay static; FollowButton there self-fetches its state client-side.
 export const dynamic = "force-dynamic";
 export const dynamicParams = false;
 
@@ -59,11 +55,8 @@ export default async function ScratchProvincePage({ params }: { params: { provin
   const totalPrizePool = games.reduce((s, g) => s + (g.remainingPrizePool ?? 0), 0);
 
   const subscriber = await getCurrentSubscriber();
-  const [subscription, allFavourites] = subscriber
-    ? await Promise.all([getSubscription(subscriber.id), listScratchFavourites(subscriber.id)])
-    : [null, []];
+  const allFavourites = subscriber ? await listScratchFavourites(subscriber.id) : [];
   const favourites = allFavourites.filter((f) => provinceForAgency(f.agency) === province);
-  const isPlus = subscriber ? effectiveTier(subscription) === "plus" : false;
 
   const itemListJsonLd = {
     "@context": "https://schema.org",
@@ -91,16 +84,17 @@ export default async function ScratchProvincePage({ params }: { params: { provin
               {cfg.label}&rsquo;s scratch-ticket value tracker
             </span>
             <h1 className="hero-headline">
-              <span className="line reveal r-2">Smarter scratch,</span>
+              <span className="line reveal r-2">Where the prize money</span>
               <span className="line reveal r-3">
-                <em>better odds.</em>
+                <em>is still waiting.</em>
               </span>
             </h1>
             <p className="hero-deck reveal r-4">
               Not every scratch ticket is worth the same today. Lottizen tracks{" "}
               <strong>every {cfg.label} instant game&rsquo;s remaining prizes</strong>{" "}
-              from {cfg.agency} and scores which still have the most value left — so
-              you buy the smart one, not the pretty one.
+              from {cfg.agency} and scores which still have the most prize money
+              unclaimed. It won&rsquo;t change the odds of any ticket — it shows you where
+              the money is still sitting before you buy.
             </p>
             <div className="hero-cta-row reveal r-5">
               <Link href="#rankings" className="btn btn-primary">
@@ -155,81 +149,34 @@ export default async function ScratchProvincePage({ params }: { params: { provin
               {cfg.label} scratch tickets, ranked by <em>value left.</em>
             </h2>
             <p className="section-lede" style={{ maxWidth: "26em" }}>
-              Higher Value Score = more expected prize money still in the game
-              per dollar you spend. Tap any ticket for the full prize breakdown.
+              A higher Value Score means more of the game&rsquo;s prize money is still
+              unclaimed. Tap any ticket for the full prize breakdown.
             </p>
           </div>
           <div style={{ marginTop: 28, display: "flex", flexDirection: "column", gap: 20 }}>
             <DemoNotice province={province} />
-            {isPlus ? (
-              <>
-                <AdSlot slot="rankings-top" format="leaderboard" />
-                <BudgetOptimizer games={games} />
-                <ProRankingBoard games={games} initialFavourites={favourites} />
-              </>
-            ) : (
-              <>
-                <PriceNav province={province} />
-                <AdSlot slot="rankings-top" format="leaderboard" />
-                <RankingTable games={games.slice(0, 3)} />
-                {(() => {
-                  const est = estimateRemainingValue(top);
-                  return est.supported ? (
-                    <div className="card" style={{ padding: "20px 24px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-                      <div>
-                        <div className="section-eyebrow" style={{ marginBottom: 4 }}>
-                          Plus insight · {top.name}
-                        </div>
-                        <div style={{ fontSize: 15 }}>
-                          🔒 <strong>{est.pctRemaining}%</strong> of this game&rsquo;s prize pool remains ·{" "}
-                          <strong>~{est.evPerDollarCents}¢</strong> expected value per $1 spent
-                        </div>
-                      </div>
-                      <Link href="/plus" className="btn btn-secondary">
-                        Unlock with Plus
-                      </Link>
-                    </div>
-                  ) : null;
-                })()}
-                <div className="card" style={{ padding: 32, textAlign: "center" }}>
-                  <div className="section-eyebrow" style={{ justifyContent: "center" }}>
-                    Lottizen Plus
-                  </div>
-                  <h2 className="section-headline" style={{ fontSize: "clamp(24px,3vw,34px)", marginBottom: 10 }}>
-                    See the full {cfg.label} scratch board
-                  </h2>
-                  <p className="section-lede" style={{ marginBottom: 18 }}>
-                    Compare every active game, filter by price, get alerts when a top prize is
-                    claimed, and see the estimated real value per dollar — {PLANS.plus.priceMonthlyLabel}.
-                  </p>
-                  <Link href="/plus" className="btn btn-primary">
-                    Explore Lottizen Plus
-                  </Link>
-                </div>
-                <p className="field-hint">
-                  Free plan shows the top 3 highest current Value Score tickets. Rankings are based
-                  on remaining-prize data published by {cfg.agency}.
-                </p>
-                <div className="card" style={{ padding: 28 }}>
-                  <div className="section-eyebrow" style={{ marginBottom: 14 }}>
-                    Every {cfg.label} ticket we track
-                  </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 18px" }}>
-                    {[...games]
-                      .sort((a, b) => a.name.localeCompare(b.name))
-                      .map((g) => (
-                        <Link
-                          key={`${g.agency}:${g.slug}`}
-                          href={`/scratch/${province}/${g.slug}`}
-                          style={{ fontSize: 14, color: "var(--ink-2)" }}
-                        >
-                          {g.name}
-                        </Link>
-                      ))}
-                  </div>
-                </div>
-              </>
-            )}
+            <PriceNav province={province} />
+            <AdSlot slot="rankings-top" format="leaderboard" />
+            <BudgetOptimizer games={games} />
+            <ProRankingBoard games={games} initialFavourites={favourites} />
+            <div className="card" style={{ padding: 28 }}>
+              <div className="section-eyebrow" style={{ marginBottom: 14 }}>
+                Every {cfg.label} ticket we track, A&ndash;Z
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "6px 18px" }}>
+                {[...games]
+                  .sort((a, b) => a.name.localeCompare(b.name))
+                  .map((g) => (
+                    <Link
+                      key={`${g.agency}:${g.slug}`}
+                      href={`/scratch/${province}/${g.slug}`}
+                      style={{ fontSize: 14, color: "var(--ink-2)" }}
+                    >
+                      {g.name}
+                    </Link>
+                  ))}
+              </div>
+            </div>
             <ScratchDisclaimer />
             <AdSlot slot="rankings-bottom" format="leaderboard" />
           </div>

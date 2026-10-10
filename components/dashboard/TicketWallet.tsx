@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { Ledger } from "@/components/dashboard/Ledger";
 import { parseDollarsToCents } from "@/lib/ledger";
 
@@ -78,8 +77,6 @@ export function TicketWallet({
 }) {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [claims, setClaims] = useState<Claim[]>([]);
-  const [tier, setTier] = useState<"free" | "plus">("free");
-  const [limit, setLimit] = useState<number | null>(1);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -103,8 +100,6 @@ export function TicketWallet({
     if (d?.ok) {
       setTickets(d.tickets);
       setClaims(d.claims);
-      setTier(d.tier);
-      setLimit(d.limit);
     }
     setLoading(false);
   }
@@ -212,7 +207,6 @@ export function TicketWallet({
     t.status === "pending" &&
     Boolean(t.draw_date && t.draw_date <= today) &&
     games.find((g) => g.slug === t.game_slug)?.checkable === false;
-  const atLimit = limit !== null && tickets.length >= limit;
   const openClaims = claims.filter((c) => !c.claimed_at);
 
   // Won-and-uncollected first, then waiting, then everything settled.
@@ -375,20 +369,7 @@ export function TicketWallet({
         );
       })}
 
-      {atLimit && tier !== "plus" ? (
-        <div className="card" style={{ padding: 20, marginTop: 14 }}>
-          <div className="section-eyebrow" style={{ marginBottom: 6 }}>
-            Lottizen Plus
-          </div>
-          <p style={{ fontSize: 15, marginBottom: 12 }}>
-            Free accounts track one ticket at a time. Plus tracks every ticket you buy, with a
-            claim countdown on each.
-          </p>
-          <Link href="/plus" className="btn btn-secondary">
-            See Lottizen Plus
-          </Link>
-        </div>
-      ) : !showForm ? (
+      {!showForm ? (
         <button type="button" className="btn btn-primary" onClick={() => setShowForm(true)}>
           + Log a ticket
         </button>

@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { getGame } from "@/config/games";
-import { clearNumbers, FREE_NUMBER_SET_LIMIT, getSubscriberByToken, saveNumbers } from "@/lib/supabase-admin";
+import { clearNumbers, getSubscriberByToken, PREFERENCES_NUMBER_SET_LIMIT, saveNumbers } from "@/lib/supabase-admin";
 import { isValidGameSlug } from "@/lib/subscribe";
 
-/** POST /api/subscribe/numbers — save the (free tier: one) number set that
- *  gets auto-checked against every new draw of that game. */
+/** POST /api/subscribe/numbers — save the single number set (this flow
+ *  stores one by design; the dashboard saves any number) that gets auto-checked against every new draw of that game. */
 export async function POST(req: Request) {
   let body: { token?: string; gameSlug?: string; numbers?: number[]; label?: string };
   try {
@@ -36,10 +36,10 @@ export async function POST(req: Request) {
   }
 
   try {
-    // FREE_NUMBER_SET_LIMIT is 1 today: saveNumbers() replaces any existing
-    // set, so storage never exceeds the limit without needing a separate check.
+    // PREFERENCES_NUMBER_SET_LIMIT is 1: saveNumbers() replaces any existing
+    // set, so storage never exceeds it without needing a separate check.
     await saveNumbers(subscriber.id, gameSlug, numbers, body.label?.trim() || null);
-    return NextResponse.json({ ok: true, limit: FREE_NUMBER_SET_LIMIT });
+    return NextResponse.json({ ok: true, limit: PREFERENCES_NUMBER_SET_LIMIT });
   } catch (e) {
     console.error("[subscribe/numbers] error:", e);
     return NextResponse.json({ ok: false, error: "Couldn't save. Try again shortly." }, { status: 500 });

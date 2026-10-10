@@ -50,8 +50,11 @@ export function TopPickCard({ game }: { game: Game }) {
       <div className="data-card-note">
         <div className="eyebrow">Why it&rsquo;s #1</div>
         <p>
-          Its big prizes are draining slower than the tickets — more prize value
-          is still on the table per dollar than any other {cfg.label} game today.
+          {game.scoringMethod === "retention"
+            ? `Its big prizes are being claimed more slowly than its small ones — the highest Value Score of any ${cfg.label} game today.`
+            : game.scoringMethod === "remaining_value_index"
+              ? `The most disclosed prize money still unclaimed per $1 of ticket price of any ${cfg.label} game today.`
+              : `The highest share of its top prizes still unclaimed of any ${cfg.label} game today.`}
         </p>
       </div>
 

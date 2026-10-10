@@ -11,9 +11,11 @@ for Canada, the US and Europe:
   number frequencies and a number generator for the major draw games: Lotto Max,
   6/49, Daily Grand, regional games, Powerball, Mega Millions, EuroMillions,
   EuroJackpot, UK Lotto and others.
-- **Accounts and Lottizen Plus** (paid, via Stripe): draw-result emails,
-  scratch alerts, a ticket wallet with claim-deadline reminders, and a weekly
-  digest.
+- **Free accounts**: draw-result emails, scratch alerts, unlimited followed
+  games and saved combinations, a ticket wallet with claim-deadline reminders,
+  and a weekly digest. (Lottizen Plus, the former paid tier, was retired on
+  2026-10-09 and all its features are free; the Stripe code is kept dormant and
+  `billing-health.yml` is disabled.)
 - **A public data API** (`/api/v1`), listed on RapidAPI.
 
 The site is careful about what the data can and cannot say. Remaining-prize
@@ -51,7 +53,7 @@ public sources ──► GitHub Actions scrapers (daily, one workflow per source
 - **Deploy gate.** Every data refresh builds the site and runs
   `scripts/audit_site.py` before publishing. Any critical finding blocks the deploy.
 - **Self-monitoring.** Separate watchdog workflows check data freshness, the
-  live deployment, billing, email delivery and SEO health. They open, update
+  live deployment, email delivery and SEO health. They open, update
   and close GitHub issues on their own. Those issues are titled `[auto] …` and
   labelled `auto-monitor`. Issues without that prefix are real product work.
 - **Weekly report** in [`reports/health-weekly.md`](reports/health-weekly.md),
@@ -87,8 +89,8 @@ with `NEXT_PUBLIC_SITE_URL` only for staging.
 
 | Path | Contents |
 |---|---|
-| `app/` | Routes: `/[country]` hubs, `/scratch`, `/statistics`, `/generator`, `/plus`, `/dashboard`, `/api/*` |
-| `components/`, `lib/` | UI and shared server logic (Supabase, Stripe, email, analytics) |
+| `app/` | Routes: `/[country]` hubs, `/scratch`, `/statistics`, `/generator`, `/dashboard`, `/api/*` (`/plus` is a noindexed "retired" notice) |
+| `components/`, `lib/` | UI and shared server logic (Supabase, dormant Stripe, email, analytics) |
 | `config/games.ts` | Every game the site knows about: matrix, schedule, sources |
 | `scripts/` | Scrapers, calculators, publishers, email senders, health checks |
 | `supabase/migrations/` | Database schema, in order |

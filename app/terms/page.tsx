@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PLANS } from "@/lib/plans";
 import { absUrl } from "@/lib/site";
 
 export const metadata: Metadata = {
   title: "Terms of Service",
-  description: "Lottizen's terms of service: what the site is and isn't, Lottizen Plus subscription and renewal terms, acceptable use of the data, and responsible play.",
+  description: "Lottizen's terms of service: what the site is and isn't, acceptable use of the data, and responsible play.",
   alternates: { canonical: "/terms" },
 };
 
@@ -34,32 +33,18 @@ export default function TermsPage() {
               game of chance.
             </p>
 
-            <h2>Lottizen Plus subscriptions</h2>
+            <h2>Paid plans</h2>
             <p>
-              Lottizen Plus is a paid subscription at {PLANS.plus.priceMonthlyLabel} or{" "}
-              {PLANS.plus.priceAnnualLabel}, billed by Stripe on our behalf. New subscriptions
-              start with a {PLANS.plus.trialDays}-day free trial; a valid payment method is
-              required to start a trial, and unless you cancel before the trial ends, it converts
-              automatically into a paid subscription at the plan you selected.
+              Lottizen currently has no paid subscriptions — every feature on lottizen.com is free.
+              Plans for our <Link href="/api">Data API</Link> are sold and billed by RapidAPI, under
+              RapidAPI&rsquo;s own terms.
             </p>
-            <ul>
-              <li>Subscriptions renew automatically each billing period until cancelled.</li>
-              <li>
-                You can cancel any time from your account page&rsquo;s billing portal. Cancelling
-                stops future renewals; you keep Plus access through the end of the period you&rsquo;ve
-                already paid for.
-              </li>
-              <li>
-                See our <Link href="/refund-policy">refund policy</Link> for how refunds work.
-              </li>
-              <li>Prices are in Canadian dollars (CAD) and may change with advance notice.</li>
-            </ul>
 
             <h2>Acceptable use</h2>
             <p>
               Don&rsquo;t use Lottizen to scrape, resell, or redistribute our data outside the
-              terms of our public API (see <Link href="/api">/api</Link>), or to circumvent
-              subscription gating. We may suspend accounts that abuse the service.
+              terms of our public API (see <Link href="/api">/api</Link>). We may suspend accounts
+              that abuse the service.
             </p>
 
             <h2>No warranty</h2>
