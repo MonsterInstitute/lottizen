@@ -40,6 +40,7 @@ export default function PressPage() {
           "@type": "Organization",
           name: SITE.name,
           url: SITE.url,
+          description: SITE.description,
           contactPoint: { "@type": "ContactPoint", contactType: "media", email: SITE.pressEmail },
         }}
       />
