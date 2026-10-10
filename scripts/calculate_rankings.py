@@ -78,6 +78,9 @@ def load_all_games() -> dict[str, list[dict]]:
     """Every game+tiers, grouped by agency."""
     rows = db.fetch_all("games")
     all_tiers = db.fetch_all("prize_tiers", "id,game_number,agency,amount,label,total,remaining,is_top")
+    # Agency-published per-game facts (OLG's printed "Prize payout" %, 0031).
+    facts = {(f["agency"], f["game_number"]): f for f in db.fetch_all(
+        "scratch_game_facts", "agency,game_number,payout_pct,source_url")}
     tiers_by_key: dict[tuple[str, str], list[dict]] = defaultdict(list)
     for t in all_tiers:
         tiers_by_key[(t["agency"], t["game_number"])].append(t)
@@ -101,6 +104,11 @@ def load_all_games() -> dict[str, list[dict]]:
             # features use only true — never "still on the prize list" (0025).
             "onSale": g.get("on_sale"),
             "claimExpiry": g.get("claim_expiry"),
+            # Share of sales the game is printed to return as prizes, as the
+            # agency publishes it (OLG only so far); null elsewhere.
+            "publishedPayoutPct": float(facts[(g["agency"], g["game_number"])]["payout_pct"])
+            if (g["agency"], g["game_number"]) in facts and facts[(g["agency"], g["game_number"])]["payout_pct"] is not None
+            else None,
             # "1 in N" overall odds of winning ANY prize, as published by the
             # agency at launch — only ALC's adapter scrapes this. Not shown
             # anywhere since the estimated-odds comparison was removed.

@@ -222,7 +222,7 @@ def parse_feed(data: dict) -> list[dict]:
 OLG_CATALOG_URL = "https://www.olg.ca/en/instants.contextualSearch.json?keyword="
 
 
-def fetch_on_sale_numbers() -> set[str] | None:
+def fetch_on_sale_numbers() -> dict[str, str] | None:
     """Game numbers of the instant games OLG currently has product pages for
     (its /en/instants search index, the JSON the site's own game search
     uses). The unclaimed-prize feed also keeps games that stopped selling.
@@ -238,17 +238,50 @@ def fetch_on_sale_numbers() -> set[str] | None:
     except Exception as e:  # noqa: BLE001
         print(f"  ! OLG catalog unavailable ({e}); on-sale status left unknown", file=sys.stderr)
         return None
-    nums = set()
+    nums: dict[str, str] = {}  # game number -> product page path
     for it in data.get("results", []):
         if not re.match(r"^/en/instants/play-[^/]+\.html$", it.get("link") or ""):
             continue  # family / top-up / sub-pages
         m = re.search(r"/in-?(\d{4})", it.get("image") or "")
         if m:
-            nums.add(m.group(1))
+            nums[m.group(1)] = it["link"]
     if len(nums) < 20:  # OLG lists ~45; far fewer means the page changed
         print(f"  ! OLG catalog gave only {len(nums)} games; on-sale status left unknown", file=sys.stderr)
         return None
     return nums
+
+
+def fetch_payouts(pages: dict[str, str]) -> None:
+    """OLG's published "Prize payout" % for each on-sale game, from its product
+    page, cached in scratch_game_facts (0031) so a page (~500 KB) is fetched
+    once per game. Trusted only when the page's own "Game No." matches.
+    (The same pages carry an "EFFECTIVE DATE" that is the conditions-document
+    date, identical on every game — it is NOT a launch date and isn't read.)"""
+    from datetime import date as _date
+    have = {r["game_number"] for r in db.fetch_all("scratch_game_facts", "agency,game_number",
+                                                     filters=[("eq", "agency", AGENCY)])}
+    rows = []
+    for num, path in pages.items():
+        if num in have:
+            continue
+        url = "https://www.olg.ca" + path
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": UA})
+            with urllib.request.urlopen(req, timeout=30, context=_ssl_context()) as r:
+                text = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", r.read().decode("utf-8", "replace")))
+        except Exception as e:  # noqa: BLE001
+            print(f"  ! OLG page for game {num} unavailable: {e}", file=sys.stderr)
+            continue
+        no = re.search(r"Game No\.\s*(\d{4})", text)
+        pay = re.search(r"Prize payout[^:]{0,12}:\s*([\d.]+)\s*per cent", text)
+        if not (no and no.group(1) == num and pay):
+            print(f"  ! OLG page for game {num}: no matching Game No. / Prize payout; skipped", file=sys.stderr)
+            continue
+        rows.append({"agency": AGENCY, "game_number": num, "payout_pct": float(pay.group(1)),
+                     "source_url": url, "fetched_on": _date.today().isoformat()})
+    if rows:
+        db.upsert_rows("scratch_game_facts", rows, on_conflict="agency,game_number")
+        print(f"  published payout %: {len(rows)} new game(s)")
 
 
 def run_live() -> int:
@@ -271,6 +304,7 @@ def run_live() -> int:
         g["on_sale"] = (g["game_number"] in on_sale) if on_sale is not None else None
     if on_sale is not None:
         print(f"  on sale (in OLG's catalog): {sum(1 for g in games if g['on_sale'])}/{len(games)}")
+        fetch_payouts(on_sale)
     replace_games(games, source="olg-live")
     tiers = sum(len(g["prize_tiers"]) for g in games)
     print(f"✓ stored {len(games)} live games / {tiers} prize tiers")

@@ -43,9 +43,20 @@ export interface ProvincePicks {
   launchDatesKnown?: boolean;
   /** Announced but not launched (WCLC only); no date is published for these. */
   comingSoon?: { name: string; price: number; game_number: string }[];
+  /** Average daily rank over the last 30 days (on sale, top prize left). */
+  month?: { days: number; since: string; top: (PickGame & { avg_rank: number; days_ranked: number })[] };
+}
+
+export interface LottoMaxFacts {
+  nextDraw: string | null;
+  jackpot: number | null;
+  breakdownDate: string;
+  sourceUrl: string | null;
+  tiers: { tier: string; winners: number | null; prize: number | null; label: string | null }[];
 }
 
 export interface PicksFile {
+  lottoMax?: LottoMaxFacts | null;
   generatedAt: string;
   asOf: string;
   weekStart: string;

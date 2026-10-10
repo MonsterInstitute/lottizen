@@ -33,6 +33,10 @@ export interface Game {
   onSale?: boolean | null;
   /** Claim deadline the agency publishes for the game (ALC only so far). */
   claimExpiry?: string | null;
+  /** Share of sales the game is printed to pay out as prizes, as published by
+   *  the agency (OLG's product pages); null where not published. A design
+   *  fact about the whole game — not the odds of any ticket. */
+  publishedPayoutPct?: number | null;
   /** "1 in N" overall odds of winning ANY prize, as published at launch.
    * Only ALC's adapter currently scrapes this — null elsewhere. See
    * Not displayed anywhere (an odds figure — see CLAUDE.md). */

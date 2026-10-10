@@ -67,6 +67,18 @@ export function ProvinceBlock({ p }: { p: ProvincePicks }) {
                 );
               })}
             </ul>
+            {p.month && p.month.top.length > 0 && (
+              <p className="field-hint" style={{ marginTop: 10 }}>
+                Steadiest over the last {p.month.days} days (best average daily rank, on sale with a top prize left):{" "}
+                {p.month.top.slice(0, 3).map((g, i) => (
+                  <span key={g.game_number}>
+                    {i > 0 ? ", " : ""}
+                    <Link href={href(g)}>{g.name}</Link> ({money(g.price)})
+                  </span>
+                ))}
+                .
+              </p>
+            )}
             {p.replacements.length > 0 && (
               <p className="field-hint">
                 {p.replacements.map((r) => (
@@ -102,7 +114,10 @@ export function ProvinceBlock({ p }: { p: ProvincePicks }) {
                 </li>
               ))}
             </ul>
-            {p.skip.length > 6 && (
+            <p className="field-hint" style={{ marginTop: 8 }}>
+          <Link href={`/scratch/${p.province}/prices`}>$20 ticket, four $5 tickets or Lotto Max? Compare by price →</Link>
+        </p>
+        {p.skip.length > 6 && (
               <Link href={`/scratch/${p.province}`} className="field-hint">
                 See all {p.skip.length} →
               </Link>

@@ -291,6 +291,7 @@ _PAGE_KEYS: dict[str, tuple[str, ...]] = {
     "table_row_counts": ("captured_date", "table_name"),
     "scratch_launch_dates": ("agency", "game_number"),
     "scratch_coming_soon": ("agency", "game_number"),
+    "scratch_game_facts": ("agency", "game_number"),
 }
 
 

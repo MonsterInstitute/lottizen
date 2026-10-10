@@ -75,3 +75,11 @@ def test_new_tickets_are_on_sale_recent_and_newest_first():
              dict(g("Newer", 2, 1), launch_date="2026-10-07"), dict(g("Off", 5, 1, on_sale=False), launch_date="2026-10-08"),
              dict(g("Future", 5, 1), launch_date="2026-10-20"), dict(g("NoDate", 5, 1), launch_date=None)]
     assert [x["name"] for x in wp.new_tickets(games, today)] == ["Newer", "New"]
+
+
+def test_monthly_needs_enough_days_and_ranks_by_average():
+    games = [g("Steady", 5, 90), g("Spiky", 5, 95), g("New", 5, 99), g("Off", 5, 99, on_sale=False)]
+    ranks = {"steady": [2, 2, 3, 2], "spiky": [1, 9, 1, 9], "new": [1], "off": [1, 1, 1, 1]}
+    out = wp.monthly(games, ranks, days=4)
+    assert [x["name"] for x in out] == ["Steady", "Spiky"]   # New: 1 of 4 days; Off: not on sale
+    assert out[0]["avg_rank"] == 2.2

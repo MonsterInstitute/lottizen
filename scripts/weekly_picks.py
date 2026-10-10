@@ -68,6 +68,20 @@ def skip_list(games: list[dict]) -> list[dict]:
 
 
 NEW_DAYS = 35
+MONTH_DAYS = 30
+
+
+def monthly(games: list[dict], ranks: dict[str, list[int]], days: int) -> list[dict]:
+    """Steadier than a week: on-sale games with a top prize left today, ranked
+    by their average daily rank over the last MONTH_DAYS days. A game needs a
+    rank on at least 75% of those days to count (new games aren't in it)."""
+    out = []
+    for g in games:
+        r = ranks.get(g["slug"]) or []
+        if not eligible(g) or days == 0 or len(r) < 0.75 * days:
+            continue
+        out.append(g | {"avg_rank": round(sum(r) / len(r), 1), "days_ranked": len(r)})
+    return sorted(out, key=lambda g: (g["avg_rank"], g["price"], g["name"]))
 
 
 def new_tickets(games: list[dict], today: date) -> list[dict]:
@@ -133,6 +147,29 @@ def load_games() -> dict[str, list[dict]]:
     return out
 
 
+def lotto_max_facts(today: date) -> dict | None:
+    """For the "$20 four ways" comparison: Lotto Max's next draw, its jackpot
+    only if published for that draw, and what each prize tier paid in the
+    latest draw with a published breakdown (amounts change every draw)."""
+    import db
+    gm = db.get_client().table("game_meta").select("next_draw_date,next_jackpot").eq("game_id", "lotto-max").execute().data
+    bd = db.fetch_all("prize_breakdowns", "id,draw_date,tier_code,match_main,match_bonus,winners,prize_cents,prize_label,source_url",
+                      filters=[("eq", "game_slug", "lotto-max")])
+    if not bd:
+        return None
+    latest = max(r["draw_date"] for r in bd)
+    tiers = sorted((r for r in bd if r["draw_date"] == latest), key=lambda r: (-r["match_main"], not r["match_bonus"]))
+    nd = gm[0]["next_draw_date"] if gm else None
+    return {
+        "nextDraw": nd if nd and nd >= today.isoformat() else None,
+        "jackpot": gm[0]["next_jackpot"] if gm and nd and nd >= today.isoformat() else None,
+        "breakdownDate": latest,
+        "sourceUrl": tiers[0]["source_url"] if tiers else None,
+        "tiers": [{"tier": r["tier_code"], "winners": r["winners"],
+                   "prize": (r["prize_cents"] / 100) if r["prize_cents"] else None, "label": r["prize_label"]} for r in tiers],
+    }
+
+
 def public(g: dict | None) -> dict | None:
     if g is None:
         return None
@@ -147,6 +184,14 @@ def run(dry: bool) -> int:
     games = load_games()
     client = db.get_client()
     coming = db.fetch_all("scratch_coming_soon", "agency,game_number,name,price")
+    since = (today - timedelta(days=MONTH_DAYS)).isoformat()
+    hist = db.fetch_all("scratch_rank_snapshots", "id,agency,game_slug,captured_date,rank",
+                        filters=[("gte", "captured_date", since)])
+    ranks_by: dict[str, dict[str, list[int]]] = {}
+    days_by: dict[str, set] = {}
+    for r in hist:
+        ranks_by.setdefault(r["agency"], {}).setdefault(r["game_slug"], []).append(r["rank"])
+        days_by.setdefault(r["agency"], set()).add(r["captured_date"])
     stored = db.fetch_all("weekly_picks", "id,week_start,province,band,agency,game_number,game_slug,chosen_on,"
                                           "replaced_on,replaced_reason",
                           filters=[("eq", "week_start", ws.isoformat())])
@@ -193,8 +238,12 @@ def run(dry: bool) -> int:
         entry["skip"] = [public(g) for g in skip_list(gs)]
         entry["newTickets"] = [public(g) | {"launch_date": g["launch_date"]} for g in new_tickets(gs, today)]
         entry["launchDatesKnown"] = any(g.get("launch_date") for g in gs)
+        entry["month"] = {"days": len(days_by.get(agency, ())), "since": since,
+                          "top": [public(g) | {"avg_rank": g["avg_rank"], "days_ranked": g["days_ranked"]}
+                                  for g in monthly(gs, ranks_by.get(agency, {}), len(days_by.get(agency, ())))[:5]]}
         entry["comingSoon"] = [{"name": c["name"], "price": float(c["price"]), "game_number": c["game_number"]}
                                for c in coming if c["agency"] == agency]
+    result["lottoMax"] = lotto_max_facts(today)
     for prov, e in result["provinces"].items():
         p = e["picks"].get("overall")
         print(f"{e['label']}: " + (f"pick {p['name']} (${p['price']:.0f}); " if p else "no pick; ")
