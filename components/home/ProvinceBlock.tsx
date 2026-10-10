@@ -34,132 +34,149 @@ function whyFirst(p: ProvincePicks): string {
   return `It has the highest Value Score among ${among}: its big prizes are being claimed more slowly than its small ones.`;
 }
 
-export function ProvinceBlock({ p }: { p: ProvincePicks }) {
+const href = (g: PickGame) => `/scratch/${g.province}/${g.slug}`; // g.province = the scratch board slug
+
+/** Every card below renders only when it has something to show — no empty
+ *  boxes explaining why (data limits live on /methodology). `full` is the
+ *  /picks version: every band, the whole skip list, all new tickets. */
+export function PickCard({ p, full = false }: { p: ProvincePicks; full?: boolean }) {
   const pick = p.picks.overall ?? null;
-  const href = (g: PickGame) => `/scratch/${g.province}/${g.slug}`; // g.province = the scratch board slug
+  if (!pick) return null;
+  const bands = (["1-5", "10", "20+"] as const).filter((b) => p.picks[b]);
   return (
-    <div className="home-grid">
-      <div className="card home-pick">
-        <div className="section-eyebrow">This week&rsquo;s pick · {p.label}</div>
-        {pick ? (
-          <>
-            <h2 className="home-pick-title">
-              <Link href={href(pick)}>{pick.name}</Link> <span className="home-price">{money(pick.price)}</span>
-            </h2>
-            <p className="home-pick-reason">
-              {whyFirst(p)} {pickReason(pick)}
-            </p>
-            <p className="home-pick-note">{PICK_NOTE}</p>
-            <ul className="home-bands">
-              {(["1-5", "10", "20+"] as const).map((b) => {
-                const g = p.picks[b];
-                return (
-                  <li key={b}>
-                    <span className="home-band">{BAND_LABEL[b]}</span>
-                    {g ? (
-                      <Link href={href(g)}>
-                        {g.name} <span className="home-price">{money(g.price)}</span>
-                      </Link>
-                    ) : (
-                      <span className="field-hint">none on sale with a top prize left</span>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-            {p.month && p.month.top.length > 0 && (
-              <p className="field-hint" style={{ marginTop: 10 }}>
-                Steadiest over the last {p.month.days} days (best average daily rank, on sale with a top prize left):{" "}
-                {p.month.top.slice(0, 3).map((g, i) => (
-                  <span key={g.game_number}>
-                    {i > 0 ? ", " : ""}
-                    <Link href={href(g)}>{g.name}</Link> ({money(g.price)})
-                  </span>
-                ))}
-                .
-              </p>
-            )}
-            {p.replacements.length > 0 && (
-              <p className="field-hint">
-                {p.replacements.map((r) => (
-                  <span key={`${r.band}-${r.on}`}>
-                    Changed {drawDate(r.on)}: {r.old.name} was replaced ({r.reason}).{" "}
-                  </span>
-                ))}
-              </p>
-            )}
-          </>
-        ) : (
-          <p className="home-pick-reason">
-            No {p.agencyName} scratch ticket on sale has a top prize left right now.
+    <div className="card home-pick">
+      <div className="section-eyebrow">This week&rsquo;s pick · {p.label}</div>
+      <h3 className="home-pick-title">
+        <Link href={href(pick)}>{pick.name}</Link> <span className="home-price">{money(pick.price)}</span>
+      </h3>
+      <p className="home-pick-reason">
+        {whyFirst(p)} {pickReason(pick)}
+      </p>
+      <p className="home-pick-note">{PICK_NOTE}</p>
+      {bands.length > 0 && (
+        <ul className="home-bands">
+          {bands.map((b) => {
+            const g = p.picks[b]!;
+            return (
+              <li key={b}>
+                <span className="home-band">{BAND_LABEL[b]}</span>
+                <Link href={href(g)}>
+                  {g.name} <span className="home-price">{money(g.price)}</span>
+                </Link>
+                {full && <span className="field-hint"> · {pickReason(g)}</span>}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {full && p.month && p.month.top.length > 0 && (
+        <>
+          <h4 className="home-sub">This month</h4>
+          <p className="field-hint" style={{ margin: "0 0 6px" }}>
+            Best average daily rank over the last {p.month.days} days, among tickets on sale with a top prize left.
           </p>
-        )}
-      </div>
-
-      <div className="card home-skip">
-        <div className="section-eyebrow">Skip</div>
-        {p.skip.length ? (
-          <>
-            <p className="home-skip-lede">
-              <strong>
-                {p.skip.length} {p.skip.length === 1 ? "ticket" : "tickets"} still on sale in {p.label}{" "}
-                {p.skip.length === 1 ? "has" : "have"} no top prize left.
-              </strong>
-            </p>
-            <ul className="home-skip-list">
-              {p.skip.slice(0, 6).map((g) => (
-                <li key={g.game_number}>
-                  <Link href={href(g)}>{g.name}</Link> <span className="home-price">{money(g.price)}</span>
-                  <span className="field-hint"> · top prize {topPrize(g)}: 0 left</span>
-                </li>
-              ))}
-            </ul>
-            <p className="field-hint" style={{ marginTop: 8 }}>
-          <Link href={`/scratch/${p.scratchSlug}/prices`}>$20 ticket, four $5 tickets or Lotto Max? Compare by price →</Link>
-        </p>
-        {p.skip.length > 6 && (
-              <Link href={`/scratch/${p.scratchSlug}`} className="field-hint">
-                See all {p.skip.length} →
-              </Link>
-            )}
-          </>
-        ) : (
-          <p className="home-skip-lede">Every {p.agencyName} scratch ticket on sale still has a top prize left.</p>
-        )}
+          <ol className="home-skip-list">
+            {p.month.top.map((g) => (
+              <li key={g.game_number}>
+                <Link href={href(g)}>{g.name}</Link> <span className="home-price">{money(g.price)}</span>
+                <span className="field-hint"> · average rank {g.avg_rank}</span>
+              </li>
+            ))}
+          </ol>
+        </>
+      )}
+      {!full && p.month && p.month.top.length > 0 && (
         <p className="field-hint" style={{ marginTop: 10 }}>
-          On sale = in {p.agencyName}&rsquo;s current product catalog. Prize counts from {p.agencyName}, as of{" "}
-          the latest daily refresh.
+          Steadiest over the last {p.month.days} days:{" "}
+          {p.month.top.slice(0, 3).map((g, i) => (
+            <span key={g.game_number}>
+              {i > 0 ? ", " : ""}
+              <Link href={href(g)}>{g.name}</Link> ({money(g.price)})
+            </span>
+          ))}
+          .
         </p>
-      </div>
-
-      <div className="card home-new">
-        <div className="section-eyebrow">New tickets</div>
-        {p.launchDatesKnown === false ? (
-          <p className="field-hint">{p.agencyName} doesn&rsquo;t publish launch dates.</p>
-        ) : p.newTickets && p.newTickets.length ? (
-          <>
-            <p className="home-skip-lede">
-              Launched in the last five weeks. A new ticket has had the least time for its prizes to be claimed.
-            </p>
-            <ul className="home-skip-list">
-              {p.newTickets.slice(0, 5).map((g) => (
-                <li key={g.game_number}>
-                  <Link href={href(g)}>{g.name}</Link> <span className="home-price">{money(g.price)}</span>
-                  <span className="field-hint"> · launched {drawDate(g.launch_date)}</span>
-                </li>
-              ))}
-            </ul>
-          </>
-        ) : (
-          <p className="field-hint">No new {p.agencyName} tickets in the last five weeks.</p>
-        )}
-        {p.comingSoon && p.comingSoon.length > 0 && (
-          <p className="field-hint" style={{ marginTop: 10 }}>
-            Coming soon ({p.agencyName} hasn&rsquo;t published dates):{" "}
-            {p.comingSoon.map((c) => `${c.name} (${money(c.price)})`).join(", ")}.
-          </p>
-        )}
-      </div>
+      )}
+      {p.replacements.length > 0 && (
+        <p className="field-hint">
+          {p.replacements.map((r) => (
+            <span key={`${r.band}-${r.on}`}>
+              Changed {drawDate(r.on)}: {r.old.name} was replaced ({r.reason}).{" "}
+            </span>
+          ))}
+        </p>
+      )}
     </div>
   );
+}
+
+export function SkipCard({ p, full = false }: { p: ProvincePicks; full?: boolean }) {
+  if (!p.skip.length) return null;
+  const shown = full ? p.skip : p.skip.slice(0, 6);
+  return (
+    <div className="card home-skip">
+      <div className="section-eyebrow">Skip these</div>
+      <p className="home-skip-lede">
+        <strong>
+          {p.skip.length} {p.skip.length === 1 ? "ticket" : "tickets"} still on sale in {p.label}{" "}
+          {p.skip.length === 1 ? "has" : "have"} no top prize left.
+        </strong>
+      </p>
+      <ul className="home-skip-list">
+        {shown.map((g) => (
+          <li key={g.game_number}>
+            <Link href={href(g)}>{g.name}</Link> <span className="home-price">{money(g.price)}</span>
+            <span className="field-hint"> · top prize {topPrize(g)}: 0 left</span>
+          </li>
+        ))}
+      </ul>
+      {!full && p.skip.length > shown.length && (
+        <p className="field-hint" style={{ marginTop: 8 }}>
+          <Link href={`/picks#${p.province}`}>See all {p.skip.length} →</Link>
+        </p>
+      )}
+      <p className="field-hint" style={{ marginTop: 8 }}>
+        <Link href={`/scratch/${p.scratchSlug}/prices`}>$20 ticket, four $5 tickets or Lotto Max? Compare by price →</Link>
+      </p>
+    </div>
+  );
+}
+
+export function NewTicketsCard({ p, full = false }: { p: ProvincePicks; full?: boolean }) {
+  const fresh = p.newTickets ?? [];
+  const coming = p.comingSoon ?? [];
+  if (!fresh.length && !coming.length) return null;
+  return (
+    <div className="card home-new">
+      <div className="section-eyebrow">New tickets · {p.label}</div>
+      {fresh.length > 0 && (
+        <>
+          <p className="home-skip-lede">
+            Launched in the last five weeks. A new ticket has had the least time for its prizes to be claimed.
+          </p>
+          <ul className="home-skip-list">
+            {(full ? fresh : fresh.slice(0, 5)).map((g) => (
+              <li key={g.game_number}>
+                <Link href={href(g)}>{g.name}</Link> <span className="home-price">{money(g.price)}</span>
+                <span className="field-hint"> · launched {drawDate(g.launch_date)}</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      {coming.length > 0 && (
+        <p className="field-hint" style={{ marginTop: 10 }}>
+          Coming soon: {coming.map((c) => `${c.name} (${money(c.price)})`).join(", ")}.
+        </p>
+      )}
+    </div>
+  );
+}
+
+export function hasWeek(p: ProvincePicks): boolean {
+  return !!p.picks.overall || p.skip.length > 0;
+}
+
+export function hasNew(p: ProvincePicks): boolean {
+  return (p.newTickets?.length ?? 0) > 0 || (p.comingSoon?.length ?? 0) > 0;
 }

@@ -17,8 +17,8 @@ import type { Game } from "@/lib/types";
  * Honesty (CLAUDE.md): this compares how the games are built (OLG's published
  * payout %, prize tiers, top prizes) and how much prize money is left (the
  * share of printed prize money unclaimed). It never compares the chance of
- * winning, and it says so. Figures an agency doesn't publish are shown as
- * "not published", never estimated.
+ * winning, and it says so. Figures an agency doesn't publish are left out
+ * (never estimated); what each agency publishes is explained on /methodology.
  */
 
 export function generateStaticParams() {
@@ -42,7 +42,7 @@ const median = (xs: number[]) => {
   const m = Math.floor(s.length / 2);
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 };
-const pct = (x: number | null) => (x == null ? "not published" : `${x.toFixed(1)}%`);
+const pct = (x: number | null) => (x == null ? "—" : `${x.toFixed(1)}%`);
 const shareLeft = (g: Game) =>
   g.scoringMethod === "retention" && g.printedPrizePool && g.remainingPrizePool != null
     ? (100 * g.remainingPrizePool) / g.printedPrizePool
@@ -55,7 +55,7 @@ function bestAt(games: Game[], price: number): Game | undefined {
 }
 
 function TicketCard({ g, count, province }: { g: Game | undefined; count: number; province: string }) {
-  if (!g) return <p className="field-hint">No ticket at this price is on sale with a top prize left.</p>;
+  if (!g) return null;
   const share = shareLeft(g);
   return (
     <ul>
@@ -101,6 +101,13 @@ export default function PriceGuidePage({ params }: { params: { province: string 
   const lm = getPicks().lottoMax ?? null;
   const lmGame = getGame("lotto-max");
   const lmPlays = lmGame ? Math.floor(20 / lmGame.price) : 0;
+  const payoutCmp = !!(r20 && r5 && r20.payout != null && r5.payout != null);
+  const shareCmp = !!(r20 && r5 && r20.share != null && r5.share != null);
+  const anyShare = rows.some((r) => r.share != null);
+  const anyPayout = rows.some((r) => r.payout != null);
+  const t20 = bestAt(games, 20);
+  const t5 = bestAt(games, 5);
+  const ways = [t20, t5, lmGame && lm].filter(Boolean).length;
 
   return (
     <>
@@ -123,37 +130,26 @@ export default function PriceGuidePage({ params }: { params: { province: string 
 
       <section className="section">
         <div className="container prose">
-          <h2>Does a $20 ticket leave more than four $5 tickets?</h2>
-          {r20 && r5 ? (
-            <ul>
-              {r20.payout != null && r5.payout != null ? (
-                <li>
-                  {cfg.agency} prints its $20 tickets on sale to pay out a median <strong>{r20.payout.toFixed(2)}%</strong> of
-                  sales as prizes, and its $5 tickets <strong>{r5.payout.toFixed(2)}%</strong> (the payout rate on each
-                  game&rsquo;s product page). That is how the games are designed across all their tickets, not what any
-                  one ticket returns.
-                </li>
-              ) : (
-                <li>{cfg.agency} doesn&rsquo;t publish a payout rate per game, so that comparison isn&rsquo;t possible here.</li>
-              )}
-              {r20.share != null && r5.share != null ? (
-                <li>
-                  The median $20 ticket on sale has <strong>{r20.share.toFixed(1)}%</strong> of its printed prize money
-                  still unclaimed; the median $5 ticket, <strong>{r5.share.toFixed(1)}%</strong>.
-                </li>
-              ) : (
-                <li>
-                  {cfg.agency} doesn&rsquo;t publish how many prizes were printed in every tier, so the share of prize money
-                  left can&rsquo;t be compared by price.
-                </li>
-              )}
-              <li>
-                No agency publishes how many tickets are still unsold, so nobody can say how much prize money is left
-                per ticket, at any price.
-              </li>
-            </ul>
-          ) : (
-            <p>{cfg.agency} doesn&rsquo;t have both $20 and $5 tickets on sale right now.</p>
+          {(payoutCmp || shareCmp) && (
+            <>
+              <h2>Does a $20 ticket leave more than four $5 tickets?</h2>
+              <ul>
+                {payoutCmp && (
+                  <li>
+                    {cfg.agency} prints its $20 tickets on sale to pay out a median <strong>{r20!.payout!.toFixed(2)}%</strong>{" "}
+                    of sales as prizes, and its $5 tickets <strong>{r5!.payout!.toFixed(2)}%</strong> (the payout rate on
+                    each game&rsquo;s product page). That is how the games are designed across all their tickets, not what
+                    any one ticket returns.
+                  </li>
+                )}
+                {shareCmp && (
+                  <li>
+                    The median $20 ticket on sale has <strong>{r20!.share!.toFixed(1)}%</strong> of its printed prize money
+                    still unclaimed; the median $5 ticket, <strong>{r5!.share!.toFixed(1)}%</strong>.
+                  </li>
+                )}
+              </ul>
+            </>
           )}
 
           <h2>Every price point</h2>
@@ -164,8 +160,8 @@ export default function PriceGuidePage({ params }: { params: { province: string 
                   <th>Price</th>
                   <th>{saleKnown ? "On sale" : "Listed"}</th>
                   <th>With a top prize left</th>
-                  <th>Median share of printed prize money unclaimed</th>
-                  <th>Published payout (median, range)</th>
+                  {anyShare && <th>Median share of printed prize money unclaimed</th>}
+                  {anyPayout && <th>Published payout (median, range)</th>}
                   <th>Largest top prize</th>
                 </tr>
               </thead>
@@ -175,12 +171,12 @@ export default function PriceGuidePage({ params }: { params: { province: string 
                     <td className="num">{money(r.price)}</td>
                     <td className="num">{r.n}</td>
                     <td className="num">{r.withTop}</td>
-                    <td className="num">{pct(r.share)}</td>
-                    <td className="num">
-                      {r.payout == null
-                        ? "not published"
-                        : `${r.payout.toFixed(2)}% (${r.payoutRange![0]}–${r.payoutRange![1]}%)`}
-                    </td>
+                    {anyShare && <td className="num">{pct(r.share)}</td>}
+                    {anyPayout && (
+                      <td className="num">
+                        {r.payout == null ? "—" : `${r.payout.toFixed(2)}% (${r.payoutRange![0]}–${r.payoutRange![1]}%)`}
+                      </td>
+                    )}
                     <td className="num">{r.biggestTop ? money(r.biggestTop) : "—"}</td>
                   </tr>
                 ))}
@@ -188,15 +184,25 @@ export default function PriceGuidePage({ params }: { params: { province: string 
             </table>
           </div>
 
-          <h2>About $20, three ways</h2>
+          {ways >= 2 && (
+            <>
+          <h2>About $20, {ways === 3 ? "three" : "two"} ways</h2>
           <p>
-            The same money, spent three ways. Each describes what the agency publishes about the game; none of it is
+            The same money, spent {ways === 3 ? "three" : "two"} ways. Each describes what the agency publishes about the game; none of it is
             the chance of winning, which Lottizen doesn&rsquo;t compare.
           </p>
-          <h3>One $20 scratch ticket</h3>
-          <TicketCard g={bestAt(games, 20)} count={1} province={province} />
-          <h3>Four $5 scratch tickets</h3>
-          <TicketCard g={bestAt(games, 5)} count={4} province={province} />
+          {t20 && (
+            <>
+              <h3>One $20 scratch ticket</h3>
+              <TicketCard g={t20} count={1} province={province} />
+            </>
+          )}
+          {t5 && (
+            <>
+              <h3>Four $5 scratch tickets</h3>
+              <TicketCard g={t5} count={4} province={province} />
+            </>
+          )}
           {lmGame && lm && (
             <>
               <h3>
@@ -229,6 +235,8 @@ export default function PriceGuidePage({ params }: { params: { province: string 
                   measures above don&rsquo;t apply to it.
                 </li>
               </ul>
+            </>
+          )}
             </>
           )}
           <ScratchDisclaimer />

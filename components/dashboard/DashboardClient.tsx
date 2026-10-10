@@ -131,9 +131,7 @@ export function DashboardClient({
                       </div>
                     ) : null}
                   </>
-                ) : (
-                  <p className="field-hint">Prize result requires confirmation with the official lottery operator — no draw data on file yet.</p>
-                )}
+                ) : null}
               </div>
             ))}
           </div>

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { Header } from "@/components/site/Header";
+import { RegionScript } from "@/components/home/RegionScript";
 import { Footer } from "@/components/site/Footer";
 import { JsonLd } from "@/components/site/JsonLd";
 import { SITE, absUrl } from "@/lib/site";
@@ -110,6 +111,9 @@ export default function RootLayout({
         <JsonLd data={orgJsonLd} />
       </head>
       <body>
+        {/* Before anything paints: the visitor's region on <html>, which CSS
+            uses to hide other regions' blocks site-wide (RegionScript). */}
+        <RegionScript />
         <Header />
         <main>{children}</main>
         <Footer />

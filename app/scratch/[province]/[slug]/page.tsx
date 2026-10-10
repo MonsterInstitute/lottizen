@@ -220,16 +220,16 @@ export default function ScratchGamePage({
             Prize <em>breakdown.</em>
           </h2>
           <p className="section-lede">
-            Every prize tier {g.agency} discloses, how many were printed (where published), and how
+            Every prize tier {g.agency} discloses{hasTotals ? ", how many were printed," : ""} and how
             many are still out there to be won.
           </p>
           <table className="prize-table">
             <thead>
               <tr>
                 <th>Prize</th>
-                <th>{hasTotals ? "Total Printed" : "Total"}</th>
+                {hasTotals ? <th>Total Printed</th> : null}
                 <th>Remaining</th>
-                <th>{hasTotals ? "% Left" : ""}</th>
+                {hasTotals ? <th>% Left</th> : null}
               </tr>
             </thead>
             <tbody>
@@ -243,9 +243,9 @@ export default function ScratchGamePage({
                         <span style={{ color: "var(--brand)" }}> ★</span>
                       ) : null}
                     </td>
-                    <td className="num">{hasTotals ? (t.total ? count(t.total) : "—") : "—"}</td>
+                    {hasTotals ? <td className="num">{t.total ? count(t.total) : "—"}</td> : null}
                     <td className="num">{count(t.remaining)}</td>
-                    <td className="num">{pctLeft !== null ? `${pctLeft.toFixed(0)}%` : "—"}</td>
+                    {hasTotals ? <td className="num">{pctLeft !== null ? `${pctLeft.toFixed(0)}%` : "—"}</td> : null}
                   </tr>
                 );
               })}

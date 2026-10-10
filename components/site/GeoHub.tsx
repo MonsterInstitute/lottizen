@@ -7,7 +7,7 @@ import type { HubGame } from "@/lib/draws";
 
 const CA_ORDER = ["National", "Ontario", "Western Canada", "British Columbia", "Québec", "Atlantic"];
 const US_ORDER = ["National", "New York"];
-const COUNTRY_NAME: Record<string, string> = { CA: "Canada", US: "United States" };
+const COUNTRY_NAME: Record<string, string> = { CA: "Canada", US: "United States", EU: "Europe" };
 
 function readGeo(): string | null {
   const m = typeof document !== "undefined" && document.cookie.match(/(?:^|; )lottizen_geo=([^;]+)/);
@@ -17,12 +17,15 @@ function readGeo(): string | null {
 function buildGroups(games: HubGame[], geo: string | null) {
   const [gc, gr] = geo ? geo.split("-") : [null, null];
   const userBucket = gr ? bucketForRegionCode(gr) : null;
-  const countries = gc === "US" ? ["US", "CA"] : ["CA", "US"];
+  // Every country is rendered, in a fixed order; each group carries
+  // data-country-scope, so a visitor from a known region sees only theirs
+  // (RegionScript + globals.css) and a crawler or unknown visitor sees all.
+  const countries = ["CA", "US", "EU"];
   const out: { country: string; buckets: { bucket: string; games: HubGame[] }[] }[] = [];
   for (const c of countries) {
     const cg = games.filter((g) => g.country === c);
     if (!cg.length) continue;
-    const base = c === "CA" ? CA_ORDER : US_ORDER;
+    const base = c === "CA" ? CA_ORDER : c === "US" ? US_ORDER : [...new Set(cg.map((g) => g.bucket))];
     const order = c === gc && userBucket ? [userBucket, ...base.filter((b) => b !== userBucket)] : base;
     const buckets = order
       .map((bucket) => ({ bucket, games: cg.filter((g) => g.bucket === bucket) }))
@@ -40,13 +43,8 @@ export function GeoHub({ games, kind }: { games: HubGame[]; kind: "statistics" |
 
   return (
     <>
-      {geo && (
-        <p className="hero-meta" style={{ marginBottom: 28 }}>
-          Sorted for your region ({geo}). Pick any game below.
-        </p>
-      )}
       {groups.map((grp) => (
-        <div key={grp.country} style={{ marginBottom: 48 }}>
+        <div key={grp.country} data-country-scope={grp.country} style={{ marginBottom: 48 }}>
           <div className="section-eyebrow" style={{ marginBottom: 18 }}>
             {COUNTRY_NAME[grp.country] ?? grp.country}
           </div>

@@ -7,19 +7,17 @@ import {
   type GameConfig,
 } from "@/config/games";
 import { getLatestAll, getLatestGeneratedAt, hasData } from "@/lib/draws";
-import { getAllRankings, getTopPick } from "@/lib/data";
 import { currentJackpot, drawDate, money, humanDate, resolveNextDraw } from "@/lib/format";
 import { SITE, absUrl } from "@/lib/site";
 import { Balls } from "@/components/draws/Balls";
 import { AdSlot } from "@/components/site/AdSlot";
 import { JsonLd } from "@/components/site/JsonLd";
-import { HomeGeoSort } from "@/components/site/HomeGeoSort";
 import { getPicks } from "@/lib/picks";
 import { HOME_REGIONS } from "@/components/home/regions";
-import { RegionScript } from "@/components/home/RegionScript";
 import { RegionSelect } from "@/components/home/RegionSelect";
 import { HeroRegionCard } from "@/components/home/HeroRegionCard";
-import { ProvinceBlock } from "@/components/home/ProvinceBlock";
+import { PickCard, SkipCard, NewTicketsCard, hasWeek, hasNew } from "@/components/home/ProvinceBlock";
+import { ScratchRegionCard, scratchTop } from "@/components/home/ScratchRegionCard";
 import { LatestNews } from "@/components/home/LatestNews";
 import { MyTicketsCard } from "@/components/home/MyTicketsCard";
 
@@ -47,9 +45,27 @@ const SCRATCH_SLUG: Record<string, string> = {
 export default function HomePage() {
   const latest = new Map(getLatestAll().map((l) => [l.slug, l]));
   const generatedAt = getLatestGeneratedAt();
-  const scratchTop = getTopPick("ontario");
   const picks = getPicks();
-  const scratchCount = getAllRankings().reduce((s, r) => s + r.gameCount, 0);
+  const canadaRegions = HOME_REGIONS.filter((r) => picks.provinces[r.key]);
+  // WCLC's four regions often share identical content. A visitor whose region
+  // is known sees only theirs; everyone else (and crawlers) sees each distinct
+  // block once — later duplicates carry dup-when-unknown.
+  const dupOf = (sig: (k: string) => string) => {
+    const seen = new Set<string>();
+    const dup = new Set<string>();
+    for (const r of canadaRegions) {
+      const s = sig(r.key);
+      if (seen.has(s)) dup.add(r.key);
+      seen.add(s);
+    }
+    return (k: string) => (dup.has(k) ? "dup-when-unknown" : "");
+  };
+  const weekDup = dupOf((k) => {
+    const p = picks.provinces[k];
+    return JSON.stringify([p.picks, p.skip.map((g) => g.game_number), p.month?.top.map((g) => g.game_number)]);
+  });
+  const newDup = dupOf((k) => JSON.stringify([picks.provinces[k].newTickets, picks.provinces[k].comingSoon]));
+  const scratchDup = dupOf((k) => JSON.stringify(scratchTop(k, SCRATCH_SLUG[k]).map((g) => g.slug)));
 
   const liveGames = (code: Country): GameConfig[] =>
     gamesForCountry(code).filter((g) => g.live && hasData(g.slug));
@@ -77,7 +93,6 @@ export default function HomePage() {
 
   return (
     <>
-      <RegionScript />
       <JsonLd data={jsonLd} />
 
       {/* ============ HERO ============ */}
@@ -100,16 +115,16 @@ export default function HomePage() {
               Millions, EuroMillions, Lotto Max, UK Lotto and more. Plus a scratch-ticket value tracker.
             </p>
             <div className="hero-cta-row reveal r-5">
-              <Link href="/usa" className="btn btn-primary">
+              <Link href="/usa" className="btn btn-primary" data-country-scope="US">
                 US games
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                   <path d="M5 12h14M13 5l7 7-7 7" />
                 </svg>
               </Link>
-              <Link href="/canada" className="btn btn-secondary">
+              <Link href="/canada" className="btn btn-secondary" data-country-scope="CA">
                 Canadian games
               </Link>
-              <Link href="/europe" className="btn btn-secondary">
+              <Link href="/europe" className="btn btn-secondary" data-country-scope="EU">
                 European games
               </Link>
             </div>
@@ -133,19 +148,43 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="container">
-        <MyTicketsCard onlySignedIn />
+      {/* ============ THIS WEEK IN [PROVINCE] ============ */}
+      {/* Canadian regions only; each visitor sees their own region's block
+          (data-region-block, RegionScript). Regions with nothing to say are
+          left out rather than shown empty. */}
+      <section className="section home-week" data-country-scope="CA">
+        <div className="container">
+          {canadaRegions
+            .filter((r) => hasWeek(picks.provinces[r.key]))
+            .map((r) => {
+              const p = picks.provinces[r.key];
+              return (
+                <div key={r.key} data-region-block={r.key} className={`home-week-block ${weekDup(r.key)}`}>
+                  <div className="section-head-row">
+                    <h2 className="section-headline">
+                      This week in <em>{p.label}.</em>
+                    </h2>
+                    <Link href={`/picks#${r.key}`} className="btn btn-secondary">
+                      All of this week&rsquo;s picks →
+                    </Link>
+                  </div>
+                  <div className="home-grid">
+                    <PickCard p={p} />
+                    <SkipCard p={p} />
+                  </div>
+                </div>
+              );
+            })}
+        </div>
       </section>
 
-      {/* ============ COUNTRY BLOCKS ============ */}
-      <HomeGeoSort />
+      {/* ============ RESULTS (+ SCRATCH, CANADA) ============ */}
       <div id="country-blocks">
-      {COUNTRIES.map((c) => {
-        const games = liveGames(c.code).slice(0, 6);
-        if (!games.length) return null;
-        const block = (
-          <section className="section" data-country-block={c.code} key={c.code} style={{ paddingTop: 40, paddingBottom: 40 }}>
-            <div className="container">
+        {COUNTRIES.map((c) => {
+          const games = liveGames(c.code).slice(0, 6);
+          if (!games.length) return null;
+          const results = (
+            <>
               <div className="section-eyebrow">{c.name}</div>
               <div className="section-head-row">
                 <h2 className="section-headline">
@@ -155,17 +194,11 @@ export default function HomePage() {
                   All {c.name} games →
                 </Link>
               </div>
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "repeat(auto-fill, minmax(300px, 1fr))",
-                  gap: 16,
-                  marginTop: 28,
-                }}
-              >
+              <div className={c.code === "CA" ? "home-results-grid home-results-grid-half" : "home-results-grid"}>
                 {games.map((g) => {
                   const l = latest.get(g.slug);
                   if (!l) return null;
+                  const jd = jackpotOrDraw(g);
                   return (
                     <Link key={g.slug} href={`/${c.slug}/${g.slug}`} className="game-card">
                       <div className="game-card-head">
@@ -175,93 +208,79 @@ export default function HomePage() {
                       <div className="game-card-date">{drawDate(l.latestDate)}</div>
                       <Balls numbers={l.numbers} bonus={l.bonus} bonus2={l.bonus2} size="sm" />
                       <div className="game-card-jackpot">
-                        <span className="lbl">{jackpotOrDraw(g).label}</span>
-                        <span className="amt">{jackpotOrDraw(g).value}</span>
+                        <span className="lbl">{jd.label}</span>
+                        <span className="amt">{jd.value}</span>
                       </div>
                     </Link>
                   );
                 })}
               </div>
-            </div>
-          </section>
-        );
-        if (c.code !== "CA") return block;
-        // The scratch board sits beside the draw results with equal weight:
-        // right after the Canada block, and HomeGeoSort keeps the two
-        // together (data-follows) when it moves Canada to the top.
-        return [
-          block,
-          <section className="section home-scratch-board" data-follows="CA" key="scratch" style={{ paddingTop: 40, paddingBottom: 40 }}>
-            <div className="container">
-              <div className="section-eyebrow">Scratch tickets</div>
-              <div className="section-head-row">
-                <h2 className="section-headline">
-                  Scratch <em>tickets.</em>
-                </h2>
-                <Link href="/scratch" className="btn btn-secondary">
-                  All scratch tickets →
-                </Link>
-              </div>
-              <div style={{ marginTop: 28 }}>
-          <div
-                className="card home-scratch-grid"
-                style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr", gap: 32, alignItems: "center", padding: 36 }}
-              >
+            </>
+          );
+          if (c.code !== "CA") {
+            return (
+              <section className="section" data-country-block={c.code} data-country-scope={c.code} key={c.code} style={{ paddingTop: 40, paddingBottom: 40 }}>
+                <div className="container">{results}</div>
+              </section>
+            );
+          }
+          // Canada: draw results and scratch tickets side by side, equal weight.
+          return (
+            <section className="section" data-country-block="CA" data-country-scope="CA" key="CA" style={{ paddingTop: 40, paddingBottom: 40 }}>
+              <div className="container home-board">
+                <div>{results}</div>
                 <div>
-                  <div className="section-eyebrow" style={{ marginBottom: 14 }}>
-                    Scratch Value Tracker
+                  <div className="section-eyebrow">Scratch tickets</div>
+                  <div className="section-head-row">
+                    <h2 className="section-headline">
+                      Scratch <em>tickets.</em>
+                    </h2>
+                    <Link href="/scratch" className="btn btn-secondary">
+                      All scratch tickets →
+                    </Link>
                   </div>
-                  <h2 className="section-headline" style={{ fontSize: "clamp(28px,3.4vw,44px)", marginBottom: 12 }}>
-                    Which scratch ticket is <em>worth it</em> today?
-                  </h2>
-                  <p className="section-lede" style={{ marginBottom: 22 }}>
-                    We track remaining instant-game prizes across all 5 Canadian lottery agencies and
-                    rank every scratch ticket by the value still left to win.
-                  </p>
-                  <Link href="/scratch" className="btn btn-primary">
-                    Open the tracker
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
-                      <path d="M5 12h14M13 5l7 7-7 7" />
-                    </svg>
-                  </Link>
-                </div>
-                <div className="data-card" style={{ boxShadow: "var(--shadow-sm)" }}>
-                  <div className="data-card-head">
-                    <span className="data-card-title">{scratchTop.name}</span>
-                    <span className="status-pill">#1 value</span>
-                  </div>
-                  <div className="data-row">
-                    <span className="k">Value score</span>
-                    <span className="v" style={{ color: "var(--brand-deep)", fontWeight: 700 }}>{scratchTop.valueScore.toFixed(1)}</span>
-                  </div>
-                  <div className="data-row">
-                    <span className="k">Ticket price</span>
-                    <span className="v">${Math.round(scratchTop.price)}</span>
-                  </div>
-                  <div className="data-row">
-                    <span className="k">Prizes unclaimed</span>
-                    <span className="v">{money(scratchTop.remainingPrizePool, { compact: true })}</span>
-                  </div>
-                  <div className="data-card-foot">
-                    <span>{scratchCount} scratch games ranked</span>
-                    <Link href="/scratch" style={{ color: "var(--brand-deep)", textDecoration: "none" }}>See all →</Link>
+                  <div className="home-scratch-col">
+                    {canadaRegions.map((r) => (
+                      <ScratchRegionCard key={r.key} region={r.key} label={r.label} scratchSlug={SCRATCH_SLUG[r.key]} className={scratchDup(r.key)} />
+                    ))}
                   </div>
                 </div>
               </div>
-    
-              </div>
-              {HOME_REGIONS.filter((r) => picks.provinces[r.key]).map((r) => (
-                <div key={r.key} data-region-block={r.key} style={{ marginTop: 18 }}>
-                  <ProvinceBlock p={picks.provinces[r.key]} />
-                </div>
-              ))}
-            </div>
-          </section>,
-        ];
-      })}
+            </section>
+          );
+        })}
       </div>
 
+      {/* ============ NEW TICKETS (regions whose agency publishes launches) ============ */}
+      {canadaRegions.some((r) => hasNew(picks.provinces[r.key])) && (
+        <section
+          className="section"
+          data-country-scope="CA"
+          data-regions={canadaRegions.filter((r) => hasNew(picks.provinces[r.key])).map((r) => r.key).join(" ")}
+          style={{ paddingTop: 20, paddingBottom: 20 }}
+        >
+          <div className="container">
+            <div className="section-head-row">
+              <h2 className="section-headline">
+                New <em>tickets.</em>
+              </h2>
+            </div>
+            {canadaRegions
+              .filter((r) => hasNew(picks.provinces[r.key]))
+              .map((r) => (
+                <div key={r.key} data-region-block={r.key} className={newDup(r.key)} style={{ marginTop: 18 }}>
+                  <NewTicketsCard p={picks.provinces[r.key]} />
+                </div>
+              ))}
+          </div>
+        </section>
+      )}
+
       <LatestNews />
+
+      <section className="container">
+        <MyTicketsCard onlySignedIn />
+      </section>
 
       <section className="container">
         <AdSlot slot="home-mid" format="leaderboard" />

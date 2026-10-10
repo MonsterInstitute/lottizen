@@ -1794,3 +1794,106 @@ html[data-home-region="territories"] [data-region-block="territories"] { display
 .home-news-title { font-family: var(--font-serif), Georgia, serif; font-size: 18px; line-height: 1.3; margin: 8px 0 6px; color: var(--ink); }
 .home-tickets:empty { display: none; }
 .region-select select { width: auto; max-width: 70%; }
+
+/* ---------- Region scoping (components/home/RegionScript) ----------
+   Blocks for another country are hidden once the visitor's country is
+   known; with no known region (incl. crawlers) everything shows. */
+html[data-home-country="CA"] [data-country-scope]:not([data-country-scope~="CA"]),
+html[data-home-country="US"] [data-country-scope]:not([data-country-scope~="US"]),
+html[data-home-country="EU"] [data-country-scope]:not([data-country-scope~="EU"]) { display: none !important; }
+html[data-home-country] .when-unknown { display: none; }
+html:not([data-home-country]) .when-known { display: none; }
+html:not([data-home-region]) .hero-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; }
+.region-select-compact { margin-left: 10px; }
+.region-select-compact select { font-size: 12.5px; padding: 4px 6px; max-width: 150px; }
+
+/* ---------- Footer (five columns by function) ---------- */
+.footer-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  gap: 48px;
+  align-items: start;
+  padding-bottom: 36px;
+  margin-bottom: 36px;
+  border-bottom: 1px solid var(--border);
+}
+.footer-cols {
+  display: grid;
+  /* auto-fit: a column hidden for the visitor's region leaves no gap */
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 32px 28px;
+  margin-bottom: 44px;
+}
+.footer-col ul { margin: 0; padding: 0; }
+.footer-region + .footer-region { margin-top: 14px; }
+.footer-sub {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 8px;
+}
+@media (max-width: 900px) {
+  .footer-top { grid-template-columns: 1fr; gap: 28px; }
+  .footer-cols { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+  .footer-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 28px 20px; }
+}
+@media (max-width: 360px) {
+  .footer-cols { grid-template-columns: 1fr; }
+}
+
+
+/* ---------- Region scoping for multi-region elements ---------- */
+/* An element listing its regions in data-regions is hidden for a visitor
+   from any other known region (RegionScript). */
+html[data-home-region="ontario"] [data-regions]:not([data-regions~="ontario"]),
+html[data-home-region="quebec"] [data-regions]:not([data-regions~="quebec"]),
+html[data-home-region="british-columbia"] [data-regions]:not([data-regions~="british-columbia"]),
+html[data-home-region="alberta"] [data-regions]:not([data-regions~="alberta"]),
+html[data-home-region="saskatchewan"] [data-regions]:not([data-regions~="saskatchewan"]),
+html[data-home-region="manitoba"] [data-regions]:not([data-regions~="manitoba"]),
+html[data-home-region="territories"] [data-regions]:not([data-regions~="territories"]),
+html[data-home-region="atlantic"] [data-regions]:not([data-regions~="atlantic"]),
+html[data-home-region="usa"] [data-regions]:not([data-regions~="usa"]),
+html[data-home-region="europe"] [data-regions]:not([data-regions~="europe"]) { display: none !important; }
+/* With no known region, show each distinct regional block once. */
+html:not([data-home-region]) .dup-when-unknown { display: none !important; }
+
+/* ---------- Homepage: this week / board ---------- */
+.home-week { padding-top: 48px; padding-bottom: 24px; }
+.home-week-block + .home-week-block { margin-top: 40px; }
+.home-week .section-head-row { margin-bottom: 20px; }
+.home-sub { font-size: 14px; font-weight: 600; margin: 18px 0 6px; color: var(--ink); }
+.home-board { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 40px; align-items: start; }
+.home-results-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin-top: 28px; }
+.home-results-grid-half { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+.home-scratch-col { display: grid; gap: 16px; margin-top: 28px; }
+@media (max-width: 960px) { .home-board { grid-template-columns: 1fr; } }
+
+/* ---------- Nav: region entries ---------- */
+.nav-links { gap: 22px; font-size: 14.5px; }
+.nav-links a { white-space: nowrap; }
+@media (max-width: 1240px) {
+  .nav-links { gap: 14px; font-size: 13.5px; }
+  .nav-inner { gap: 16px; }
+}
+
+
+/* ---------- /picks ---------- */
+/* A visitor whose Canadian region is known sees only it; anyone else sees all. */
+html[data-home-region="ontario"] [data-picks-region]:not([data-picks-region="ontario"]),
+html[data-home-region="quebec"] [data-picks-region]:not([data-picks-region="quebec"]),
+html[data-home-region="british-columbia"] [data-picks-region]:not([data-picks-region="british-columbia"]),
+html[data-home-region="alberta"] [data-picks-region]:not([data-picks-region="alberta"]),
+html[data-home-region="saskatchewan"] [data-picks-region]:not([data-picks-region="saskatchewan"]),
+html[data-home-region="manitoba"] [data-picks-region]:not([data-picks-region="manitoba"]),
+html[data-home-region="territories"] [data-picks-region]:not([data-picks-region="territories"]),
+html[data-home-region="atlantic"] [data-picks-region]:not([data-picks-region="atlantic"]) { display: none !important; }
+.picks-switch { margin-top: 18px; }
+.picks-jump { display: flex; flex-wrap: wrap; gap: 8px 16px; margin-top: 14px; font-size: 14px; }
+.picks-region { scroll-margin-top: 96px; }
+.picks-region + .picks-region { margin-top: 48px; padding-top: 32px; border-top: 1px solid var(--border); }
+.picks-region-title { font-size: clamp(26px, 3vw, 36px); margin-bottom: 18px; }
+html[data-home-country="CA"] .picks-jump { display: none; }

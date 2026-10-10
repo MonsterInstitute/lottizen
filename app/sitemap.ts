@@ -5,6 +5,7 @@ import { getDrawsByYear, getLatestAll, getNumberStat, getPlayableSlugs, getResul
 import { getAllGuides } from "@/lib/guides";
 import { getUnclaimed } from "@/lib/unclaimed";
 import { getNews } from "@/lib/news";
+import { getPicks } from "@/lib/picks";
 import { DID_ANYONE_WIN_PREFIX, DRAW_PAGE_FRESH_DAYS, allBreakdowns, drawPageSlug } from "@/lib/breakdowns";
 import { daysBetween } from "@/lib/format";
 import { absUrl } from "@/lib/site";
@@ -51,6 +52,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     allRankings.flatMap((r) => r.games.map((g) => g.dataChangedAt)),
   );
   push("/scratch", scratchOverallLatest);
+  push("/picks", new Date(`${getPicks().asOf}T12:00:00Z`));
 
   for (const province of getAllProvinceSlugs()) {
     const { games } = getRankings(province);

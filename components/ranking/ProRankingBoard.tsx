@@ -212,19 +212,18 @@ export function ProRankingBoard({ games, initialFavourites }: ProRankingBoardPro
             {expanded === key ? (
               <>
                 {(() => {
+                  // Only where the agency publishes printed totals; otherwise
+                  // nothing is shown (the limits are explained on /methodology).
                   const est = estimateRemainingValue(g);
+                  if (!est.supported) return null;
                   return (
                     <div style={{ padding: "0 20px 14px", fontSize: 13.5 }}>
                       <strong>Prize money still unclaimed:</strong>{" "}
-                      {est.supported
-                        ? `${est.pctPrizeMoneyRemaining}% of the printed prize money (100% at launch) · ${est.pctPrizesRemaining}% of prizes by count`
-                        : `not supported (${est.reason})`}
-                      {est.supported ? (
-                        <div className="field-hint" style={{ marginTop: 4 }}>
-                          Measured from {g.agency}&rsquo;s published prize counts. It describes the prize money
-                          left in the game — not the odds of any ticket winning, and not what you&rsquo;d win back.
-                        </div>
-                      ) : null}
+                      {`${est.pctPrizeMoneyRemaining}% of the printed prize money (100% at launch) · ${est.pctPrizesRemaining}% of prizes by count`}
+                      <div className="field-hint" style={{ marginTop: 4 }}>
+                        Measured from {g.agency}&rsquo;s published prize counts. It describes the prize money
+                        left in the game — not the odds of any ticket winning, and not what you&rsquo;d win back.
+                      </div>
                     </div>
                   );
                 })()}
@@ -232,9 +231,9 @@ export function ProRankingBoard({ games, initialFavourites }: ProRankingBoardPro
                 <thead>
                   <tr>
                     <th>Prize</th>
-                    <th>{hasTotals ? "Total Printed" : "Total"}</th>
+                    {hasTotals ? <th>Total Printed</th> : null}
                     <th>Remaining</th>
-                    <th>{hasTotals ? "% Left" : ""}</th>
+                    {hasTotals ? <th>% Left</th> : null}
                   </tr>
                 </thead>
                 <tbody>
@@ -246,9 +245,9 @@ export function ProRankingBoard({ games, initialFavourites }: ProRankingBoardPro
                           {t.label}
                           {t.isTop ? <span style={{ color: "var(--brand)" }}> ★</span> : null}
                         </td>
-                        <td className="num">{hasTotals && t.total ? t.total : "—"}</td>
+                        {hasTotals ? <td className="num">{t.total ? t.total : "—"}</td> : null}
                         <td className="num">{t.remaining}</td>
-                        <td className="num">{pctLeft !== null ? `${pctLeft.toFixed(0)}%` : "—"}</td>
+                        {hasTotals ? <td className="num">{pctLeft !== null ? `${pctLeft.toFixed(0)}%` : "—"}</td> : null}
                       </tr>
                     );
                   })}

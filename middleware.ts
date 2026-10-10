@@ -20,7 +20,9 @@ import { NextResponse, type NextRequest } from "next/server";
  * geo headers, read client-side to sort the user's country/province/state
  * content to the top. The pages stay fully static/crawlable either way.
  */
-export const config = { matcher: ["/", "/statistics", "/generator"] };
+// Every page (the region now scopes the nav and hub pages site-wide), but not
+// Next internals, API routes or files with an extension.
+export const config = { matcher: ["/((?!_next/|api/|.*\\.).*)"] };
 
 const YEAR = 60 * 60 * 24 * 365;
 
