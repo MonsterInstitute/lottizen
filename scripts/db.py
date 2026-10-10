@@ -295,6 +295,12 @@ _PAGE_KEYS: dict[str, tuple[str, ...]] = {
     "scratch_coming_soon": ("agency", "game_number"),
     "scratch_game_facts": ("agency", "game_number"),
     "draw_watch": ("game_id", "draw_date"),
+    "charity_lotteries": ("id",),
+    "charity_editions": ("lottery_id", "edition"),
+    "charity_snapshots": ("lottery_id", "edition", "captured_date"),
+    "charity_results": ("lottery_id", "edition", "draw_name"),
+    "charity_follows": ("subscriber_id", "lottery_id"),
+    "page_views_daily": ("day", "path"),
 }
 
 

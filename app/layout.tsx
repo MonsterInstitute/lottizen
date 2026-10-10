@@ -1,3 +1,4 @@
+import { PageView } from "@/components/site/PageView";
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
@@ -117,6 +118,7 @@ export default function RootLayout({
         <Header />
         <main>{children}</main>
         <Footer />
+        <PageView />
       </body>
     </html>
   );

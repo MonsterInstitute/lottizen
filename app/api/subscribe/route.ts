@@ -1,14 +1,25 @@
 import { NextResponse } from "next/server";
 import { absUrl } from "@/lib/site";
 import {
+  addScratchFavourite,
   createLoginToken,
   createSubscriber,
+  followCharity,
+  followGame,
   findSubscriberByEmail,
   logEmail,
   resetForResubscribe,
 } from "@/lib/supabase-admin";
 import { renderSignInEmail, sendEmail } from "@/lib/email";
 import { isValidCountry, isValidProvince } from "@/lib/subscribe";
+import { pageKind } from "@/lib/page-kind";
+import { getCharityLottery } from "@/lib/charity";
+import { getLiveGame } from "@/config/games";
+import { provinceForAgency } from "@/config/scratch";
+import { getGameBySlug } from "@/lib/data";
+
+const PROVINCE_CODES = new Set(["ON", "QC", "BC", "AB", "SK", "MB", "NB", "NS", "PE", "NL", "YT", "NT", "NU"]);
+const SLUG_RE = /^[a-z0-9-]{1,80}$/;
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -26,7 +37,17 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
  * IS signing in.
  */
 export async function POST(req: Request) {
-  let body: { email?: string; country?: string; province?: string };
+  let body: {
+    email?: string;
+    country?: string;
+    province?: string;
+    /** The page this form is on (recorded as the signup source). */
+    source?: string;
+    /** Province code the page is about (e.g. a charity lottery's licensing province). */
+    sourceProvince?: string;
+    /** What the visitor asked to follow from this form, followed right away. */
+    follow?: { kind?: string; id?: string; agency?: string };
+  };
   try {
     body = await req.json();
   } catch {
@@ -43,11 +64,30 @@ export async function POST(req: Request) {
   try {
     let subscriber = await findSubscriberByEmail(email);
     const isNewAccount = !subscriber;
+    const sourcePath =
+      typeof body.source === "string" && body.source.startsWith("/") ? body.source.split("?")[0].slice(0, 300) : null;
+    const sourceProvince =
+      body.sourceProvince && PROVINCE_CODES.has(body.sourceProvince.toUpperCase()) ? body.sourceProvince.toUpperCase() : null;
     if (!subscriber) {
-      subscriber = await createSubscriber(email, country, province);
+      subscriber = await createSubscriber(email, country, province, {
+        path: sourcePath,
+        kind: sourcePath ? pageKind(sourcePath) : null,
+        province: sourceProvince,
+      });
     } else if (subscriber.unsubscribed_at) {
       // Re-subscribing after opting out: fresh consent, fresh sign-in.
       subscriber = await resetForResubscribe(subscriber.id);
+    }
+
+    // "Follow this" forms: follow at once; emails only go to confirmed
+    // subscribers, so nothing is sent for it until the link is clicked.
+    const f = body.follow;
+    if (f?.id && SLUG_RE.test(f.id)) {
+      const prov = f.agency ? provinceForAgency(f.agency) : null;
+      if (f.kind === "charity" && getCharityLottery(f.id)) await followCharity(subscriber.id, f.id).catch(() => {});
+      else if (f.kind === "game" && getLiveGame(f.id)) await followGame(subscriber.id, f.id).catch(() => {});
+      else if (f.kind === "scratch" && f.agency && prov && getGameBySlug(prov, f.id))
+        await addScratchFavourite(subscriber.id, f.agency, f.id).catch(() => {});
     }
 
     const preferencesUrl = absUrl(`/subscribe/preferences?token=${subscriber.magic_token}`);

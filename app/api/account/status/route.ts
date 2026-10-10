@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getCurrentSubscriber } from "@/lib/auth";
-import { getFollowedGames, listScratchFavourites } from "@/lib/supabase-admin";
+import { getFollowedGames, listCharityFollows, listScratchFavourites } from "@/lib/supabase-admin";
 
 /**
  * GET /api/account/status?kind=game|scratch&slug=&agency= — lightweight
@@ -20,6 +20,10 @@ export async function GET(req: Request) {
   const subscriber = await getCurrentSubscriber();
   if (!subscriber) return NextResponse.json({ ok: true, signedIn: false, following: false });
 
+  if (kind === "charity") {
+    const list = await listCharityFollows(subscriber.id);
+    return NextResponse.json({ ok: true, signedIn: true, following: list.includes(slug) });
+  }
   if (kind === "scratch") {
     const list = await listScratchFavourites(subscriber.id);
     const following = list.some((f) => f.agency === agency && f.slug === slug);

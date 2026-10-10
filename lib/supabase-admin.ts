@@ -92,13 +92,53 @@ export async function confirmSubscriberById(id: string): Promise<void> {
   });
 }
 
-export async function createSubscriber(email: string, country: string, province: string | null = null): Promise<Subscriber> {
+export interface SignupSource {
+  /** Page path the visitor subscribed from. */
+  path?: string | null;
+  /** lib/page-kind.ts kind of that page. */
+  kind?: string | null;
+  /** 2-letter province of the page (a charity lottery's licensing
+   *  province) or the visitor's chosen province. */
+  province?: string | null;
+}
+
+export async function createSubscriber(
+  email: string,
+  country: string,
+  province: string | null = null,
+  source: SignupSource = {},
+): Promise<Subscriber> {
   const rows = await pg<Subscriber[]>(`subscribers`, {
     method: "POST",
     headers: { Prefer: "return=representation" },
-    body: JSON.stringify([{ email, country, province, magic_token: newToken() }]),
+    body: JSON.stringify([
+      {
+        email, country, province, magic_token: newToken(),
+        signup_path: source.path ?? null, signup_kind: source.kind ?? null, signup_province: source.province ?? null,
+      },
+    ]),
   });
   return rows[0];
+}
+
+/** Follow a charity lottery (deadline, sell-out and result emails). */
+export async function followCharity(subscriberId: string, lotteryId: string): Promise<void> {
+  await pg(`charity_follows?on_conflict=subscriber_id,lottery_id`, {
+    method: "POST",
+    headers: { Prefer: "resolution=ignore-duplicates,return=minimal" },
+    body: JSON.stringify([{ subscriber_id: subscriberId, lottery_id: lotteryId }]),
+  });
+}
+
+export async function unfollowCharity(subscriberId: string, lotteryId: string): Promise<void> {
+  await pg(`charity_follows?subscriber_id=eq.${subscriberId}&lottery_id=eq.${encodeURIComponent(lotteryId)}`, {
+    method: "DELETE",
+  });
+}
+
+export async function listCharityFollows(subscriberId: string): Promise<string[]> {
+  const rows = await pg<{ lottery_id: string }[]>(`charity_follows?subscriber_id=eq.${subscriberId}&select=lottery_id`);
+  return rows.map((r) => r.lottery_id);
 }
 
 /** Re-subscribing after a prior unsubscribe: fresh consent, fresh token. */

@@ -116,7 +116,8 @@ def subscribers() -> list[dict]:
     start = 0
     while True:
         page = (db.get_client().table("subscribers")
-                .select("id,email,tier,created_at,confirmed_at,unsubscribed_at")
+                .select("id,email,tier,created_at,confirmed_at,unsubscribed_at,province,"
+                        "signup_path,signup_kind,signup_province")
                 .order("id").range(start, start + 999).execute().data)
         rows.extend(page)
         if len(page) < 1000:
@@ -466,6 +467,94 @@ def email_volume_rows(cur, prev, intent_cur, intent_prev, resend_err) -> tuple[s
 # ---------------------------------------------------------------------- daily
 
 
+# ------------------------------------------------- growth (sponsorship numbers)
+# Recorded from 2026-10-10: where people subscribe, where they live, whether
+# they open the emails, and which kinds of pages get traffic.
+
+REGION_NAME = {"ontario": "安大略", "quebec": "魁北克", "british-columbia": "BC", "alberta": "阿尔伯塔",
+               "saskatchewan": "萨斯喀彻温", "manitoba": "曼尼托巴", "territories": "北方三地区", "atlantic": "大西洋四省",
+               "western": "西部（WCLC）"}
+CODE_NAME = {"ON": "安大略", "QC": "魁北克", "BC": "BC", "AB": "阿尔伯塔", "SK": "萨斯喀彻温", "MB": "曼尼托巴",
+             "NS": "新斯科舍", "NB": "新不伦瑞克", "PE": "爱德华王子岛", "NL": "纽芬兰", "YT": "育空", "NT": "西北地区", "NU": "努纳武特"}
+KIND_NAME = {"home": "首页", "charity": "慈善彩票", "charity-winning-numbers": "慈善彩票中奖号码", "scratch-picks": "本周推荐",
+             "scratch-prices": "刮刮乐价格对比", "scratch": "刮刮乐", "draw-did-anyone-win": "有人中奖吗", "news": "新闻",
+             "statistics": "统计", "tools": "工具", "draw-results": "开奖历史", "draw-game": "开奖游戏页",
+             "draw-country": "地区开奖页", "guides": "指南", "unclaimed": "未领奖", "account": "账户/订阅", "other": "其他"}
+
+
+def signup_sources(rows: list[dict], w) -> list[tuple[str, int]]:
+    """New sign-ups (created in w, confirmed or not) by source page."""
+    c: dict[str, int] = {}
+    for r in rows:
+        if within(r["created_at"], w):
+            k = r.get("signup_path") or "（未记录来源）"
+            c[k] = c.get(k, 0) + 1
+    return sorted(c.items(), key=lambda x: -x[1])
+
+
+def by_province(rows: list[dict], t: datetime) -> list[tuple[str, int]]:
+    c: dict[str, int] = {}
+    for r in rows:
+        if not r["confirmed_at"] or ts(r["confirmed_at"]) > t or (r["unsubscribed_at"] and ts(r["unsubscribed_at"]) <= t):
+            continue
+        k = (CODE_NAME.get(r.get("signup_province") or "") or REGION_NAME.get(r.get("province") or "") or "未知")
+        c[k] = c.get(k, 0) + 1
+    return sorted(c.items(), key=lambda x: -x[1])
+
+
+def open_rate(rc: dict | None) -> tuple[str, str]:
+    if not rc or not rc["sent"]:
+        return "—", "没有发送"
+    ev = rc["events"]
+    opened = ev.get("opened", 0) + ev.get("clicked", 0)
+    delivered = rc["sent"] - ev.get("bounced", 0) - ev.get("failed", 0)
+    if not opened and not ev.get("delivered"):
+        return "—", "Resend 没有回传送达/打开事件"
+    pct = 100 * opened / delivered if delivered else 0
+    return f"{pct:.0f}%", f"{opened}/{delivered} 封已送达邮件被打开或点击（Apple 隐私保护会让打开数偏高）"
+
+
+def traffic(w) -> dict[str, dict]:
+    import db
+    rows = db.fetch_all("page_views_daily", "day,path,kind,views",
+                        filters=[("gte", "day", w[0].astimezone(TZ).date().isoformat()),
+                                 ("lt", "day", w[1].astimezone(TZ).date().isoformat())])
+    kinds: dict[str, int] = {}
+    paths: dict[str, int] = {}
+    for r in rows:
+        kinds[r["kind"]] = kinds.get(r["kind"], 0) + r["views"]
+        paths[r["path"]] = paths.get(r["path"], 0) + r["views"]
+    return {"kinds": kinds, "paths": paths, "total": sum(kinds.values())}
+
+
+def growth_section(real: list[dict], w, wp, rc, label: str) -> str:
+    out = ""
+    src = signup_sources(real, w)
+    total = sum(n for _, n in src)
+    rows = "".join(row(E(p), str(n)) for p, n in src[:10]) or row("没有新注册", "0")
+    out += h2(f"新增订阅 · {label}：{total}（含未确认）") + table(rows)
+    prov = by_province(real, w[1])
+    if prov:
+        out += h2("订阅者按省分布（已确认）") + table("".join(row(E(k), str(n)) for k, n in prov))
+    rate, sub = open_rate(rc)
+    out += table(row(f"邮件打开率 · {label}", rate, "", sub))
+    tr, terr = try_(traffic, w)
+    trp, _ = try_(traffic, wp)
+    if tr is not None:
+        kinds = sorted(tr["kinds"].items(), key=lambda x: -x[1])
+        body = row("全部页面", fmt(tr["total"]), delta(tr["total"], trp and trp["total"]))
+        for k, n in kinds:
+            body += row(E(KIND_NAME.get(k, k)), fmt(n), delta(n, trp and trp["kinds"].get(k, 0)))
+        top = sorted(tr["paths"].items(), key=lambda x: -x[1])[:10]
+        out += h2(f"页面浏览 · {label}") + table(body, "较上一期")
+        if top:
+            out += table("".join(row(E(p), fmt(n)) for p, n in top), "浏览最多的页面")
+        out += note("浏览数来自站内无 cookie 计数（/api/pv，每路径每日一个计数，排除爬虫），2026-10-10 起记录。")
+    elif terr:
+        out += note(f"页面浏览读取失败：{E(terr)}")
+    return out
+
+
 # ------------------------------------------------------- draw → live latency
 
 LATE_MIN = 120
@@ -616,7 +705,7 @@ def build_daily(today: date) -> tuple[str, str, dict]:
         title = f"{cn_date(y)}，{em('平静的一天')}"
         dek = "没有新增订阅、退订、票据录入，也没有任何异常。"
         body = (ok_box(f"✓ 一切正常 · 发送 {fmt(sent)} 封邮件 · {wf['total'] if wf else '?'} 次 workflow 运行全部成功")
-                + lat_html + h2("现状") + totals + table(api_row))
+                + lat_html + growth_section(real, wy, wyy, rc, "昨日") + h2("现状") + totals + table(api_row))
     else:
         title = f"{cn_date(y)}：订阅 {em('+' + str(sf['new']) if sf else '?')}，票据 {em('+' + str(tk) if tk is not None else '?')}"
         dek = f"{y.isoformat()}（多伦多时间整天），与前一日 {yy.isoformat()} 对比。"
@@ -632,7 +721,8 @@ def build_daily(today: date) -> tuple[str, str, dict]:
             + row("新增票据录入", fmt(tk), delta(tk, tk_prev)),
             "较前一日")
         body = (alerts_box(alerts) or ok_box(f"✓ 没有异常 · {wf['total'] if wf else '?'} 次 workflow 运行全部成功"))
-        body += h2(f"昨日 · {cn_date(y)}") + flows + lat_html + h2("现状") + totals + table(api_row)
+        body += (h2(f"昨日 · {cn_date(y)}") + flows + lat_html + growth_section(real, wy, wyy, rc, "昨日")
+                 + h2("现状") + totals + table(api_row))
         body += note(("Plus 与 MRR 由 Stripe 订阅时间戳推算（按当前价格，不含优惠券）；" if BILLING_LIVE else "")
                      + "内部测试账号 @lottizen.com 已排除。")
     html_out = shell("运营日报", title, dek, body, subject)
@@ -869,7 +959,7 @@ def build_weekly(today: date) -> tuple[str, str]:
                                                     f'line-height:1.5">{lis}</ul>')
     elif news is not None:
         news_html = h2("本周新闻") + note("本周没有触发任何新闻规则。")
-    body = (todo + h2("经营") + business + h2(f"收录 · {since}") + table(index_rows)
+    body = (todo + h2("经营") + business + growth_section(real, w, wp, rc, "本周") + h2(f"收录 · {since}") + table(index_rows)
             + h2("健康") + table(health) + news_html
             + note(("Plus 与 MRR 由 Stripe 订阅时间戳推算（按当前价格，不含优惠券）；" if BILLING_LIVE else "")
                    + "收录数来自 reports/metrics-history.csv；"

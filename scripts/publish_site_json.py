@@ -39,7 +39,7 @@ def collect(categories: set[str]) -> list[tuple[str, Path]]:
     Empty `categories` means all."""
     want = lambda c: not categories or c in categories  # noqa: E731
     items: list[tuple[str, Path]] = []
-    for sub in ("rankings", "draws", "stats", "unclaimed", "news", "picks", "breakdowns"):
+    for sub in ("rankings", "draws", "stats", "unclaimed", "news", "picks", "breakdowns", "charity"):
         d = DATA / sub
         if want(sub) and d.is_dir():
             for f in sorted(d.glob("*.json")):

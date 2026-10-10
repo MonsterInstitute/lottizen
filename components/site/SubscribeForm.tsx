@@ -27,7 +27,12 @@ export function SubscribeForm({ defaultCountry, title, description, buttonLabel 
       const res = await fetch("/api/subscribe", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, country: defaultCountry, province: province || undefined }),
+        body: JSON.stringify({
+          email,
+          country: defaultCountry,
+          province: province || undefined,
+          source: window.location.pathname,
+        }),
       });
       const body = await res.json();
       if (!res.ok || !body.ok) {
