@@ -294,6 +294,7 @@ _PAGE_KEYS: dict[str, tuple[str, ...]] = {
     "scratch_launch_dates": ("agency", "game_number"),
     "scratch_coming_soon": ("agency", "game_number"),
     "scratch_game_facts": ("agency", "game_number"),
+    "draw_watch": ("game_id", "draw_date"),
 }
 
 

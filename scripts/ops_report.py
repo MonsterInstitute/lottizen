@@ -465,6 +465,57 @@ def email_volume_rows(cur, prev, intent_cur, intent_prev, resend_err) -> tuple[s
 
 # ---------------------------------------------------------------------- daily
 
+
+# ------------------------------------------------------- draw → live latency
+
+LATE_MIN = 120
+GAME_NAMES = {
+    "lotto-max": "Lotto Max", "lotto-6-49": "Lotto 6/49", "daily-grand": "Daily Grand", "ontario-49": "Ontario 49",
+    "lottario": "Lottario", "megadice": "MegaDice", "bc-49": "BC/49", "western-max": "Western Max",
+    "western-6-49": "Western 6/49", "powerball": "Powerball", "mega-millions": "Mega Millions",
+    "new-york-lotto": "NY Lotto", "take-5": "Take 5", "pick-10": "Pick 10", "numbers": "Numbers", "win-4": "Win 4",
+    "euromillions": "EuroMillions", "eurojackpot": "EuroJackpot", "uk-lotto": "UK Lotto",
+}
+
+
+def draw_latency(w) -> list[dict]:
+    """draw_watch rows (app/api/cron/draw-watch) for draws scheduled in window w."""
+    import db
+    return db.fetch_all("draw_watch", "*", filters=[("gte", "scheduled_at", w[0].isoformat()),
+                                                  ("lt", "scheduled_at", w[1].isoformat())])
+
+
+def latency_section(rows: list[dict], week: list[dict], now: datetime) -> tuple[str, list[str]]:
+    """Per draw: scheduled time → first official source → live, in minutes."""
+    alerts: list[str] = []
+    if not rows:
+        return "", alerts
+    body = ""
+    for r in sorted(rows, key=lambda r: (r["scheduled_at"], r["game_id"])):
+        at = ts(r["scheduled_at"])
+        name = GAME_NAMES.get(r["game_id"], r["game_id"])
+        src = ts(r.get("first_source_at"))
+        src_txt = f"官方源 +{round((src - at).total_seconds() / 60)} 分钟" if src else "官方源未记录到"
+        if r.get("live_at"):
+            m = r["latency_min"]
+            val = f"{'✗' if m > LATE_MIN else '✓'} {m} 分钟"
+            if m > LATE_MIN:
+                alerts.append(f"开奖上线超时：{E(name)} {r['draw_date']} 开奖后 {m} 分钟才上线")
+        else:
+            m = round((now - at).total_seconds() / 60)
+            val = f"✗ 未上线（已 {m} 分钟）"
+            if m > LATE_MIN:
+                alerts.append(f"开奖未上线：{E(name)} {r['draw_date']} 开奖已 {m} 分钟仍未上线")
+        body += row(f"{E(name)} · {r['draw_date']}", val, "",
+                    f"开奖 {at.astimezone(TZ):%H:%M} ET · {src_txt} · 调度 {r.get('dispatches', 0)} 次")
+    done = [r["latency_min"] for r in week if r.get("latency_min") is not None]
+    if done:
+        done.sort()
+        med = done[len(done) // 2]
+        over = sum(1 for m in done if m > LATE_MIN)
+        body += row("近 7 天中位数", f"{med} 分钟", "", f"{len(done)} 期 · 超过 2 小时 {over} 期")
+    return h2("开奖 → 上线时效（目标 1 小时内）") + table(body), alerts
+
 def build_daily(today: date) -> tuple[str, str, dict]:
     y, yy = today - timedelta(days=1), today - timedelta(days=2)
     wy, wyy = day_window(y), day_window(yy)
@@ -503,6 +554,12 @@ def build_daily(today: date) -> tuple[str, str, dict]:
     if werr:
         errors.append(f"GitHub Actions：{werr}")
 
+    lat, lerr = try_(draw_latency, wy)
+    lat_week, _ = try_(draw_latency, span(today - timedelta(days=7), 7))
+    if lerr:
+        errors.append(f"开奖时效：{lerr}")
+    lat_html, lat_alerts = latency_section(lat or [], lat_week or [], now)
+
     # ---- anomalies
     alerts: list[str] = []
     if sf and sf["unsubs"]:
@@ -513,6 +570,7 @@ def build_daily(today: date) -> tuple[str, str, dict]:
         rc, rc_prev, None if intent is None else intent.get(y.isoformat(), {}),
         None if intent is None else intent.get(yy.isoformat(), {}), rerr)
     alerts += vol_alerts
+    alerts += lat_alerts
     if sent == 0:
         alerts.append(f"零发送：{cn_date(y)}没有任何邮件发给订阅者")
     for f in (wf or {}).get("failures", []):
@@ -558,7 +616,7 @@ def build_daily(today: date) -> tuple[str, str, dict]:
         title = f"{cn_date(y)}，{em('平静的一天')}"
         dek = "没有新增订阅、退订、票据录入，也没有任何异常。"
         body = (ok_box(f"✓ 一切正常 · 发送 {fmt(sent)} 封邮件 · {wf['total'] if wf else '?'} 次 workflow 运行全部成功")
-                + h2("现状") + totals + table(api_row))
+                + lat_html + h2("现状") + totals + table(api_row))
     else:
         title = f"{cn_date(y)}：订阅 {em('+' + str(sf['new']) if sf else '?')}，票据 {em('+' + str(tk) if tk is not None else '?')}"
         dek = f"{y.isoformat()}（多伦多时间整天），与前一日 {yy.isoformat()} 对比。"
@@ -574,7 +632,7 @@ def build_daily(today: date) -> tuple[str, str, dict]:
             + row("新增票据录入", fmt(tk), delta(tk, tk_prev)),
             "较前一日")
         body = (alerts_box(alerts) or ok_box(f"✓ 没有异常 · {wf['total'] if wf else '?'} 次 workflow 运行全部成功"))
-        body += h2(f"昨日 · {cn_date(y)}") + flows + h2("现状") + totals + table(api_row)
+        body += h2(f"昨日 · {cn_date(y)}") + flows + lat_html + h2("现状") + totals + table(api_row)
         body += note(("Plus 与 MRR 由 Stripe 订阅时间戳推算（按当前价格，不含优惠券）；" if BILLING_LIVE else "")
                      + "内部测试账号 @lottizen.com 已排除。")
     html_out = shell("运营日报", title, dek, body, subject)

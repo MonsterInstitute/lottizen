@@ -22,7 +22,7 @@ export function Header() {
         <Logo />
         <nav className="nav-links">
           <Link href="/picks" data-country-scope="CA">
-            This week&rsquo;s picks
+            This week
           </Link>
           {results("CA", "/canada", "Canada")}
           {results("US", "/usa", "USA")}

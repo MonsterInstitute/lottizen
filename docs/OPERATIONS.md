@@ -149,6 +149,8 @@ Values are never in the repo. "Where" is where the value must be set.
 | `STRIPE_PRICE_ID_MONTHLY`, `STRIPE_PRICE_ID_ANNUAL` | The two Plus prices |
 | `RAPIDAPI_PROXY_SECRET` | Expected value of RapidAPI's `X-RapidAPI-Proxy-Secret` |
 | `API_REQUIRE_RAPIDAPI_SECRET` | `true` = `/api/v1` only answers RapidAPI-proxied calls |
+| `CRON_SECRET` | Vercel Cron sends it as `Authorization: Bearer …`; `/api/cron/draw-watch` refuses requests without it |
+| `GH_DISPATCH_TOKEN` | GitHub token the draw-night watcher uses to dispatch the draw workflows and open/close its `[auto]` issue. Fine-grained PAT on this repo: Actions read/write, Issues read/write, Contents read |
 | `NEXT_PUBLIC_SITE_URL` *(optional, unset)* | Canonical origin. Defaults to `https://lottizen.com` (`lib/site.ts`). Leave unset or set to the `.com`. |
 | `RESEND_FROM_EMAIL` *(optional, unset)* | Overrides the sender address |
 | `NEXT_PUBLIC_ADS_ENABLED` *(optional, unset)* | Turns ad slots on |
@@ -206,6 +208,24 @@ depends on exact timing; the watchdog tolerates it.
 
 Every workflow also has `workflow_dispatch`, so any of them can be run from
 Actions → *workflow* → **Run workflow**.
+
+### Draw-night watcher (Vercel Cron, not GitHub)
+
+Because GitHub's scheduler is hours late, draw results don't wait for the
+crons above. `vercel.json` runs `/api/cron/draw-watch` every 5 minutes on
+Vercel. For each game whose latest scheduled draw (`lib/draw-schedule.ts`)
+isn't on `lottizen.com/draw-status.json` yet, it asks the official sources
+(OLG feed, PlayNow, data.ny.gov, megamillions.com, National Lottery XML,
+lotto.de) and dispatches the game's workflow the moment one has the numbers —
+every 30 minutes for WCLC's own games, which have no quick check. Typical
+path: source publishes → ≤5 min → workflow (~6 min) → Vercel deploy (~2 min).
+
+Every draw gets a `draw_watch` row: scheduled time, when each source first
+showed it, dispatches, stored, live, `latency_min`. The daily ops email has a
+"开奖 → 上线时效" section from it. A draw more than 2 hours past its scheduled
+time and still not live is added to the issue `[auto] Draw results over 2
+hours late`, which closes itself once they're live. To check the watcher by
+hand: `curl -H "Authorization: Bearer $CRON_SECRET" https://lottizen.com/api/cron/draw-watch`.
 
 ---
 

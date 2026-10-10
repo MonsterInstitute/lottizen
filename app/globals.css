@@ -1897,3 +1897,12 @@ html[data-home-region="atlantic"] [data-picks-region]:not([data-picks-region="at
 .picks-region + .picks-region { margin-top: 48px; padding-top: 32px; border-top: 1px solid var(--border); }
 .picks-region-title { font-size: clamp(26px, 3vw, 36px); margin-bottom: 18px; }
 html[data-home-country="CA"] .picks-jump { display: none; }
+
+/* Price-comparison entry (homepage scratch board, /picks) */
+.compare-cta {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  margin-top: 12px; padding: 14px 18px; border-radius: var(--radius-lg);
+  border: 1px solid var(--brand); background: var(--surface); color: var(--ink); text-decoration: none; font-size: 15px;
+}
+.compare-cta strong { color: var(--brand-deep); white-space: nowrap; }
+.compare-cta:hover { border-color: var(--brand-deep); }

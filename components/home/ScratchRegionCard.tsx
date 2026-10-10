@@ -43,7 +43,8 @@ export function ScratchRegionCard({
   const top = scratchTop(region, scratchSlug);
   if (!top.length) return null;
   return (
-    <div className={`data-card ${className ?? ""}`} data-region-block={region}>
+    <div className={className} data-region-block={region}>
+    <div className="data-card">
       <div className="data-card-head">
         <span className="data-card-title">{label}</span>
         <span className="status-pill">Top 5 by prize money left</span>
@@ -62,10 +63,15 @@ export function ScratchRegionCard({
         <Link href={`/scratch/${scratchSlug}`} style={{ color: "var(--brand-deep)", textDecoration: "none" }}>
           Full rankings →
         </Link>
-        <Link href={`/scratch/${scratchSlug}/prices`} style={{ color: "var(--brand-deep)", textDecoration: "none" }}>
-          Compare by price →
+        <Link href={`/picks#${region}`} style={{ color: "var(--brand-deep)", textDecoration: "none" }}>
+          This week&rsquo;s picks →
         </Link>
       </div>
+    </div>
+    <Link href={`/scratch/${scratchSlug}/prices`} className="compare-cta">
+      <span>One $20 ticket or four $5 tickets?</span>
+      <strong>Compare by price →</strong>
+    </Link>
     </div>
   );
 }

@@ -68,16 +68,17 @@ export default function PicksPage() {
                 <h2 className="section-headline picks-region-title">
                   {p.label} <span className="field-hint">· {p.agencyName}</span>
                 </h2>
+                <Link href={`/scratch/${p.scratchSlug}/prices`} className="compare-cta" style={{ marginBottom: 18 }}>
+                  <span>One $20 ticket, four $5 tickets or Lotto Max?</span>
+                  <strong>Compare by price →</strong>
+                </Link>
                 <div className="home-grid">
                   <PickCard p={p} full />
                   <SkipCard p={p} full />
                   <NewTicketsCard p={p} full />
                 </div>
                 <p className="field-hint">
-                  <Link href={`/scratch/${p.scratchSlug}`}>Full {p.agencyName} rankings →</Link>{" "}
-                  <Link href={`/scratch/${p.scratchSlug}/prices`} style={{ marginLeft: 12 }}>
-                    Compare by price →
-                  </Link>
+                  <Link href={`/scratch/${p.scratchSlug}`}>Full {p.agencyName} rankings →</Link>
                 </p>
               </div>
             );
