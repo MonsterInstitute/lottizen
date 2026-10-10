@@ -268,8 +268,10 @@ export default function MethodologyPage() {
                         <td>
                           {p.scoringMethod !== "retention"
                             ? "Not used by this method"
-                            : published > 0
-                              ? `Published by ${agency} for ${published} of ${games.length} games; the assumed 62% for the rest (games no longer in its catalog have no product page)`
+                            : published === games.length && published > 0
+                              ? `Published by ${agency} for all ${published} games`
+                              : published > 0
+                                ? `Published by ${agency} for ${published} of ${games.length} games; the assumed 62% for the rest (games no longer in its catalog have no product page)`
                               : `Assumed 62%: ${agency} doesn't publish a payout rate per game`}
                         </td>
                       </tr>
