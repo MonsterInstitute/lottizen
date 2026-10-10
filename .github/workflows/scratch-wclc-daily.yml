@@ -58,7 +58,7 @@ jobs:
       - name: Build & audit (deploy gate)
         uses: ./.github/actions/build-and-audit
 
-      - name: Send Lottizen Plus scratch alerts (top prize claimed / new ticket / rank drop)
+      - name: Send scratch alerts (top prize claimed / new ticket / rank drop)
         # Reads today's + yesterday's scratch_snapshots directly from Supabase — independent
         # of the build above. Runs after the audit gate so alerts never fire off data that
         # failed the deploy gate. Never fails the workflow: a subscriber email hiccup

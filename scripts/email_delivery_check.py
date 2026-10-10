@@ -14,7 +14,7 @@ For `yesterday` (Toronto):
      no draw_result row exists at all (the sender never got that far).
   2. weekly_digest expectation (Mondays): eligible subscribers, zero rows.
   3. outcomes: rows still 'queued' (sender died mid-send), 'failed' rows,
-     and 'skipped' for no_resend_key. Other skips (e.g. free_weekly_cap)
+     and 'skipped' for no_resend_key. Other skips (e.g. legacy_not_in_resend)
      are counted, not flagged — they're product rules working.
   4. delivery: every 'sent' row's provider_message_id must exist in
      Resend with last_event delivered/opened/clicked. Bounced, complained,

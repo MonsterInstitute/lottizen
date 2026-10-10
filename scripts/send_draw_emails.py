@@ -35,11 +35,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import db  # noqa: E402 — shared Supabase data-layer helper
 from game_meta import GAME_META  # noqa: E402
 from email_templates import check_saved_numbers, draw_result_email, pick_insight  # noqa: E402
-from mailer import claim_send, deliver, mark_skipped, mask_email  # noqa: E402 — the single Resend path
+from mailer import claim_send, deliver, mask_email  # noqa: E402 — the single Resend path
 
-# Free tier's weekly instant-alert cap — see lib/entitlements.ts's
-# FREE_WEEKLY_ALERT_LIMIT (kept in sync by hand; small, stable number).
-FREE_WEEKLY_ALERT_LIMIT = 7
 
 ROOT = Path(__file__).resolve().parent.parent
 DRAWS_DIR = ROOT / "data" / "draws"
@@ -128,24 +125,6 @@ def record_check(subscriber_id: str, combination_id: int, slug: str, draw_date: 
     )
 
 
-def weekly_alert_count(subscriber_id: str) -> int:
-    """draw_result emails actually sent to this subscriber in the last 7 days
-    (Toronto dates, today included) — what the free tier's weekly alert cap
-    (lib/entitlements.ts's FREE_WEEKLY_ALERT_LIMIT) is counted against.
-
-    Only status 'sent' counts. Until 2026-10-05 this counted every
-    email_log row, including the rows of sends the cap itself had skipped,
-    so once a subscriber went over they stayed over for good: each capped
-    day added more rows to the rolling count."""
-    since = (datetime.now(ZoneInfo("America/Toronto")).date() - timedelta(days=6)).isoformat()
-    rows = db.fetch_all(
-        "email_log", "id",
-        filters=[("eq", "subscriber_id", subscriber_id), ("eq", "type", "draw_result"),
-                 ("eq", "status", "sent"), ("gte", "sent_date", since)],
-    )
-    return len(rows)
-
-
 def main() -> int:
     today = today_toronto()
     yesterday = yesterday_toronto()
@@ -155,7 +134,7 @@ def main() -> int:
         return 0
 
     top3 = scratch_top3()
-    sent, already, capped, failed = 0, 0, 0, 0
+    sent, already, failed = 0, 0, 0
 
     for game in drawn:
         slug, meta, draws_file, latest = game["slug"], game["meta"], game["draws_file"], game["latest"]
@@ -177,12 +156,6 @@ def main() -> int:
                 already += 1
                 continue
 
-            is_plus = sub.get("tier") == "plus"
-            if not is_plus and weekly_alert_count(sub["id"]) >= FREE_WEEKLY_ALERT_LIMIT:
-                print(f"  [capped] {mask_email(sub['email'])} already got {FREE_WEEKLY_ALERT_LIMIT} alerts in 7 days — not sent.")
-                mark_skipped(log_id, "free_weekly_cap")
-                capped += 1
-                continue
 
             saved_combinations: list[dict] = []
             try:
@@ -211,7 +184,6 @@ def main() -> int:
                 next_jackpot=draws_file.get("nextJackpot") if meta.get("progressive") else None,
                 currency=meta["currency"],
                 insight=insight,
-                is_plus=is_plus,
                 saved_combinations=saved_combinations or None,
                 scratch_top3=top3 if sub.get("country") == "CA" else None,
                 dashboard_url=f"{SITE_URL}/dashboard",
@@ -223,8 +195,7 @@ def main() -> int:
             else:
                 failed += 1
 
-    print(f"\nDone: {sent} sent, {already} already handled today, {capped} capped (free weekly limit), "
-          f"{failed} failed/skipped (no RESEND_API_KEY).")
+    print(f"\nDone: {sent} sent, {already} already handled today, {failed} failed/skipped (no RESEND_API_KEY).")
     # continue-on-error: true on the workflow step already keeps a bad send
     # from blocking the deploy pipeline — but a real Resend failure (e.g. an
     # unverified sending domain) needs to be VISIBLE, not swallowed. Before

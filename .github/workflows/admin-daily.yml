@@ -1,9 +1,10 @@
 name: Owner daily report
 
 # The owner's morning operating email — scripts/ops_report.py daily. Yesterday
-# (Toronto calendar day) vs the day before: new subscribers, unsubscribes, new
-# Plus (trial / paid), Plus cancellations, emails sent (Resend's own record),
-# tickets entered; current subscribers, Plus and MRR vs 24h earlier; and any
+# (Toronto calendar day) vs the day before: new subscribers, unsubscribes,
+# emails sent (Resend's own record), tickets entered; current subscribers vs
+# 24h earlier (Plus/MRR rows are off since Plus was retired — BILLING_LIVE
+# in ops_report.py); and any
 # anomaly (unsubscribes, cancellations, failed or missing workflow runs, zero
 # sends) listed on top. A quiet day still sends, in a short form. The weekly
 # counterpart runs at the end of seo-health.yml.

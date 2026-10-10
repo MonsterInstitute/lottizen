@@ -7,9 +7,14 @@ name: Billing health watchdog
 # mock), a live read-only product/price/webhook sanity check, and Plus
 # feature-gating checks against real sessions. Nothing here ever touches
 # real money — test-mode Stripe objects only, cleaned up every run.
+#
+# DORMANT since 2026-10-09: Lottizen Plus was retired and every feature made
+# free, so there is no live billing to watch. The schedule is off; the
+# workflow and scripts/billing_health.py stay so the Stripe pipeline can be
+# re-verified in one click if a paid plan ever returns. Check 3 ("Plus
+# feature gating") asserts the old paywall and will fail by design until
+# it's rewritten for whatever plan replaces it.
 on:
-  schedule:
-    - cron: "30 12 * * *" # 12:30 UTC daily (~8:30am ET)
   workflow_dispatch: {}
 
 permissions:

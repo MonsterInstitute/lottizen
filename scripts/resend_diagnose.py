@@ -93,7 +93,7 @@ def main() -> int:
             game_name="Lotto Max", game_url="https://lottizen.com/canada/lotto-max",
             draw_date="2026-08-25", numbers=[1, 4, 15, 18, 24, 25, 51], bonus=13, bonus2=None,
             jackpot_won=None, next_draw=None, next_jackpot=None, currency="CAD",
-            insight=None, is_plus=False, saved_combinations=None, scratch_top3=None,
+            insight=None, saved_combinations=None, scratch_top3=None,
             dashboard_url="https://lottizen.com/dashboard",
             preferences_url="https://lottizen.com/subscribe/preferences?token=diagnostic-probe",
             unsubscribe_url=unsub,

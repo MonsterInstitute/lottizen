@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""scratch_alerts.py — Lottizen Plus scratch-ticket alerts.
+"""scratch_alerts.py — scratch-ticket alerts (free for everyone since 2026-10-09).
 
 Run AFTER calculate_rankings.py in each of the 5 scratch workflows (it needs
 today's fresh scratch_snapshots + scratch_rank_snapshots, both written by
@@ -15,7 +15,7 @@ agency, to detect three events:
 Like calculate_rankings.py, this always processes all 5 agencies regardless
 of which workflow invoked it — cheap (a handful of Supabase reads), and
 keeps behavior identical no matter which of the 5 daily workflows happens to
-run it. Only Plus subscribers ever get an email, and only for games they've
+run it. A confirmed subscriber gets an email only for games they've
 favourited (claimed/rank_drop) or games in a province they have at least one
 favourite in (new_game — there's no "favourite a game that doesn't exist
 yet" concept, so province-level interest is the closest real proxy).
@@ -79,21 +79,25 @@ def top_tier(tiers: list[dict]) -> dict | None:
     return next((t for t in tiers if t.get("isTop")), None)
 
 
-def plus_subscribers() -> dict[str, dict]:
+def alert_subscribers() -> dict[str, dict]:
+    """Every confirmed, subscribed account — scratch alerts used to be Plus-only
+    (retired 2026-10-09). Who gets which alert is decided by their favourites."""
     rows = db.fetch_all(
-        "subscribers", "id,email,magic_token,tier,confirmed_at,unsubscribed_at",
-        filters=[("eq", "tier", "plus")],
+        "subscribers", "id,email,magic_token,confirmed_at,unsubscribed_at",
     )
     return {
         r["id"]: r
         for r in rows
         if r.get("confirmed_at") and not r.get("unsubscribed_at")
+        # billing_health.py's test fixtures (@lottizen.com) hold favourites
+        # too; they're not people.
+        and not (r.get("email") or "").lower().endswith("@lottizen.com")
     }
 
 
 def favourites_by_agency() -> dict[str, dict[str, list[str]]]:
-    """agency -> {slug: [subscriber_id, ...]} for every favourite, any tier
-    (filtered to Plus subscribers by the caller — cheaper to fetch once)."""
+    """agency -> {slug: [subscriber_id, ...]} for every favourite (filtered to
+    confirmed, subscribed accounts by the caller — cheaper to fetch once)."""
     rows = db.fetch_all("scratch_favourites", "subscriber_id,agency,game_slug")
     out: dict[str, dict[str, list[str]]] = {a: {} for a in AGENCIES}
     for r in rows:
@@ -121,9 +125,9 @@ def send_alert(sub: dict, kind: str, game_name: str, game_url: str, province_lab
 
 def main() -> int:
     today = today_toronto()
-    subs = plus_subscribers()
+    subs = alert_subscribers()
     if not subs:
-        print("No confirmed Plus subscribers — nothing to check.")
+        print("No confirmed subscribers — nothing to check.")
         return 0
     favs = favourites_by_agency()
 

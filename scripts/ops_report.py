@@ -58,6 +58,10 @@ FROM = "Lottizen Ops <ops@mail.lottizen.com>"
 RAPIDAPI_STUDIO = "https://rapidapi.com/studio"
 RAPIDAPI_LISTING = "https://rapidapi.com/l3rundong/api/lottizen-data-api"
 # "cancelled" includes a job that never got a runner (see ci-failure-alert.yml).
+# Lottizen Plus was retired on 2026-10-09 (everything is free). With this
+# off, neither report reads Stripe or shows Plus / MRR / billing rows; the
+# Stripe class below stays so a future paid plan can switch them back on.
+BILLING_LIVE = False
 FAILED = {"failure", "timed_out", "startup_failure", "cancelled"}
 
 
@@ -470,7 +474,7 @@ def build_daily(today: date) -> tuple[str, str, dict]:
     total_now = subscribers_at(real, now) if subs else None
     total_prev = subscribers_at(real, now - timedelta(days=1)) if subs else None
 
-    st, serr = try_(Stripe)
+    st, serr = try_(Stripe) if BILLING_LIVE else (None, None)
     if serr:
         errors.append(f"Stripe：{serr}")
     pf, pf_prev = (st.flows(wy), st.flows(wyy)) if st else (None, None)
@@ -520,10 +524,10 @@ def build_daily(today: date) -> tuple[str, str, dict]:
 
     totals = table(
         row("当前邮件订阅（已确认）", fmt(total_now), delta(total_now, total_prev))
-        + row("当前 Plus 总数", fmt(plus_total), delta(plus_total, plus_total_prev),
-              f"付费 {fmt(ps_now and ps_now['active'])} · 试用中 {fmt(ps_now and ps_now['trialing'])}" if ps_now else "")
-        + row("MRR", fmt(ps_now and ps_now["mrr"], money=True, cur=cur),
-              delta(ps_now and ps_now["mrr"], ps_prev and ps_prev["mrr"], money=True)),
+        + (row("当前 Plus 总数", fmt(plus_total), delta(plus_total, plus_total_prev),
+               f"付费 {fmt(ps_now and ps_now['active'])} · 试用中 {fmt(ps_now and ps_now['trialing'])}" if ps_now else "")
+           + row("MRR", fmt(ps_now and ps_now["mrr"], money=True, cur=cur),
+                 delta(ps_now and ps_now["mrr"], ps_prev and ps_prev["mrr"], money=True)) if BILLING_LIVE else ""),
         "较 24 小时前")
     api_row = row("API 订阅者 / 收入", "需手动查看", "",
                   f'RapidAPI 公开市场没有提供者数据接口 · {link(RAPIDAPI_STUDIO, "打开 RapidAPI Studio")}')
@@ -533,6 +537,8 @@ def build_daily(today: date) -> tuple[str, str, dict]:
         headline_bits.append(f"订阅 +{sf['new']}")
     if pf:
         headline_bits.append(f"Plus +{pf['new_trial'] + pf['new_paid']}")
+    if tk is not None:
+        headline_bits.append(f"票据 +{tk}")
     if ps_now and ps_now["mrr"] is not None:
         headline_bits.append(f"MRR ${ps_now['mrr']:,.0f}")
     subject = f"Lottizen 日报 · {cn_date(y)} · " + " · ".join(headline_bits)
@@ -541,25 +547,27 @@ def build_daily(today: date) -> tuple[str, str, dict]:
 
     if quiet:
         title = f"{cn_date(y)}，{em('平静的一天')}"
-        dek = "没有新增订阅、Plus 变动、票据录入，也没有任何异常。"
+        dek = "没有新增订阅、退订、票据录入，也没有任何异常。"
         body = (ok_box(f"✓ 一切正常 · 发送 {fmt(sent)} 封邮件 · {wf['total'] if wf else '?'} 次 workflow 运行全部成功")
                 + h2("现状") + totals + table(api_row))
     else:
-        title = f"{cn_date(y)}：订阅 {em('+' + str(sf['new']) if sf else '?')}，Plus {em('+' + str(pf['new_trial'] + pf['new_paid']) if pf else '?')}"
+        title = f"{cn_date(y)}：订阅 {em('+' + str(sf['new']) if sf else '?')}，票据 {em('+' + str(tk) if tk is not None else '?')}"
         dek = f"{y.isoformat()}（多伦多时间整天），与前一日 {yy.isoformat()} 对比。"
         flows = table(
             row("新增邮件订阅", fmt(sf and sf["new"]), delta(sf and sf["new"], sf_prev and sf_prev["new"]),
                 f"另有 {sf['signups_unconfirmed']} 人注册但未确认" if sf and sf["signups_unconfirmed"] else "")
             + row("退订", fmt(sf and sf["unsubs"]), delta(sf and sf["unsubs"], sf_prev and sf_prev["unsubs"], good_up=False))
-            + row("新增 Plus · 试用中", fmt(pf and pf["new_trial"]), delta(pf and pf["new_trial"], pf_prev and pf_prev["new_trial"]))
-            + row("新增 Plus · 付费", fmt(pf and pf["new_paid"]), delta(pf and pf["new_paid"], pf_prev and pf_prev["new_paid"]))
-            + row("Plus 取消", fmt(pf and pf["cancels"]), delta(pf and pf["cancels"], pf_prev and pf_prev["cancels"], good_up=False))
+            + (row("新增 Plus · 试用中", fmt(pf and pf["new_trial"]), delta(pf and pf["new_trial"], pf_prev and pf_prev["new_trial"]))
+               + row("新增 Plus · 付费", fmt(pf and pf["new_paid"]), delta(pf and pf["new_paid"], pf_prev and pf_prev["new_paid"]))
+               + row("Plus 取消", fmt(pf and pf["cancels"]), delta(pf and pf["cancels"], pf_prev and pf_prev["cancels"], good_up=False))
+               if BILLING_LIVE else "")
             + vol_html
             + row("新增票据录入", fmt(tk), delta(tk, tk_prev)),
             "较前一日")
         body = (alerts_box(alerts) or ok_box(f"✓ 没有异常 · {wf['total'] if wf else '?'} 次 workflow 运行全部成功"))
         body += h2(f"昨日 · {cn_date(y)}") + flows + h2("现状") + totals + table(api_row)
-        body += note("Plus 与 MRR 由 Stripe 订阅时间戳推算（按当前价格，不含优惠券）；内部测试账号 @lottizen.com 已排除。")
+        body += note(("Plus 与 MRR 由 Stripe 订阅时间戳推算（按当前价格，不含优惠券）；" if BILLING_LIVE else "")
+                     + "内部测试账号 @lottizen.com 已排除。")
     html_out = shell("运营日报", title, dek, body, subject)
 
     snapshot = {
@@ -622,7 +630,7 @@ def build_weekly(today: date) -> tuple[str, str]:
     sf, sfp = (subscriber_flows(real, w), subscriber_flows(real, wp)) if subs else (None, None)
     s_end, s_start = (subscribers_at(real, w[1]), subscribers_at(real, w[0])) if subs else (None, None)
 
-    st, serr = try_(Stripe)
+    st, serr = try_(Stripe) if BILLING_LIVE else (None, None)
     if serr:
         errors.append(f"Stripe：{serr}")
     pf, pfp = (st.flows(w), st.flows(wp)) if st else (None, None)
@@ -646,9 +654,10 @@ def build_weekly(today: date) -> tuple[str, str]:
     business = table(
         row("邮件订阅（已确认）", fmt(s_end), delta(s_end, s_start),
             f"本周新增 {fmt(sf and sf['new'])}（上周 {fmt(sfp and sfp['new'])}）· 退订 {fmt(sf and sf['unsubs'])}" if sf else "")
-        + row("Plus 总数", fmt(plus_e), delta(plus_e, plus_s),
-              (f"付费 {pe['active']} · 试用中 {pe['trialing']} · 本周新增 试用 {pf['new_trial']} / 付费 {pf['new_paid']} · 取消 {pf['cancels']}") if pe else "")
-        + row("MRR", fmt(pe and pe["mrr"], money=True, cur=cur), delta(pe and pe["mrr"], ps and ps["mrr"], money=True))
+        + (row("Plus 总数", fmt(plus_e), delta(plus_e, plus_s),
+               (f"付费 {pe['active']} · 试用中 {pe['trialing']} · 本周新增 试用 {pf['new_trial']} / 付费 {pf['new_paid']} · 取消 {pf['cancels']}") if pe else "")
+           + row("MRR", fmt(pe and pe["mrr"], money=True, cur=cur), delta(pe and pe["mrr"], ps and ps["mrr"], money=True))
+           if BILLING_LIVE else "")
         + vol_html
         + row("票据录入", fmt(tk), delta(tk, tkp), "本周新增，较上周")
         + row("API 订阅者 / 收入", "需手动查看", "",
@@ -719,7 +728,9 @@ def build_weekly(today: date) -> tuple[str, str]:
             actions.append(f"刮刮乐数据滞后：{E(s['agency'])} — {E(str(s.get('reason') or s.get('latest')))}")
 
     bill, bill_p = load_json("billing_health_result.json"), load_json("billing_health_problems.json") or []
-    if bill is None:
+    if not BILLING_LIVE:
+        pass  # billing-health.yml is dormant with the paid plan
+    elif bill is None:
         health += row("支付链路", "未读取", "", "没有找到 billing-health 的最近结果")
         actions.append("支付链路：本周没有 billing-health 结果")
     else:
@@ -753,10 +764,12 @@ def build_weekly(today: date) -> tuple[str, str]:
     actions += [f"数据源读取失败 — {E(e)}" for e in errors]
 
     week_label = f"{cn_date(first)}–{cn_date(today - timedelta(days=1))}"
-    subject = (f"Lottizen 周报 · {week_label} · 订阅 {fmt(s_end)} · Plus {fmt(plus_e)}"
+    subject = (f"Lottizen 周报 · {week_label} · 订阅 {fmt(s_end)} · 票据 +{fmt(tk)}"
+               + (f" · Plus {fmt(plus_e)}" if BILLING_LIVE else "")
                + (f" · MRR ${pe['mrr']:,.0f}" if pe and pe["mrr"] is not None else "")
                + (f" · {len(actions)} 件待办" if actions else ""))
-    title = f"本周{em('订阅 ' + (f'{s_end - s_start:+d}' if s_end is not None else '?'))}，Plus {em(f'{plus_e - plus_s:+d}' if pe else '?')}"
+    title = (f"本周{em('订阅 ' + (f'{s_end - s_start:+d}' if s_end is not None else '?'))}，"
+             f"票据 {em(f'+{tk}' if tk is not None else '?')}")
     dek = f"{week_label}（多伦多时间），与前 7 天对比。"
     todo = ""
     if actions:
@@ -768,7 +781,8 @@ def build_weekly(today: date) -> tuple[str, str]:
         todo = ok_box("✓ 本周没有需要你处理的事")
     body = (todo + h2("经营") + business + h2(f"收录 · {since}") + table(index_rows)
             + h2("健康") + table(health)
-            + note("Plus 与 MRR 由 Stripe 订阅时间戳推算（按当前价格，不含优惠券）；收录数来自 reports/metrics-history.csv；"
+            + note(("Plus 与 MRR 由 Stripe 订阅时间戳推算（按当前价格，不含优惠券）；" if BILLING_LIVE else "")
+                   + "收录数来自 reports/metrics-history.csv；"
                    "内部测试账号 @lottizen.com 已排除。"))
     return subject, shell("运营周报", title, dek, body, subject)
 

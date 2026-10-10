@@ -131,7 +131,8 @@ def section_seo(seo: dict | None, seo_problems: list | None) -> str:
 
 def section_billing(billing: dict | None, billing_problems: list | None) -> str:
     if billing is None:
-        return "## Billing & Plus feature health\n\nNot available this run (no billing-health artifact found).\n"
+        return ("## Billing\n\nDormant: Lottizen Plus was retired on 2026-10-09 and every feature is free. "
+                "The Stripe code and billing-health.yml are kept for a future paid plan.\n")
     n_problems = len(billing_problems or [])
     lines = [f"## Billing & Plus feature health\n\n{fmt_bool(n_problems == 0)} — {n_problems} problem(s) on {billing.get('checkedAt', '?')[:10]}\n"]
 
@@ -259,6 +260,8 @@ def main() -> int:
     deploy = run_json([sys.executable, "scripts/check_deploy_freshness.py", "--json"])
     seo = load(os.environ.get("SEO_RESULT", "seo_health_result.json"))
     seo_problems = load(os.environ.get("SEO_PROBLEMS", "seo_health_problems.json"))
+    # Dormant since Plus was retired (2026-10-09): billing-health.yml no
+    # longer runs and its result isn't fetched; the section says so.
     billing = load(os.environ.get("BILLING_RESULT", "billing_health_result.json"))
     billing_problems = load(os.environ.get("BILLING_PROBLEMS", "billing_health_problems.json"))
     email = load(os.environ.get("EMAIL_RESULT", "email_delivery_result.json"))

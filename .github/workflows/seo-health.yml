@@ -78,17 +78,8 @@ jobs:
           path: seo_health_result.json
           retention-days: 14
 
-      - name: Fetch the latest billing-health result (if any)
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          run_id=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow billing-health.yml \
-            --status success --limit 1 --json databaseId --jq '.[0].databaseId // empty')
-          if [ -n "$run_id" ]; then
-            gh run download "$run_id" --repo "$GITHUB_REPOSITORY" -n billing-health-result || true
-          else
-            echo "no successful billing-health run found yet — report will note it's unavailable"
-          fi
+      # (billing-health.yml has been dormant since Lottizen Plus was retired
+      # on 2026-10-09, so its result is no longer fetched here.)
 
       - name: Fetch the latest email-delivery-watchdog result (if any)
         env:

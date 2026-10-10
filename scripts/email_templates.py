@@ -53,14 +53,7 @@ def btn(href: str, label: str) -> str:
     )
 
 
-def shell(preview_text: str, body_html: str, preferences_url: str, unsubscribe_url: str, show_plus_upsell: bool = False) -> str:
-    upsell = (
-        f'<div style="margin:0 0 18px;padding:14px 16px;background:#f6e7d6;border-radius:10px;font-size:13px;color:#1a1815;">'
-        f'Get alerts like this the moment they happen, all 5 provinces, with '
-        f'<a href="{SITE_URL}/plus" style="color:#c2652a;font-weight:600;">Lottizen Plus</a> &mdash; $3/month, 7-day free trial.</div>'
-        if show_plus_upsell
-        else ""
-    )
+def shell(preview_text: str, body_html: str, preferences_url: str, unsubscribe_url: str) -> str:
     return f"""<!doctype html>
 <html lang="en">
 <head>
@@ -82,7 +75,6 @@ def shell(preview_text: str, body_html: str, preferences_url: str, unsubscribe_u
 {body_html}
 </td></tr>
 <tr><td style="padding:20px 36px 28px;border-top:1px solid #e6e0d4;font-size:12px;color:#9c968a;line-height:1.7;">
-{upsell}
 <a href="{preferences_url}" style="color:#c2652a;text-decoration:underline;">Manage your subscription</a>
 &nbsp;&middot;&nbsp;
 <a href="{unsubscribe_url}" style="color:#c2652a;text-decoration:underline;">Unsubscribe</a>
@@ -164,7 +156,6 @@ def draw_result_email(
     next_jackpot,
     currency: str,
     insight: str | None,
-    is_plus: bool,
     saved_combinations: list[dict] | None,  # [{"numbers": [...], "label": str|None, "match": (matched, near_miss, full_match)}]
     scratch_top3: list[dict] | None,
     dashboard_url: str,
@@ -186,12 +177,9 @@ def draw_result_email(
     if next_draw:
         parts.append(f'<p style="margin:0 0 18px;color:#6d685f;font-size:14px;">Next draw: {next_draw}</p>')
 
-    # Personalized per-combination match results are a Lottizen Plus email
-    # feature (see the product brief's Free vs Plus split) — free tier gets
-    # the same draw facts + insight, just not the "your numbers" section.
-    # The combination is still checked and saved to the dashboard either
-    # way (see scripts/send_draw_emails.py); this only gates the EMAIL copy.
-    if is_plus and saved_combinations:
+    # Every saved combination's match result, for everyone (Plus retired
+    # 2026-10-09; this used to be Plus-only).
+    if saved_combinations:
         for combo in saved_combinations:
             matched, near_miss, full_match = combo["match"]
             nums_str = ", ".join(str(n) for n in combo["numbers"])
@@ -203,10 +191,6 @@ def draw_result_email(
             else:
                 line = f"Your saved numbers{label} ({nums_str}) matched <strong>{matched}</strong> this draw."
             parts.append(f'<div style="background:#f6e7d6;border-radius:10px;padding:14px 16px;margin:0 0 10px;font-size:14.5px;">{line}</div>')
-    elif not is_plus and saved_combinations:
-        parts.append(
-            f'<p style="margin:0 0 18px;font-size:13.5px;color:#6d685f;">Personalized match-checking for your saved numbers is a Lottizen Plus feature — see your result any time on your <a href="{dashboard_url}" style="color:#c2652a;">dashboard</a>.</p>'
-        )
 
     if insight:
         parts.append(
@@ -229,7 +213,6 @@ def draw_result_email(
         body_html="".join(parts),
         preferences_url=preferences_url,
         unsubscribe_url=unsubscribe_url,
-        show_plus_upsell=not is_plus,
     )
     return subject, html
 
@@ -287,7 +270,7 @@ def weekly_digest_email(
 
 
 # ---------------------------------------------------------------------------
-# Scratch alerts (Lottizen Plus) — sent immediately, not batched, by
+# Scratch alerts — sent immediately, not batched, by
 # scripts/scratch_alerts.py. One template covers all 3 event kinds; the
 # subject/lede differ by `kind`.
 # ---------------------------------------------------------------------------
@@ -329,10 +312,8 @@ def scratch_alert_email(
 # than a result. It goes out at 30, 7 and 3 days before a prize's claim
 # deadline (config/claim-deadlines.ts REMINDER_DAYS).
 #
-# Deliberately plain. There is nothing to upsell in an email whose entire job
-# is "go and collect your money before the operator keeps it", and a Plus
-# banner under that line would read as taking advantage of the urgency — so
-# shell()'s upsell stays off here.
+# Deliberately plain: its entire job is "go and collect your money before the
+# operator keeps it".
 #
 # `amount` is None whenever the prize figure isn't a published fact: an OLG
 # game with no breakdown feed, a draw whose breakdown hasn't been fetched yet,
