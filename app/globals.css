@@ -1943,6 +1943,8 @@ html[data-home-prov="NU"] .buy-elsewhere[data-prov~="NU"] { display: none; }
 .charity-figure .lbl { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); }
 .charity-figure .amt { font-family: var(--font-serif), Georgia, serif; font-size: 22px; color: var(--ink); }
 .charity-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-top: 20px; }
+.charity-resting { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 6px 16px; }
+.charity-resting li { padding: 6px 0; border-bottom: 1px solid var(--line, rgba(0,0,0,.08)); }
 .charity-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin: 20px 0; }
 .charity-quote { font-size: 13px; color: var(--ink-3); margin-top: 4px; }
 .countdown { font-variant-numeric: tabular-nums; }

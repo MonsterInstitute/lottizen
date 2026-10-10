@@ -28,6 +28,10 @@ export default function ProvinceCharity({ params }: { params: { province: string
   const fifties = all
     .filter((l) => (l.kind === "5050" || l.kind === "catch_the_ace") && isOpen(l) && l.current?.status === "on_sale")
     .sort((a, b) => (a.current?.salesClose ?? "9").localeCompare(b.current?.salesClose ?? "9"));
+  // Everything else we track here: between games or editions. Listed so each
+  // lottery's page (and its winning numbers) stays reachable.
+  const shown = new Set([...homes, ...fifties].map((l) => l.id));
+  const resting = all.filter((l) => !shown.has(l.id)).sort((a, b) => a.name.localeCompare(b.name));
   const recent = all
     .filter((l) => l.results.length)
     .map((l) => ({ l, r: l.results[0] }))
@@ -73,6 +77,26 @@ export default function ProvinceCharity({ params }: { params: { province: string
                 <LotteryCard key={l.id} l={l} />
               ))}
             </div>
+          </div>
+        </section>
+      )}
+
+      {resting.length > 0 && (
+        <section className="section" style={{ paddingTop: 12 }}>
+          <div className="container">
+            <h2 className="section-headline">Between editions</h2>
+            <p className="field-hint" style={{ marginBottom: 10 }}>
+              Not on sale today: between games, or the next edition hasn&rsquo;t opened. Each page keeps the last
+              edition&rsquo;s details and winning numbers.
+            </p>
+            <ul className="charity-resting">
+              {resting.map((l) => (
+                <li key={l.id}>
+                  <Link href={lotteryPath(l)}>{l.name}</Link>
+                  {l.operator ? <span className="field-hint"> · {l.operator}</span> : null}
+                </li>
+              ))}
+            </ul>
           </div>
         </section>
       )}
