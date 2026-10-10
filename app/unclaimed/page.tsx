@@ -76,7 +76,7 @@ export default function UnclaimedPage() {
           <div className="breadcrumb">
             <Link href="/press">Press &amp; data</Link> / <span>Unclaimed prizes</span>
           </div>
-          <div className="section-eyebrow">Unclaimed prize tracker · updated daily</div>
+          <div className="section-eyebrow">Data · unclaimed prizes · updated daily</div>
           <h1 className="section-headline">
             Unclaimed lottery prizes, <em>before the deadline.</em>
           </h1>

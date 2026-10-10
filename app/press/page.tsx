@@ -61,6 +61,29 @@ export default function PressPage() {
 
       <section className="section">
         <div className="container prose">
+          <h2>Citable data sets</h2>
+          <p>Each is free to quote with a link, and each page carries its sources and a citation line.</p>
+          <ul>
+            <li>
+              <Link href="/unclaimed">Unclaimed prizes of $100,000 or more</Link>: every prize on OLG&rsquo;s,
+              WCLC&rsquo;s and Loto-Québec&rsquo;s official unclaimed lists, by claim deadline, with each
+              list&rsquo;s date. BCLC and Atlantic Lottery publish no such list.
+            </li>
+            <li>
+              <Link href="/data/canada-lottery-almanac">Province-by-province scratch figures</Link>: tickets listed
+              and on sale per agency, how many on sale have no top prize left, and the share of printed prize money
+              still unclaimed (OLG, BCLC, Loto-Québec).
+            </li>
+            <li>
+              <Link href="/news">News from the data</Link>: jackpot runs and wins, scratch tickets whose top
+              prizes run out, unclaimed prizes nearing their deadline, and a monthly province comparison
+              (<a href="/news/rss.xml">RSS</a>).
+            </li>
+            <li>
+              <Link href="/api">Data API</Link> and the <a href="/llms.txt">llms.txt</a> summary for AI tools.
+            </li>
+          </ul>
+
           <h2>What the data covers</h2>
           <ul>
             <li>

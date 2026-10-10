@@ -613,6 +613,55 @@ def scratch_pool(today: date) -> list[Item]:
     return items
 
 
+def province_compare(today: date) -> list[Item]:
+    """Once a month (first week): how the five agencies' ON-SALE scratch
+    tickets compare. Media material, not buying advice — nobody can buy in
+    another province — so it describes, and recommends nothing. On sale =
+    in the agency's catalog (0025)."""
+    if today.day > 7:
+        return []
+    import statistics
+    import weekly_picks as wp
+    games = wp.load_games()
+    rows = []
+    for agency, gs in sorted(games.items()):
+        on = [g for g in gs if g["on_sale"] is True]
+        if not on:
+            continue
+        gone = [g for g in on if g["top_remaining"] == 0]
+        shares = [g["share_left_pct"] for g in on if g["share_left_pct"] is not None]
+        rows.append({"agency": agency, "on": len(on), "gone": len(gone), "pct_gone": 100 * len(gone) / len(on),
+                     "median_share": statistics.median(shares) if shares else None})
+    if len(rows) < 2:
+        return []
+    f = Fmt()
+    month = f"{today:%B} {f.raw(today.year)}"
+    t = today.isoformat()
+    lo, hi = min(rows, key=lambda r: r["pct_gone"]), max(rows, key=lambda r: r["pct_gone"])
+    it = Item(f"province-compare:{today:%Y-%m}", f"canada-scratch-tickets-by-province-{today:%Y-%m}", "province_compare",
+              "scratch", None, t, f)
+    it.headline = (f"Scratch tickets on sale in Canada, {month}: share with no top prize left ranges from "
+                   f"{f.pct(lo['pct_gone'])} ({AGENCY[lo['agency']]}) to {f.pct(hi['pct_gone'])} ({AGENCY[hi['agency']]})")
+    it.dek = (f"A monthly comparison of the {f.n(sum(r['on'] for r in rows))} scratch tickets the five agencies "
+              f"list as on sale, from their published prize counts.")
+    it.body = [
+        "Each agency publishes how many prizes in each tier are still unclaimed. Lottizen counts only tickets in "
+        "each agency's current product catalog, and compares how many of them still have a top prize left.",
+        "OLG, BCLC and Loto-Québec also publish how many prizes were printed, so for them the table shows the "
+        "median share of printed prize money still unclaimed. WCLC and Atlantic Lottery don't publish that.",
+        "Tickets can only be bought in the province where they're sold, so this compares the provinces' "
+        "markets; it isn't advice on where to buy, and none of it changes the odds of any ticket.",
+    ]
+    it.table = {"columns": ["Agency", "On sale", "No top prize left", "Share", "Median printed prize money unclaimed"],
+                "rows": [[AGENCY[r["agency"]], f.n(r["on"]), f.n(r["gone"]), f.pct(r["pct_gone"]),
+                          f.pct(r["median_share"]) if r["median_share"] is not None else "not published"]
+                         for r in sorted(rows, key=lambda r: r["pct_gone"])]}
+    it.fact("Tickets on sale, five agencies", f.n(sum(r["on"] for r in rows)), "Agencies' product catalogs, via Lottizen")
+    it.fact("Lowest share with no top prize left", f"{AGENCY[lo['agency']]}, {f.pct(lo['pct_gone'])}", "Agencies' published prize counts")
+    it.fact("Highest share with no top prize left", f"{AGENCY[hi['agency']]}, {f.pct(hi['pct_gone'])}", "Agencies' published prize counts")
+    return [it]
+
+
 # ---------------------------------------------------------------- unclaimed
 
 def unclaimed_deadlines(today: date) -> list[Item]:
@@ -683,7 +732,7 @@ def detect(today: date) -> list[Item]:
         items += safe(jackpot_run, slug, today) + safe(jackpot_won, slug, today)
     for slug in ("lotto-max", "lotto-6-49", "daily-grand", "ontario-49", "lottario", "bc-49", "western-max", "western-6-49"):
         items += safe(rare_draw, slug, today)
-    for fn in (scratch_top_gone, scratch_new, scratch_top10_out, scratch_pool, unclaimed_deadlines):
+    for fn in (scratch_top_gone, scratch_new, scratch_top10_out, scratch_pool, province_compare, unclaimed_deadlines):
         items += safe(fn, today)
     return items
 
