@@ -16,7 +16,8 @@ build. Without them, a draws workflow would re-upload (and race on) rankings/*
 that the 5 independent scratch workflows own — and vice versa, since
 calculate_rankings.py always recomputes ALL 5 provinces from whatever's
 currently in Supabase, regardless of which single agency's scraper just ran.
-Valid categories: `rankings`, `draws`, `stats`. No arguments = publish
+Valid categories: `rankings`, `draws`, `stats`, `unclaimed`
+(scripts/unclaimed.py). No arguments = publish
 everything (local `npm run data:refresh`).
 """
 from __future__ import annotations
@@ -37,7 +38,7 @@ def collect(categories: set[str]) -> list[tuple[str, Path]]:
     Empty `categories` means all."""
     want = lambda c: not categories or c in categories  # noqa: E731
     items: list[tuple[str, Path]] = []
-    for sub in ("rankings", "draws", "stats"):
+    for sub in ("rankings", "draws", "stats", "unclaimed"):
         d = DATA / sub
         if want(sub) and d.is_dir():
             for f in sorted(d.glob("*.json")):

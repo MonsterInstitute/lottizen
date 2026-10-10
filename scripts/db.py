@@ -195,7 +195,10 @@ def replace_scratch_games(agency: str, province: str, games: list[dict], source:
     for t in prior_tiers_rows:
         prior_tiers_by_game.setdefault(t["game_number"], []).append(t)
 
-    delete_where("games", "agency", agency)  # cascades to prize_tiers + scratch_snapshots
+    # Cascades to prize_tiers (rebuilt below). scratch_snapshots no longer
+    # cascades (0022): until 2026-10-09 it did, which erased every day's
+    # snapshot history and stopped scratch_alerts.py from ever firing.
+    delete_where("games", "agency", agency)
 
     games = dedupe_slugs(games)
 

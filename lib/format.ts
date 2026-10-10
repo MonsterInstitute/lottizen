@@ -143,3 +143,25 @@ export function humanDateTime(iso: string): string {
     timeZone: "America/Toronto",
   });
 }
+
+/** "October 28, 2026" for a YYYY-MM-DD calendar date. Formatted in UTC so a
+ *  date-only string never shifts a day the way humanDate's Toronto
+ *  conversion does (2026-10-28 is UTC midnight = Oct 27 in Toronto). */
+export function longDate(ymd: string): string {
+  const [y, m, d] = ymd.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString("en-CA", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    timeZone: "UTC",
+  });
+}
+
+/** Whole days from `fromYmd` to `toYmd` (both YYYY-MM-DD). */
+export function daysBetween(fromYmd: string, toYmd: string): number {
+  const ms = (s: string) => {
+    const [y, m, d] = s.split("-").map(Number);
+    return Date.UTC(y, m - 1, d);
+  };
+  return Math.round((ms(toYmd) - ms(fromYmd)) / 86_400_000);
+}

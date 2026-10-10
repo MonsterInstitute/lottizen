@@ -1,0 +1,46 @@
+name: Unclaimed prizes daily refresh
+
+# Reads each agency's official unclaimed-prize list (scripts/unclaimed.py),
+# updates the unclaimed_prizes table (incl. prizes that dropped off a list),
+# publishes data/unclaimed/canada.json to site_json and redeploys, so
+# /unclaimed reflects today's lists. Agencies update their lists on their own
+# schedules (OLG's is often weeks old); each list's own date is shown on the
+# page.
+on:
+  schedule:
+    - cron: "45 9 * * *" # GitHub has been starting this repo's crons 4-6h late
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: unclaimed-daily
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: python -m pip install --upgrade pip supabase certifi
+
+      - name: Read the agencies' unclaimed lists
+        run: python scripts/unclaimed.py
+
+      - name: Publish to site_json
+        run: python scripts/publish_site_json.py unclaimed
+
+      - name: Redeploy
+        env:
+          VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
+        run: curl -fsS -X POST "$VERCEL_DEPLOY_HOOK" && echo "✓ Vercel deploy triggered"

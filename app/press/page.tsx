@@ -74,6 +74,11 @@ export default function PressPage() {
               Europe, with archives going back to {earliest?.slice(0, 4)}, plus number frequencies.
             </li>
             <li>
+              <strong>Unclaimed prizes:</strong> every prize of $100,000 or more on the agencies&rsquo; official
+              unclaimed-prize lists, with claim deadlines, in one table at{" "}
+              <Link href="/unclaimed">/unclaimed</Link>, updated daily.
+            </li>
+            <li>
               <strong>What we don&rsquo;t have:</strong> no Canadian agency publishes how many scratch tickets
               were printed or remain unsold, so we never estimate &ldquo;tickets left&rdquo;. WCLC and ALC
               publish less prize detail than the other three; our pages say where that limits a figure.

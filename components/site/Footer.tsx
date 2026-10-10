@@ -68,6 +68,9 @@ export function Footer() {
                 <Link href="/data/canada-lottery-almanac">Lottery Data Almanac</Link>
               </li>
               <li>
+                <Link href="/unclaimed">Unclaimed Prizes</Link>
+              </li>
+              <li>
                 <Link href="/press">Press &amp; Data</Link>
               </li>
               <li>
