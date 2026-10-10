@@ -51,6 +51,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import db  # noqa: E402
+from prize_values import finalize_tiers  # noqa: E402
 
 try:
     from bs4 import BeautifulSoup
@@ -112,10 +113,9 @@ def parse_games(html: str) -> list[dict]:
         if not tiers:
             continue
 
-        tiers.sort(key=lambda t: t["amount"], reverse=True)
-        top_i = next((i for i, t in enumerate(tiers) if t["remaining"] > 0), 0)
-        for i, t in enumerate(tiers):
-            t["is_top"] = i == top_i
+        # Values annuities; flags the highest-value tier as the top prize
+        # (whether or not any remain) — see scripts/prize_values.py.
+        tiers = finalize_tiers("WCLC", game_number, tiers)
 
         games.append({"game_number": game_number, "name": name, "slug": db.slugify(name), "price": price, "prize_tiers": tiers})
     return games

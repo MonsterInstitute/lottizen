@@ -56,6 +56,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import db  # noqa: E402 — shared Supabase data-layer helper
+from prize_values import finalize_tiers  # noqa: E402
 
 AGENCY = "BCLC"
 PROVINCE = "british-columbia"
@@ -115,11 +116,9 @@ def parse_prizes(rows: list[dict]) -> list[dict]:
 
     out = []
     for g in games.values():
-        tiers = sorted(g["prize_tiers"], key=lambda t: t["amount"], reverse=True)
-        top_i = next((i for i, t in enumerate(tiers) if t["remaining"] > 0), 0)
-        for i, t in enumerate(tiers):
-            t["is_top"] = i == top_i
-        g["prize_tiers"] = tiers
+        # Values annuities; flags the highest-value tier as the top prize
+        # (whether or not any remain) — see scripts/prize_values.py.
+        g["prize_tiers"] = finalize_tiers("BCLC", g["game_number"], g["prize_tiers"])
         out.append(g)
     return [g for g in out if any(t["remaining"] > 0 and t["amount"] > 0 for t in g["prize_tiers"])]
 

@@ -74,6 +74,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import db  # noqa: E402
+from prize_values import finalize_tiers  # noqa: E402
 
 try:
     from bs4 import BeautifulSoup
@@ -203,10 +204,9 @@ def run_live() -> int:
             unmatched += 1
             print(f"  ! no price match for {name} ({code}) — skipped", file=sys.stderr)
             continue
-        tiers = sorted(tiers, key=lambda t: t["amount"], reverse=True)
-        top_i = next((i for i, t in enumerate(tiers) if t["remaining"] > 0), 0)
-        for i, t in enumerate(tiers):
-            t["is_top"] = i == top_i
+        # Values "1 000 $ par semaine à vie" at Loto-Québec's lump sum and
+        # flags the highest-value tier as the top prize — scripts/prize_values.py.
+        tiers = finalize_tiers("QUEBEC", code, tiers)
         games.append(
             {
                 "game_number": code,

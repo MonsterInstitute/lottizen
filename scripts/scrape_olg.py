@@ -43,6 +43,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import db  # noqa: E402 — shared Supabase data-layer helper (replaces sqlite3)
+from prize_values import finalize_tiers  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -81,23 +82,16 @@ def _ssl_context() -> ssl.SSLContext:
 # --------------------------------------------------------------------------
 # Prize label parsing
 # --------------------------------------------------------------------------
-LIFE_RE = re.compile(r"\$?([\d,]+(?:\.\d+)?)\s*/\s*(wk|week|yr|year|mo|month)", re.I)
-LIFE_YEARS = 20  # lump-sum horizon for "for life" annuities
 
 
 def parse_amount(label: str) -> float:
     """Best-effort dollar value of a prize label.
       "$1,000.00"            -> 1000
       "$150,000.00 SPIN WIN" -> 150000
-      "$1,000/WK FOR LIFE"   -> 20-year lump-sum equivalent
+      "$1,000/WK FOR LIFE"   -> 1000 here; prize_values.finalize_tiers() then
+                                replaces it with OLG's published lump sum
       "PLINKO" / "BIG SPIN"  -> 0 (unvalued experiential prize; excluded from score)
     """
-    m = LIFE_RE.search(label)
-    if m and "life" in label.lower():
-        base = float(m.group(1).replace(",", ""))
-        unit = m.group(2).lower()
-        per_year = {"wk": 52, "week": 52, "yr": 1, "year": 1, "mo": 12, "month": 12}[unit]
-        return base * per_year * LIFE_YEARS
     m = re.search(r"\$([\d,]+(?:\.\d+)?)", label)
     return float(m.group(1).replace(",", "")) if m else 0.0
 
@@ -216,13 +210,9 @@ def parse_feed(data: dict) -> list[dict]:
 
     out = []
     for g in games.values():
-        tiers = sorted(g["prize_tiers"], key=lambda t: t["amount"], reverse=True)
-        # Mark the highest-value tier that still has unclaimed prizes as "top";
-        # else the highest-value tier overall.
-        top_i = next((i for i, t in enumerate(tiers) if t["remaining"] > 0), 0)
-        for i, t in enumerate(tiers):
-            t["is_top"] = i == top_i
-        g["prize_tiers"] = tiers
+        # Values annuities and flags the highest-value tier as the top prize
+        # (whether or not any remain) — see scripts/prize_values.py.
+        g["prize_tiers"] = finalize_tiers("OLG", g["game_number"], g["prize_tiers"])
         out.append(g)
     # Keep games that still have at least one unclaimed, valued prize.
     return [g for g in out

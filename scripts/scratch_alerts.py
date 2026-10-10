@@ -168,8 +168,14 @@ def main() -> int:
                         sent += 1
                 continue
 
-            prior_top = top_tier(prior_snap[game_number])
+            # Compare the SAME tier across the two days, matched by label.
+            # Before 2026-10-09 the scrapers moved isTop down to the next tier
+            # once the real top prize ran out, so comparing "whichever tier is
+            # flagged top" day to day never saw a top prize reach 0 — and on
+            # the day the flag's meaning changed, would have fired falsely.
             today_top = top_tier(tiers_today)
+            prior_top = next((t for t in prior_snap[game_number]
+                              if today_top and t.get("label") == today_top.get("label")), None)
             if prior_top and today_top and prior_top.get("remaining", 0) > 0 and today_top.get("remaining", 0) == 0:
                 for sid in agency_favs.get(g["slug"], []):
                     if sid not in subs:

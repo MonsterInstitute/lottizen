@@ -59,6 +59,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import db  # noqa: E402
+from prize_values import finalize_tiers  # noqa: E402
 
 try:
     from bs4 import BeautifulSoup
@@ -177,11 +178,10 @@ def run_live() -> int:
     tier_count = 0
     for gnum, rows in by_game.items():
         meta = catalog[gnum]
-        rows = sorted(rows, key=lambda r: r["amount"], reverse=True)
-        tiers = [
-            {"amount": r["amount"], "label": r["label"], "total": r["total"], "remaining": r["remaining"], "is_top": i == 0}
-            for i, r in enumerate(rows)
-        ]
+        tiers = finalize_tiers("ALC", gnum, [
+            {"amount": r["amount"], "label": r["label"], "total": r["total"], "remaining": r["remaining"]}
+            for r in rows
+        ])
         tier_count += len(tiers)
         games.append(
             {
