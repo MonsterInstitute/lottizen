@@ -502,7 +502,28 @@ def by_province(rows: list[dict], t: datetime) -> list[tuple[str, int]]:
     return sorted(c.items(), key=lambda x: -x[1])
 
 
+def tracking_on() -> bool | None:
+    """Whether Resend open tracking is on for the sending domain (None if unknown)."""
+    key = os.environ.get("RESEND_API_KEY")
+    if not key:
+        return None
+    try:
+        req = urllib.request.Request("https://api.resend.com/domains",
+                                     headers={"Authorization": f"Bearer {key}", "User-Agent": "lottizen-ops"})
+        doms = json.loads(urllib.request.urlopen(req, timeout=20).read()).get("data", [])
+        d = next((x for x in doms if x.get("name") == "mail.lottizen.com"), None)
+        if not d:
+            return None
+        req = urllib.request.Request(f"https://api.resend.com/domains/{d['id']}",
+                                     headers={"Authorization": f"Bearer {key}", "User-Agent": "lottizen-ops"})
+        return bool(json.loads(urllib.request.urlopen(req, timeout=20).read()).get("open_tracking"))
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def open_rate(rc: dict | None) -> tuple[str, str]:
+    if tracking_on() is False:
+        return "未开启", "Resend 的 Open Tracking 没开，打开率无法统计（Resend 后台 Domains → mail.lottizen.com → Configuration 打开）"
     if not rc or not rc["sent"]:
         return "—", "没有发送"
     ev = rc["events"]
