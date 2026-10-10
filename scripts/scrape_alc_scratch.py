@@ -55,6 +55,7 @@ import json
 import re
 import sys
 import urllib.request
+from datetime import date
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -112,6 +113,9 @@ def fetch_catalog() -> dict[str, dict]:
             # `double precision` type (OLG's scraper leaves it null; this is the
             # first adapter to actually populate it).
             "overall_odds": odds,
+            # The catalog's expiryDate is the game's claim deadline (ALC: "expiry
+            # dates for Scratch'N Win tickets are printed on the reverse").
+            "claim_expiry": (r.get("expiryDate") or "")[:10] or None,
         }
     return out
 
@@ -191,6 +195,11 @@ def run_live() -> int:
                 "price": meta["price"],
                 "launch_date": meta["launch_date"],
                 "overall_odds": meta["overall_odds"],
+                "claim_expiry": meta["claim_expiry"],
+                # Every joined game is in ALC's live catalog; one whose claim
+                # deadline has already passed can't be on sale (the catalog
+                # carried two such games on 2026-10-10).
+                "on_sale": not (meta["claim_expiry"] and meta["claim_expiry"] < date.today().isoformat()),
                 "prize_tiers": tiers,
             }
         )

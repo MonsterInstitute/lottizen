@@ -219,6 +219,9 @@ def replace_scratch_games(agency: str, province: str, games: list[dict], source:
                 "overall_odds": g.get("overall_odds"),
                 "top_prize_odds": g.get("top_prize_odds"),
                 "launch_date": g.get("launch_date"),
+                # None = the agency gives no reliable on-sale signal (0025).
+                "on_sale": g.get("on_sale"),
+                "claim_expiry": g.get("claim_expiry"),
                 "source": source,
                 "scraped_at": ts,
                 "data_changed_at": data_changed_at,
@@ -285,6 +288,7 @@ _PAGE_KEYS: dict[str, tuple[str, ...]] = {
     "subscriber_games": ("subscriber_id", "game_slug"),
     "scratch_favourites": ("subscriber_id", "agency", "game_slug"),
     "indexnow_urls": ("url",),
+    "table_row_counts": ("captured_date", "table_name"),
 }
 
 

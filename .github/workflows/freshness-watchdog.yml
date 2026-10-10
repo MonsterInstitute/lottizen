@@ -78,6 +78,18 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: bash scripts/freshness_issues.sh freshness.json
 
+      # History tables only ever grow; a shrinking count, or a snapshot table
+      # holding a single day, means history is being deleted (see
+      # scripts/history_integrity.py and migration 0022).
+      - name: Check history tables only grow
+        id: history
+        run: python scripts/history_integrity.py || echo "problems=1" >> "$GITHUB_OUTPUT"
+
+      - name: Open / update / close history-integrity issues
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash scripts/health_issues.sh "History integrity:" history_integrity_problems.json
+
       - name: Re-dispatch data workflows to self-heal
         # Skip during a --selftest fire-drill: the synthetic canary must not spray
         # real workflow dispatches.

@@ -96,11 +96,14 @@ def load_all_games() -> dict[str, list[dict]]:
             "province": g["province"],
             "price": float(g["price"]),
             "launchDate": g.get("launch_date"),
+            # In the agency's current catalog (true) / listed only for prizes
+            # (false) / no reliable signal for this agency (null). Buy/skip
+            # features use only true — never "still on the prize list" (0025).
+            "onSale": g.get("on_sale"),
+            "claimExpiry": g.get("claim_expiry"),
             # "1 in N" overall odds of winning ANY prize, as published by the
-            # agency at launch — only ALC's adapter currently scrapes this
-            # (from its catalog's chanceOfWinning field). Powers the
-            # Lottizen Plus launch-vs-now odds comparison; null everywhere
-            # else until a future adapter pass adds it (see lib/plus-analytics.ts).
+            # agency at launch — only ALC's adapter scrapes this. Not shown
+            # anywhere since the estimated-odds comparison was removed.
             "launchOddsN": float(g["overall_odds"]) if g.get("overall_odds") is not None else None,
             # Real "prize data last changed" timestamp — NOT scraped_at,
             # which updates every run regardless of whether anything moved.

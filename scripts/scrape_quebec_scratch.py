@@ -213,6 +213,9 @@ def run_live() -> int:
                 "name": name,
                 "slug": db.slugify(name),
                 "price": meta["price"],
+                # Only games found in Loto-Québec's live product catalog get this
+                # far (the rest are skipped above), so every stored game is on sale.
+                "on_sale": True,
                 "launch_date": meta["launch_date"],
                 "prize_tiers": tiers,
             }

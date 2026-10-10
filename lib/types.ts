@@ -27,6 +27,12 @@ export interface Game {
   province: Province;
   price: number;
   launchDate?: string | null;
+  /** In the agency's current product catalog. false = listed only because
+   *  prizes can still be claimed; null/undefined = the agency gives no
+   *  reliable on-sale signal. Buy/skip features use only `true`. */
+  onSale?: boolean | null;
+  /** Claim deadline the agency publishes for the game (ALC only so far). */
+  claimExpiry?: string | null;
   /** "1 in N" overall odds of winning ANY prize, as published at launch.
    * Only ALC's adapter currently scrapes this — null elsewhere. See
    * Not displayed anywhere (an odds figure — see CLAUDE.md). */

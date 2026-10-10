@@ -143,11 +143,17 @@ def run_live() -> int:
     for g in games:
         g["slug"] = db.slugify(g["name"])
         g["launch_date"] = launch_dates.get(g["game_number"])
+        # The PlayNow product catalog lists the tickets BCLC currently sells;
+        # the prize feed also keeps games that stopped selling but still have
+        # claimable prizes. If the catalog couldn't be read, say "unknown".
+        g["on_sale"] = (g["game_number"] in launch_dates) if launch_dates else None
 
     n = db.replace_scratch_games(AGENCY, PROVINCE, games, source="bclc-live")
     tier_n = sum(len(g["prize_tiers"]) for g in games)
     matched = sum(1 for g in games if g["launch_date"])
-    print(f"✓ stored {n} live games / {tier_n} prize tiers (launch date matched for {matched}/{n})")
+    on_sale = sum(1 for g in games if g.get("on_sale"))
+    print(f"✓ stored {n} live games / {tier_n} prize tiers (launch date matched for {matched}/{n}; "
+          f"{on_sale} in the current catalog = on sale)")
     return n
 
 
