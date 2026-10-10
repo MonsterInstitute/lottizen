@@ -52,10 +52,14 @@ def main() -> int:
         raise SystemExit(f"{DOMAIN} not found among {[x.get('name') for x in doms]}")
     before = call("GET", f"/domains/{d['id']}")
     print(f"before: open_tracking={before.get('open_tracking')} click_tracking={before.get('click_tracking')}")
-    call("PATCH", f"/domains/{d['id']}", {"open_tracking": True, "click_tracking": True})
+    import time
+    resp = call("PATCH", f"/domains/{d['id']}", {"open_tracking": True, "click_tracking": True})
+    print(f"PATCH response: {resp}")
+    time.sleep(5)
     after = call("GET", f"/domains/{d['id']}")
     print(f"after:  open_tracking={after.get('open_tracking')} click_tracking={after.get('click_tracking')}")
-    if not a.to:
+    print("domain keys:", sorted(after.keys()))
+    if not a.to or os.environ.get("NO_SEND"):
         return 0
     html = ("<p>Open tracking test from Lottizen ops.</p><p>Opening this email should record an "
             "<b>opened</b> event in Resend. <a href=\"https://lottizen.com/charity\">This link</a> records a click.</p>")

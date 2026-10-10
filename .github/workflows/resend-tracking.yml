@@ -8,7 +8,7 @@ on:
     inputs:
       mode:
         type: choice
-        options: [enable, check]
+        options: [enable, domain, check]
         default: enable
       message_id:
         description: "Resend message id (for check)"
@@ -33,4 +33,5 @@ jobs:
           MSG: ${{ inputs.message_id }}
         run: |
           if [ "$MODE" = "check" ]; then python scripts/resend_tracking.py check --id "$MSG"
+          elif [ "$MODE" = "domain" ]; then NO_SEND=1 python scripts/resend_tracking.py enable
           else python scripts/resend_tracking.py enable --to "$TO"; fi
