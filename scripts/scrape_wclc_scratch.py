@@ -121,6 +121,48 @@ def parse_games(html: str) -> list[dict]:
     return games
 
 
+CURRENT_URL = "https://www.wclc.com/games/scratch-win/current-tickets.htm"
+
+
+def _key(name: str, price: float) -> str:
+    return f"{price:g}|" + re.sub(r"[^a-z0-9]", "", name.lower())
+
+
+def fetch_on_sale() -> tuple[set[str], set[str]] | None:
+    """WCLC's "Active Tickets" tab (not "Coming Soon"): the games it sells now.
+    The prize-remaining page also keeps games that stopped selling. Entries
+    read "$20 Sweet Spot - 31074"; one or two carry no number, so they're
+    matched by price + name. No sales-status field exists; membership is the
+    signal (65/92 prize-list games matched on 2026-10-10). Returns (numbers,
+    price|name keys of the un-numbered entries), or None (= unknown)."""
+    try:
+        html = fetch_html(CURRENT_URL)
+    except Exception as e:  # noqa: BLE001
+        print(f"  ! WCLC current-tickets page unavailable ({e}); on-sale status left unknown", file=sys.stderr)
+        return None
+    soup = BeautifulSoup(html, "html.parser")
+    tab = soup.find(id="snwCurrentTicketsTab")
+    if not tab:
+        print("  ! WCLC active-tickets tab not found; on-sale status left unknown", file=sys.stderr)
+        return None
+    nums, keys = set(), set()
+    for el in tab.find_all(class_="snwThumbName"):
+        text = el.get_text(" ", strip=True)
+        m = re.match(r"^\$([\d.]+)\s+(.*?)(?:\s+-\s+(\d+))?$", text)
+        if not m:
+            continue
+        if m.group(3):
+            nums.add(m.group(3))
+        else:
+            # Only for entries with no number: older printings share a name and
+            # price with the current one ("The Western" 25395/25402/25410 vs 25419).
+            keys.add(_key(m.group(2), float(m.group(1))))
+    if len(nums) < 20:  # WCLC shows ~70; far fewer means the page changed
+        print(f"  ! WCLC active tickets parsed to {len(nums)}; on-sale status left unknown", file=sys.stderr)
+        return None
+    return nums, keys
+
+
 def run_live() -> int:
     print("→ fetching WCLC prizes-remaining page...")
     try:
@@ -134,6 +176,11 @@ def run_live() -> int:
         print("✗ zero games parsed — page shape may have changed.", file=sys.stderr)
         return 0
 
+    active = fetch_on_sale()
+    for g in games:
+        g["on_sale"] = (g["game_number"] in active[0] or _key(g["name"], g["price"]) in active[1]) if active else None
+    if active:
+        print(f"  on sale (WCLC active tickets): {sum(1 for g in games if g['on_sale'])}/{len(games)}")
     n = db.replace_scratch_games(AGENCY, PROVINCE, games, source="wclc-live")
     tier_n = sum(len(g["prize_tiers"]) for g in games)
     print(f"✓ stored {n} live games / {tier_n} prize tiers (remaining-count only, no printed totals)")

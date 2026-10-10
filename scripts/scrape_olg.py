@@ -219,6 +219,38 @@ def parse_feed(data: dict) -> list[dict]:
             if any(t["remaining"] > 0 and t["amount"] > 0 for t in g["prize_tiers"])]
 
 
+OLG_CATALOG_URL = "https://www.olg.ca/en/instants.contextualSearch.json?keyword="
+
+
+def fetch_on_sale_numbers() -> set[str] | None:
+    """Game numbers of the instant games OLG currently has product pages for
+    (its /en/instants search index, the JSON the site's own game search
+    uses). The unclaimed-prize feed also keeps games that stopped selling.
+    No sales-status field exists; catalog membership is the signal. The game
+    number is in each entry's image path (".../in-2594-lucky-7s/..."),
+    matching the game page's "Game No." on 44/44 games checked 2026-10-10.
+    None (= unknown) if the index can't be read or looks incomplete."""
+    import json as _json
+    try:
+        req = urllib.request.Request(OLG_CATALOG_URL, headers={"User-Agent": UA, "Accept": "application/json"})
+        with urllib.request.urlopen(req, timeout=30, context=_ssl_context()) as r:
+            data = _json.loads(r.read().decode())
+    except Exception as e:  # noqa: BLE001
+        print(f"  ! OLG catalog unavailable ({e}); on-sale status left unknown", file=sys.stderr)
+        return None
+    nums = set()
+    for it in data.get("results", []):
+        if not re.match(r"^/en/instants/play-[^/]+\.html$", it.get("link") or ""):
+            continue  # family / top-up / sub-pages
+        m = re.search(r"/in-?(\d{4})", it.get("image") or "")
+        if m:
+            nums.add(m.group(1))
+    if len(nums) < 20:  # OLG lists ~45; far fewer means the page changed
+        print(f"  ! OLG catalog gave only {len(nums)} games; on-sale status left unknown", file=sys.stderr)
+        return None
+    return nums
+
+
 def run_live() -> int:
     print("→ fetching OLG unclaimed-instant-prizes feed...")
     data = fetch_feed(DEFAULT_CLIENT_ID)
@@ -234,6 +266,11 @@ def run_live() -> int:
     if not games:
         print("✗ feed parsed to zero games.", file=sys.stderr)
         return 0
+    on_sale = fetch_on_sale_numbers()
+    for g in games:
+        g["on_sale"] = (g["game_number"] in on_sale) if on_sale is not None else None
+    if on_sale is not None:
+        print(f"  on sale (in OLG's catalog): {sum(1 for g in games if g['on_sale'])}/{len(games)}")
     replace_games(games, source="olg-live")
     tiers = sum(len(g["prize_tiers"]) for g in games)
     print(f"✓ stored {len(games)} live games / {tiers} prize tiers")

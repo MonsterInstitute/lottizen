@@ -1,4 +1,5 @@
 name: News from the data
+# (also: this week's pick / skip per province — scripts/weekly_picks.py)
 
 # Runs scripts/news_engine.py after each data workflow that can change a
 # story's facts (draw results, the five scratch refreshes, unclaimed lists),
@@ -49,12 +50,20 @@ jobs:
         id: engine
         run: python scripts/news_engine.py
 
-      - name: Publish to site_json
+      - name: This week's pick / skip
+        id: picks
+        run: python scripts/weekly_picks.py
+
+      - name: Publish news to site_json
         if: steps.engine.outputs.changed == 'true'
         run: python scripts/publish_site_json.py news
 
+      - name: Publish picks to site_json
+        if: steps.picks.outputs.changed == 'true'
+        run: python scripts/publish_site_json.py picks
+
       - name: Redeploy
-        if: steps.engine.outputs.changed == 'true'
+        if: steps.engine.outputs.changed == 'true' || steps.picks.outputs.changed == 'true'
         env:
           VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
         run: curl -fsS -X POST "$VERCEL_DEPLOY_HOOK" && echo "✓ Vercel deploy triggered"
