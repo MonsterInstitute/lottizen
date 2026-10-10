@@ -1,0 +1,36 @@
+name: Resend open tracking
+
+# Manual. "enable" turns on open + click tracking for mail.lottizen.com and
+# sends one test email to the owner (OPS_REPORT_EMAIL, a secret — never an
+# input; Actions logs are public). "check" reads a message's last_event.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        options: [enable, check]
+        default: enable
+      message_id:
+        description: "Resend message id (for check)"
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  tracking:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Resend tracking
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          TO: ${{ secrets.OPS_REPORT_EMAIL }}
+          MODE: ${{ inputs.mode }}
+          MSG: ${{ inputs.message_id }}
+        run: |
+          if [ "$MODE" = "check" ]; then python scripts/resend_tracking.py check --id "$MSG"
+          else python scripts/resend_tracking.py enable --to "$TO"; fi
