@@ -30,6 +30,9 @@ export function Header() {
           <Link href="/scratch" data-country-scope="CA">
             Scratch
           </Link>
+          <Link href="/charity" data-country-scope="CA">
+            Charity lotteries
+          </Link>
           <Link href="/statistics">Statistics</Link>
           <Link href="/generator">Tools</Link>
           <Link href="/guides">Guides</Link>

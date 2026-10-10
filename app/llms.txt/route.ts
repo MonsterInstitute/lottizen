@@ -44,6 +44,7 @@ All figures come from the agencies' own public data, re-read every day. Nothing 
 - [Unclaimed lottery prizes in Canada](${absUrl("/unclaimed")}): every $100,000+ prize listed as unclaimed, by claim deadline, with each agency's list date.
 - [Canadian lottery data almanac](${absUrl("/data/canada-lottery-almanac")}): citable summary figures with sources.
 - [Scratch ticket value tracker](${absUrl("/scratch")}): remaining prize money for every listed scratch ticket, by province.
+- [Charity lotteries](${absUrl("/charity")}): hospital home lotteries and team 50/50s by province — deadlines, ticket caps, prize counts and odds as each lottery publishes them, current 50/50 pots, and winning numbers (e.g. ${absUrl("/charity/ontario/jays-care-5050/winning-numbers")}).
 - [This week's scratch picks](${absUrl("/picks")}): per province, the ticket on sale with the most prize money left, the best in each price band, and tickets still sold with no top prize left. About prize money left, not odds.
 - [How the scratch scores work](${absUrl("/methodology")}): the formulas and what each agency publishes.
 - [Press and data](${absUrl("/press")}): how to cite, contact for journalists.

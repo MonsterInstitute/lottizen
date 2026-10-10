@@ -151,6 +151,64 @@ def followed_games_by_subscriber(ids: list[str]) -> dict[str, list[str]]:
     return out
 
 
+TORONTO = ZoneInfo("America/Toronto")
+
+# Region (subscribers.province) -> the draw games a subscriber there gets in
+# the digest when they follow none: national games + that region's own
+# (mirrors HERO_GAMES in app/page.tsx).
+NATIONAL = ["lotto-max", "lotto-6-49", "daily-grand"]
+REGION_GAMES = {
+    "ontario": NATIONAL + ["ontario-49", "lottario"], "quebec": NATIONAL, "british-columbia": NATIONAL + ["bc-49"],
+    "alberta": NATIONAL + ["western-max", "western-6-49"], "saskatchewan": NATIONAL + ["western-max", "western-6-49"],
+    "manitoba": NATIONAL + ["western-max", "western-6-49"], "territories": NATIONAL + ["western-max", "western-6-49"],
+    "atlantic": NATIONAL, "western": NATIONAL + ["western-max", "western-6-49"],
+}
+CODE_REGION = {"ON": "ontario", "QC": "quebec", "BC": "british-columbia", "AB": "alberta", "SK": "saskatchewan",
+               "MB": "manitoba", "NS": "atlantic", "NB": "atlantic", "PE": "atlantic", "NL": "atlantic",
+               "YT": "territories", "NT": "territories", "NU": "territories"}
+REGION_LABEL = {"ontario": "Ontario", "quebec": "Quebec", "british-columbia": "British Columbia", "alberta": "Alberta",
+                "saskatchewan": "Saskatchewan", "manitoba": "Manitoba", "territories": "the territories",
+                "atlantic": "Atlantic Canada"}
+PROV_TZ = {"ON": "America/Toronto", "QC": "America/Toronto", "BC": "America/Vancouver", "AB": "America/Edmonton",
+           "SK": "America/Regina", "MB": "America/Winnipeg", "NS": "America/Halifax", "NB": "America/Moncton",
+           "PE": "America/Halifax", "NL": "America/St_Johns"}
+PROV_SLUG = {"ON": "ontario", "QC": "quebec", "BC": "british-columbia", "AB": "alberta", "SK": "saskatchewan",
+             "MB": "manitoba", "NS": "nova-scotia", "NB": "new-brunswick", "PE": "prince-edward-island",
+             "NL": "newfoundland-and-labrador", "YT": "yukon", "NT": "northwest-territories", "NU": "nunavut"}
+
+
+def charity_for(region: str, data: dict, now) -> dict | None:
+    """This week's deadlines and the biggest open 50/50 pot in a region."""
+    from datetime import datetime as dt, timezone as tzn
+    codes = {"AB", "SK", "MB"} if region == "western" else {c for c, r in CODE_REGION.items() if r == region}
+    if not codes or not data:
+        return None
+    week = now + timedelta(days=7)
+    deadlines, pots = [], []
+    for l in data.get("lotteries", []):
+        provs = set(l.get("provinces") or [l["province"]])
+        e = l.get("current")
+        if not (provs & codes) or not e or e.get("status") not in ("on_sale", "sold_out"):
+            continue
+        url = f"{SITE_URL}/charity/{PROV_SLUG.get(l['province'], 'canada')}/{l['id']}"
+        if l["kind"] in ("5050", "catch_the_ace"):
+            if e.get("status") == "on_sale" and e.get("jackpot"):
+                pots.append((e["jackpot"], {"name": l["name"], "url": url, "amount": f"${e['jackpot']:,.0f}"}))
+            continue
+        cands = [(d["name"], d["cutoff"]) for d in e.get("draws") or [] if d.get("cutoff")]
+        if e.get("salesClose"):
+            cands.append(("Final", e["salesClose"]))
+        for name, cut in sorted(cands, key=lambda x: x[1]):
+            t = dt.fromisoformat(cut.replace("Z", "+00:00"))
+            if now <= t <= week:
+                lt = t.astimezone(ZoneInfo(PROV_TZ.get(l["province"], "America/Toronto")))
+                deadlines.append({"name": l["name"], "url": url, "deadline": name,
+                                  "when": lt.strftime("%A, %B ") + str(lt.day)})
+                break
+    pots.sort(key=lambda x: -x[0])
+    return {"label": REGION_LABEL.get(region, region), "deadlines": deadlines[:6], "pot": pots[0][1] if pots else None}
+
+
 def main() -> int:
     today = today_toronto()
     week_start = (today - timedelta(days=7)).isoformat()
@@ -166,14 +224,25 @@ def main() -> int:
     # from site_json like draws/stats. Missing file = no pick section.
     picks_path = Path(__file__).resolve().parent.parent / "data" / "picks" / "canada.json"
     picks = json.loads(picks_path.read_text()).get("provinces", {}) if picks_path.exists() else {}
+    charity_path = Path(__file__).resolve().parent.parent / "data" / "charity" / "index.json"
+    charity_data = json.loads(charity_path.read_text()) if charity_path.exists() else {}
+    from datetime import datetime as _dt, timezone as _tz
+    now_utc = _dt.now(_tz.utc)
 
     sent, skipped, failed, no_games = 0, 0, 0, 0
     for sub in subs:
         slugs = followed.get(sub["id"], [])
-        province_picks = picks.get(sub.get("province") or "")
-        # A subscriber with a province gets the pick section even if they
-        # follow no draw games; one with neither gets nothing to read.
-        if not slugs and not province_picks:
+        region = sub.get("province") or CODE_REGION.get(sub.get("signup_province") or "")
+        province_picks = picks.get(region or "")
+        charity = charity_for(region, charity_data, now_utc) if region else None
+        if charity and not (charity["deadlines"] or charity["pot"]):
+            charity = None
+        # The digest is by province: with a known province and no followed
+        # games, this week's results for the province's own games.
+        if not slugs and region:
+            slugs = REGION_GAMES.get(region, NATIONAL)
+        # One with neither a province nor followed games gets nothing to read.
+        if not slugs and not province_picks and not charity:
             no_games += 1
             continue
         log_id = claim_send(sub["id"], "weekly_digest")
@@ -193,6 +262,7 @@ def main() -> int:
             preferences_url=preferences_url,
             unsubscribe_url=unsubscribe_url,
             province_picks=province_picks,
+            charity=charity,
         )
         if deliver(log_id, sub["email"], subject, html, unsubscribe_url=unsubscribe_url):
             sent += 1

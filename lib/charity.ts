@@ -41,6 +41,14 @@ export interface CharityEdition {
   soldOut: boolean | null;
   sourceUrl: string | null;
   scrapedAt: string;
+  /** 50/50: the winner's share in percent where the vendor publishes it (60 for a 60/40 draw). */
+  percentPrize: number | null;
+  /** 50/50: a published guaranteed minimum pot. */
+  guarantee: number | null;
+  /** Rules-page sentences on which draws a ticket bought by each deadline is entered in, verbatim. */
+  eligibility: string[];
+  /** The exact text each figure was read from. */
+  quotes: Record<string, string>;
   /** Daily snapshots, oldest first (50/50 pot growth). */
   history: { date: string; jackpot: number | null; soldOut: boolean | null }[];
 }
@@ -48,6 +56,10 @@ export interface CharityEdition {
 export interface CharityResult {
   edition: string;
   drawName: string;
+  /** The game / period the draw belonged to ("Leafs vs Bruins – Oct 17"). */
+  event: string | null;
+  /** 50/50: total pot of that draw (prizeValue is the winner's share). */
+  pot: number | null;
   drawDate: string | null;
   winningNumbers: string[];
   prize: string | null;
@@ -64,6 +76,8 @@ export interface CharityLottery {
   /** Licensing province, 2-letter code. Only someone physically in this
    *  province can buy a ticket. */
   province: string;
+  /** Every province it is licensed in (Jays Care: ON, AB, NS, NB, PE). */
+  provinces: string[];
   licenceAuthority: string | null;
   platform: string | null;
   url: string | null;
@@ -78,6 +92,8 @@ export interface CharityLottery {
 
 export interface CharityFile {
   generatedAt: string;
+  /** Lotto Max's published odds per play, from OLG's page, for comparisons. */
+  drawGame?: { name: string; price: number; anyPrize: string; jackpot: string; quotes: string[]; sourceUrl: string } | null;
   lotteries: CharityLottery[];
 }
 
@@ -106,8 +122,38 @@ export const CHARITY_PROVINCES = [
 ] as const;
 export type CharityProvince = (typeof CHARITY_PROVINCES)[number];
 
+const PROVINCE_TZ: Record<string, string> = {
+  ON: "America/Toronto", QC: "America/Toronto", BC: "America/Vancouver", AB: "America/Edmonton", SK: "America/Regina",
+  MB: "America/Winnipeg", NS: "America/Halifax", NB: "America/Moncton", PE: "America/Halifax", NL: "America/St_Johns",
+  YT: "America/Whitehorse", NT: "America/Yellowknife", NU: "America/Iqaluit",
+};
+
+/** A deadline in the lottery's own province time: "Fri, Oct 23, 2026, 11:59 p.m. ET". */
+export function fmtDeadline(iso: string, province: string, withTime = true): string {
+  const tz = PROVINCE_TZ[province] ?? "America/Toronto";
+  const d = new Date(iso);
+  const date = d.toLocaleDateString("en-CA", { timeZone: tz, weekday: "short", month: "short", day: "numeric", year: "numeric" });
+  if (!withTime) return date;
+  const time = d
+    .toLocaleTimeString("en-CA", { timeZone: tz, hour: "numeric", minute: "2-digit", timeZoneName: "short" })
+    .replace("a.m.", "a.m.")
+    .replace(/\s+/g, " ");
+  return `${date}, ${time}`;
+}
+
+/** The deadline's local calendar date (YYYY-MM-DD) in the lottery's province. */
+export function localDate(iso: string, province: string): string {
+  return new Date(iso).toLocaleDateString("en-CA", { timeZone: PROVINCE_TZ[province] ?? "America/Toronto" });
+}
+
 export const provinceByCode = (code: string) => CHARITY_PROVINCES.find((p) => p.code === code);
 export const provinceBySlug = (slug: string) => CHARITY_PROVINCES.find((p) => p.slug === slug);
+
+/** Home-region keys (components/home/regions.ts) a lottery is sold in. */
+export function regionsOf(l: Pick<CharityLottery, "provinces" | "province">): string[] {
+  const codes = l.provinces?.length ? l.provinces : [l.province];
+  return [...new Set(codes.map((c) => provinceByCode(c)?.region).filter((r): r is NonNullable<typeof r> => Boolean(r)))];
+}
 
 export function getCharity(): CharityFile {
   return data as unknown as CharityFile;
@@ -136,7 +182,7 @@ export function nextDeadline(e: CharityEdition, now = new Date()): { name: strin
   const t = now.getTime();
   const cands = [
     ...e.draws.filter((d) => d.cutoff).map((d) => ({ name: `${d.name} deadline`, at: d.cutoff! })),
-    ...(e.salesClose ? [{ name: "Final deadline", at: e.salesClose }] : []),
+    ...(e.salesClose ? [{ name: e.draws.length ? "Final deadline" : "Sales close", at: e.salesClose }] : []),
   ].filter((c) => new Date(c.at).getTime() > t);
   cands.sort((a, b) => a.at.localeCompare(b.at));
   return cands[0] ?? null;
@@ -145,4 +191,26 @@ export function nextDeadline(e: CharityEdition, now = new Date()): { name: strin
 /** How many published draws a ticket bought before `at` is entered in. */
 export function drawsEligible(e: CharityEdition, at: string): number {
   return e.draws.filter((d) => !d.cutoff || d.cutoff >= at).length;
+}
+
+/** Lotteries licensed in a province (by code), open ones first, by deadline. */
+export function lotteriesIn(code: string): CharityLottery[] {
+  const list = getCharityLotteries().filter((l) => (l.provinces?.length ? l.provinces : [l.province]).includes(code));
+  return list.sort((a, b) => {
+    const oa = isOpen(a) ? 0 : 1;
+    const ob = isOpen(b) ? 0 : 1;
+    if (oa !== ob) return oa - ob;
+    const da = a.current ? nextDeadline(a.current)?.at ?? a.current.salesClose ?? "9" : "9";
+    const db = b.current ? nextDeadline(b.current)?.at ?? b.current.salesClose ?? "9" : "9";
+    return da.localeCompare(db) || a.name.localeCompare(b.name);
+  });
+}
+
+/** Pages: whole days from now to an ISO instant (≥ 0), in Toronto days. */
+export function daysUntil(iso: string, now = new Date()): number {
+  return Math.max(0, Math.ceil((new Date(iso).getTime() - now.getTime()) / 86400000));
+}
+
+export function displayName(l: CharityLottery): string {
+  return l.name;
 }

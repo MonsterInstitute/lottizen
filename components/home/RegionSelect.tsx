@@ -4,6 +4,18 @@ import { useEffect, useState } from "react";
 import { HOME_REGIONS } from "@/components/home/regions";
 
 const COUNTRY_OF = (r: string) => (r === "usa" ? "US" : r === "europe" ? "EU" : "CA");
+const SINGLE: Record<string, string> = {
+  ontario: "ON", quebec: "QC", "british-columbia": "BC", alberta: "AB", saskatchewan: "SK", manitoba: "MB",
+};
+const MULTI: Record<string, string[]> = { atlantic: ["NB", "NS", "PE", "NL"], territories: ["YT", "NT", "NU"] };
+/** The exact province for a region, if it's known: a single-province region,
+ *  or the geo cookie's province when it lies within the chosen region. */
+function provinceFor(region: string): string | null {
+  if (SINGLE[region]) return SINGLE[region];
+  const m = document.cookie.match(/(?:^|; )lottizen_geo=([^;]+)/);
+  const geo = m ? decodeURIComponent(m[1]).toUpperCase().split("-") : [];
+  return geo[0] === "CA" && MULTI[region]?.includes(geo[1]) ? geo[1] : null;
+}
 const RESULTS_PAGE = (r: string) => (r === "usa" ? "/usa" : r === "europe" ? "/europe" : "/canada");
 
 /** Region chooser (hero, nav, /picks). Every instance does the same thing:
@@ -27,9 +39,13 @@ export function RegionSelect({ compact = false }: { compact?: boolean }) {
     if (key === "all") {
       d.removeAttribute("data-home-region");
       d.removeAttribute("data-home-country");
+      d.removeAttribute("data-home-prov");
     } else {
       d.setAttribute("data-home-region", key);
       d.setAttribute("data-home-country", COUNTRY_OF(key));
+      const prov = provinceFor(key);
+      if (prov) d.setAttribute("data-home-prov", prov);
+      else d.removeAttribute("data-home-prov");
     }
     try {
       localStorage.setItem("lottizen_home_region", key);

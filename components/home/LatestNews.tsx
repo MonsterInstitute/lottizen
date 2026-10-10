@@ -12,6 +12,13 @@ const AGENCY_REGIONS: [RegExp, string[]][] = [
   [/(^|-)(bclc|british-columbia)(-|$)/, ["british-columbia"]],
   [/(^|-)(wclc|western)(-|$)/, WCLC],
   [/(^|-)(alc|atlantic)(-|$)/, ["atlantic"]],
+  [/(^|-)(nova-scotia|new-brunswick|prince-edward-island|newfoundland|qeii|nb-hospital)(-|$)/, ["atlantic"]],
+  [/(^|-)(alberta|calgary|edmonton|oilers|flames|elks|stampeders|mighty-millions|red-deer|stars-lottery-alberta)(-|$)/, ["alberta"]],
+  [/(^|-)(saskatchewan|saskatoon|regina|roughriders?|riders)(-|$)/, ["saskatchewan"]],
+  [/(^|-)(manitoba|jets|blue-bombers|hsc|winnipeg)(-|$)/, ["manitoba"]],
+  [/(^|-)(canucks|bc-lions|vgh|whitecaps|pne|bc-childrens)(-|$)/, ["british-columbia"]],
+  [/(^|-)(leafs|maple-leafs|raptors|jays|tfc|argonauts|redblacks|senators|princess-margaret|sickkids|cheo|london-dream)(-|$)/, ["ontario"]],
+  [/(^|-)(canadiens|alouettes|cf-montreal|enfant-soleil)(-|$)/, ["quebec"]],
 ];
 
 /** Which regions a story is about: its agency's, or every Canadian region

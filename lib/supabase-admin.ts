@@ -121,6 +121,14 @@ export async function createSubscriber(
   return rows[0];
 }
 
+/** The subscriber's province (region slug) for the weekly email, if unset. */
+export async function setProvince(subscriberId: string, province: string): Promise<void> {
+  await pg(`subscribers?id=eq.${subscriberId}&province=is.null`, {
+    method: "PATCH",
+    body: JSON.stringify({ province }),
+  });
+}
+
 /** Follow a charity lottery (deadline, sell-out and result emails). */
 export async function followCharity(subscriberId: string, lotteryId: string): Promise<void> {
   await pg(`charity_follows?on_conflict=subscriber_id,lottery_id`, {

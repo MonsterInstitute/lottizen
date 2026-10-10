@@ -4,7 +4,7 @@ import { useEffect, useState, type FormEvent } from "react";
 
 interface Props {
   /** What to follow: a charity lottery id, a scratch game slug (+ agency) or a draw game slug. */
-  kind: "charity" | "scratch" | "game";
+  kind: "charity" | "scratch" | "game" | "province";
   id: string;
   agency?: string;
   /** 2-letter province the page is about, recorded as the signup source. */
@@ -24,6 +24,13 @@ export function FollowByEmail({ kind, id, agency, province, title, what }: Props
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (kind === "province") {
+      fetch(`/api/account/status?kind=game&slug=_`)
+        .then((r) => r.json())
+        .then((d) => setSignedIn(Boolean(d.signedIn)))
+        .catch(() => setSignedIn(false));
+      return;
+    }
     const qs = new URLSearchParams({ kind, slug: id });
     if (agency) qs.set("agency", agency);
     fetch(`/api/account/status?${qs}`)
@@ -82,6 +89,10 @@ export function FollowByEmail({ kind, id, agency, province, title, what }: Props
         <div className="form-notice success">You&rsquo;re following this. We&rsquo;ll email you.</div>
       ) : state === "sent" ? (
         <div className="form-notice success">Check your inbox and click the link to confirm. Then you&rsquo;re set.</div>
+      ) : signedIn && kind === "province" ? (
+        <a className="btn btn-secondary" href="/dashboard">
+          Set your province in My Lottizen
+        </a>
       ) : signedIn ? (
         <button className="btn btn-primary" onClick={followSignedIn} disabled={state === "busy"}>
           Follow

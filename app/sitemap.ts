@@ -6,6 +6,7 @@ import { getAllGuides } from "@/lib/guides";
 import { getUnclaimed } from "@/lib/unclaimed";
 import { getNews } from "@/lib/news";
 import { getPicks } from "@/lib/picks";
+import { CHARITY_PROVINCES, getCharity, lotteriesIn, lotteryPath } from "@/lib/charity";
 import { DID_ANYONE_WIN_PREFIX, DRAW_PAGE_FRESH_DAYS, allBreakdowns, drawPageSlug } from "@/lib/breakdowns";
 import { daysBetween } from "@/lib/format";
 import { absUrl } from "@/lib/site";
@@ -53,6 +54,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
   );
   push("/scratch", scratchOverallLatest);
   push("/picks", new Date(`${getPicks().asOf}T12:00:00Z`));
+
+  // ---- Charity lotteries ----
+  const charity = getCharity();
+  if (charity.lotteries.length) {
+    push("/charity", new Date(charity.generatedAt));
+    for (const p of CHARITY_PROVINCES) if (lotteriesIn(p.code).length) push(`/charity/${p.slug}`, new Date(charity.generatedAt));
+    for (const l of charity.lotteries) {
+      const changed = l.results[0]?.drawDate ?? l.current?.scrapedAt?.slice(0, 10);
+      if (l.current || l.results.length) push(lotteryPath(l), changed ? new Date(`${changed.slice(0, 10)}T12:00:00Z`) : undefined);
+      if (l.results.length) push(`${lotteryPath(l)}/winning-numbers`, l.results[0].drawDate ? new Date(`${l.results[0].drawDate}T12:00:00Z`) : undefined);
+    }
+  }
 
   for (const province of getAllProvinceSlugs()) {
     const { games } = getRankings(province);

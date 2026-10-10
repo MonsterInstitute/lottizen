@@ -19,6 +19,7 @@ import { HeroRegionCard } from "@/components/home/HeroRegionCard";
 import { PickCard, SkipCard, NewTicketsCard, hasWeek, hasNew } from "@/components/home/ProvinceBlock";
 import { ScratchRegionCard, scratchTop } from "@/components/home/ScratchRegionCard";
 import { LatestNews } from "@/components/home/LatestNews";
+import { CharityThisWeek, charityWeek } from "@/components/charity/CharityThisWeek";
 import { MyTicketsCard } from "@/components/home/MyTicketsCard";
 
 // Draw games shown in each region's hero card: the headline game first, then
@@ -62,7 +63,8 @@ export default function HomePage() {
   };
   const weekDup = dupOf((k) => {
     const p = picks.provinces[k];
-    return JSON.stringify([p.picks, p.skip.map((g) => g.game_number), p.month?.top.map((g) => g.game_number)]);
+    return JSON.stringify([p.picks, p.skip.map((g) => g.game_number), p.month?.top.map((g) => g.game_number),
+      (({ deadlines, pot }) => [deadlines.map((x) => x.l.id), pot?.id])(charityWeek(k))]);
   });
   const newDup = dupOf((k) => JSON.stringify([picks.provinces[k].newTickets, picks.provinces[k].comingSoon]));
   const scratchDup = dupOf((k) => JSON.stringify(scratchTop(k, SCRATCH_SLUG[k]).map((g) => g.slug)));
@@ -172,6 +174,7 @@ export default function HomePage() {
                     <PickCard p={p} />
                     <SkipCard p={p} />
                   </div>
+                  <CharityThisWeek region={r.key} />
                 </div>
               );
             })}

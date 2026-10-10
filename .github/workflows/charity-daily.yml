@@ -1,0 +1,75 @@
+name: Charity lotteries refresh
+
+# Home lotteries, 50/50s and Catch the Ace (scripts/charity/registry.py):
+# scrape every lottery's own rules page / ticket API into Supabase, snapshot
+# today's pots and sell-out state, publish data/charity/index.json, redeploy,
+# then email followers (deadlines 3 days out, selling out, winning numbers).
+# Several runs a day because 50/50 pots move by the hour; GitHub starts
+# crons hours late, which is fine for a several-times-daily refresh.
+on:
+  schedule:
+    - cron: "15 1,5,9,13,17,21 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: charity-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Python dependencies
+        run: python -m pip install --upgrade pip supabase certifi
+
+      - name: Scrape charity lotteries -> Supabase
+        id: scrape
+        run: python scripts/scrape_charity.py
+
+      - name: Build data/charity/index.json and publish to site_json
+        run: python scripts/charity_publish.py && python scripts/publish_site_json.py charity
+
+      - name: Redeploy
+        env:
+          VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
+        run: curl -fsS -X POST "$VERCEL_DEPLOY_HOOK" && echo "✓ Vercel deploy triggered"
+
+      - name: Email followers
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: python scripts/send_charity_alerts.py
+        continue-on-error: true
+
+      # A rules page that stopped matching its patterns (scripts/charity/specs.py)
+      # leaves those figures empty on the site; this issue says which, so the
+      # pattern is fixed by hand rather than guessed. Auto-closes when clean.
+      - name: Open or close the rules-drift issue
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          title="[auto] Charity lottery pages changed"
+          [ -f data/charity-drift.json ] || exit 0
+          n=$(jq '(.drift | length) + (.failures | length)' data/charity-drift.json)
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 100 --json number,title \
+            --jq "map(select(.title==\"$title\")) | .[0].number // empty")
+          if [ "$n" -gt 0 ]; then
+            body=$(jq -r '"Some charity lottery pages no longer match their extraction patterns, or failed to load. The affected figures are left empty on the site (never guessed) until the pattern in scripts/charity/specs.py or the registry entry is fixed.\n\n**Patterns not matching**\n" + ([.drift[] | "- `\(.lottery)`: \(.missing | join(", ")) — \(.url)"] | join("\n")) + "\n\n**Failed to load**\n" + ([.failures[] | "- `\(.)`"] | join("\n"))' data/charity-drift.json)
+            if [ -z "$existing" ]; then
+              gh issue create --repo "$GITHUB_REPOSITORY" --title "$title" --body "$body" --label auto-monitor
+            fi
+          elif [ -n "$existing" ]; then
+            gh issue close "$existing" --repo "$GITHUB_REPOSITORY" --comment "✅ Every charity lottery page matches its patterns again. Auto-closing."
+          fi

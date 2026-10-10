@@ -293,6 +293,27 @@ def picks_section(p: dict) -> str:
             + "".join(out) + "</div>")
 
 
+def charity_section(c: dict) -> str:
+    """This week's charity lottery deadlines and the biggest 50/50 pot in the
+    subscriber's province (data/charity/index.json — the lotteries' own figures)."""
+    items = "".join(
+        f'<li style="margin-bottom:6px;"><a href="{d["url"]}" style="color:#c2652a;font-weight:600;">{d["name"]}</a>'
+        f' &mdash; {d["deadline"]} deadline, {d["when"]}</li>'
+        for d in c.get("deadlines", [])
+    )
+    pot = c.get("pot")
+    if pot:
+        items += (f'<li style="margin-bottom:6px;">Biggest 50/50 pot now: <a href="{pot["url"]}" style="color:#c2652a;font-weight:600;">'
+                  f'{pot["name"]}</a>, {pot["amount"]}</li>')
+    return (
+        f'<h2 style="font-family:Georgia,\'Times New Roman\',serif;font-size:17px;font-weight:700;color:#1a1815;margin:22px 0 8px;">'
+        f'Charity lotteries in {c["label"]} this week</h2>'
+        f'<ul style="margin:0 0 6px;padding-left:18px;font-size:14px;">{items}</ul>'
+        '<p style="margin:0 0 14px;font-size:12px;color:#9c968a;">Only people in the licensing province can buy; '
+        'tickets are sold on each lottery\'s own site.</p>'
+    )
+
+
 def weekly_digest_email(
     *,
     game_sections: list[dict],  # [{name, url, draws: [{date, numbers, bonus, bonus2}]}]
@@ -301,6 +322,7 @@ def weekly_digest_email(
     preferences_url: str,
     unsubscribe_url: str,
     province_picks: dict | None = None,  # data/picks/canada.json provinces[<subscriber.province>]
+    charity: dict | None = None,  # {"label", "deadlines": [{name, url, deadline, when}], "pot": {name, url, amount}}
 ) -> tuple[str, str]:
     subject = "Your Lottizen weekly digest"
     pick = (province_picks or {}).get("picks", {}).get("overall") if province_picks else None
@@ -309,10 +331,14 @@ def weekly_digest_email(
     parts = [
         '<h1 style="font-family:Georgia,\'Times New Roman\',serif;font-size:22px;font-weight:700;color:#1a1815;margin:0 0 16px;">This week, by the numbers</h1>'
     ]
+    if charity and (charity.get("deadlines") or charity.get("pot")):
+        parts.append(charity_section(charity))
+        if not pick:
+            subject = f"This week in {charity['label']}: charity lottery deadlines and 50/50s"
     if province_picks and province_picks.get("onSaleKnown"):
         parts.append(picks_section(province_picks))
 
-    if not game_sections and not province_picks:
+    if not game_sections and not province_picks and not charity:
         parts.append(
             '<p style="margin:0 0 18px;color:#6d685f;">No results this week for the games you follow &mdash; '
             '<a href="https://lottizen.com/subscribe/preferences" style="color:#c2652a;">follow more games</a>.</p>'
@@ -511,3 +537,32 @@ def win_notice_email(
         unsubscribe_url=unsubscribe_url,
     )
     return subject, html
+
+
+# ---------------------------------------------------------------------------
+# Charity lottery alerts (scripts/send_charity_alerts.py): a deadline 3 days
+# out, a lottery about to sell out or sold out, and published winning
+# numbers. Every figure comes from the lottery's own page; winners' names are
+# never stored, so never shown.
+# ---------------------------------------------------------------------------
+def charity_alert_email(
+    *,
+    subject: str,
+    eyebrow: str,
+    title: str,
+    lines: list[str],
+    url: str,
+    button: str,
+    preferences_url: str,
+    unsubscribe_url: str,
+) -> tuple[str, str]:
+    parts = [
+        f'<p style="margin:0 0 6px;font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:0.04em;color:#9c968a;">{eyebrow}</p>',
+        f'<h1 style="font-family:Georgia,\'Times New Roman\',serif;font-size:22px;font-weight:700;color:#1a1815;margin:0 0 10px;">{title}</h1>',
+        *[f'<p style="margin:0 0 12px;font-size:15px;color:#1a1815;">{line}</p>' for line in lines],
+        btn(url, button),
+        '<p style="margin:14px 0 0;font-size:12px;color:#9c968a;">Only people in the province that licenses this lottery can buy tickets, '
+        'from the lottery\'s own site. Lottizen isn\'t paid for ticket sales.</p>',
+    ]
+    return subject, shell(preview_text=lines[0] if lines else title, body_html="".join(parts),
+                          preferences_url=preferences_url, unsubscribe_url=unsubscribe_url)

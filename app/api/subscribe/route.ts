@@ -6,6 +6,7 @@ import {
   createSubscriber,
   followCharity,
   followGame,
+  setProvince,
   findSubscriberByEmail,
   logEmail,
   resetForResubscribe,
@@ -84,7 +85,9 @@ export async function POST(req: Request) {
     const f = body.follow;
     if (f?.id && SLUG_RE.test(f.id)) {
       const prov = f.agency ? provinceForAgency(f.agency) : null;
-      if (f.kind === "charity" && getCharityLottery(f.id)) await followCharity(subscriber.id, f.id).catch(() => {});
+      if (f.kind === "province" && isValidProvince(f.id) && !subscriber.province)
+        await setProvince(subscriber.id, f.id).catch(() => {});
+      else if (f.kind === "charity" && getCharityLottery(f.id)) await followCharity(subscriber.id, f.id).catch(() => {});
       else if (f.kind === "game" && getLiveGame(f.id)) await followGame(subscriber.id, f.id).catch(() => {});
       else if (f.kind === "scratch" && f.agency && prov && getGameBySlug(prov, f.id))
         await addScratchFavourite(subscriber.id, f.agency, f.id).catch(() => {});

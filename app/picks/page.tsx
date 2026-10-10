@@ -7,6 +7,7 @@ import { HOME_REGIONS } from "@/components/home/regions";
 import { RegionSelect } from "@/components/home/RegionSelect";
 import { PickCard, SkipCard, NewTicketsCard, hasWeek, hasNew } from "@/components/home/ProvinceBlock";
 import { ScratchDisclaimer } from "@/components/site/ScratchDisclaimer";
+import { FollowByEmail } from "@/components/site/FollowByEmail";
 
 export const metadata: Metadata = {
   title: "This Week's Scratch Ticket Picks by Province",
@@ -80,6 +81,12 @@ export default function PicksPage() {
                 <p className="field-hint">
                   <Link href={`/scratch/${p.scratchSlug}`}>Full {p.agencyName} rankings →</Link>
                 </p>
+                <FollowByEmail
+                  kind="province"
+                  id={r.key}
+                  title={`This week's picks for ${p.label}, every week`}
+                  what={`One email a week: the ${p.label} pick and skip list, charity lottery deadlines and the week's results.`}
+                />
               </div>
             );
           })}

@@ -1907,3 +1907,47 @@ html[data-home-country="CA"] .picks-jump { display: none; }
 .compare-cta strong { color: var(--brand-deep); white-space: nowrap; }
 .compare-cta:hover { border-color: var(--brand-deep); }
 .footer-sub a { color: var(--ink); text-decoration: none; }
+
+/* ---------- Charity lotteries ---------- */
+/* Buy links only for a visitor known to be in a licensing province. */
+.buy-link { display: none !important; }
+html[data-home-prov="ON"] .buy-link[data-prov~="ON"],
+html[data-home-prov="QC"] .buy-link[data-prov~="QC"],
+html[data-home-prov="BC"] .buy-link[data-prov~="BC"],
+html[data-home-prov="AB"] .buy-link[data-prov~="AB"],
+html[data-home-prov="SK"] .buy-link[data-prov~="SK"],
+html[data-home-prov="MB"] .buy-link[data-prov~="MB"],
+html[data-home-prov="NS"] .buy-link[data-prov~="NS"],
+html[data-home-prov="NB"] .buy-link[data-prov~="NB"],
+html[data-home-prov="PE"] .buy-link[data-prov~="PE"],
+html[data-home-prov="NL"] .buy-link[data-prov~="NL"],
+html[data-home-prov="YT"] .buy-link[data-prov~="YT"],
+html[data-home-prov="NT"] .buy-link[data-prov~="NT"],
+html[data-home-prov="NU"] .buy-link[data-prov~="NU"] { display: inline-flex !important; }
+html[data-home-prov="ON"] .buy-elsewhere[data-prov~="ON"],
+html[data-home-prov="QC"] .buy-elsewhere[data-prov~="QC"],
+html[data-home-prov="BC"] .buy-elsewhere[data-prov~="BC"],
+html[data-home-prov="AB"] .buy-elsewhere[data-prov~="AB"],
+html[data-home-prov="SK"] .buy-elsewhere[data-prov~="SK"],
+html[data-home-prov="MB"] .buy-elsewhere[data-prov~="MB"],
+html[data-home-prov="NS"] .buy-elsewhere[data-prov~="NS"],
+html[data-home-prov="NB"] .buy-elsewhere[data-prov~="NB"],
+html[data-home-prov="PE"] .buy-elsewhere[data-prov~="PE"],
+html[data-home-prov="NL"] .buy-elsewhere[data-prov~="NL"],
+html[data-home-prov="YT"] .buy-elsewhere[data-prov~="YT"],
+html[data-home-prov="NT"] .buy-elsewhere[data-prov~="NT"],
+html[data-home-prov="NU"] .buy-elsewhere[data-prov~="NU"] { display: none; }
+.buy-elsewhere { display: block; margin-top: 6px; }
+.charity-card { display: flex; flex-direction: column; gap: 6px; }
+.charity-figure { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.charity-figure .lbl { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); }
+.charity-figure .amt { font-family: var(--font-serif), Georgia, serif; font-size: 22px; color: var(--ink); }
+.charity-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-top: 20px; }
+.charity-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin: 20px 0; }
+.charity-quote { font-size: 13px; color: var(--ink-3); margin-top: 4px; }
+.countdown { font-variant-numeric: tabular-nums; }
+.follow-email { padding: 20px 22px; margin: 24px 0; }
+.follow-email-title { font-weight: 600; font-size: 16px; color: var(--ink); }
+.follow-email-form { display: flex; gap: 8px; flex-wrap: wrap; }
+.follow-email-form input { flex: 1 1 220px; min-width: 0; }
+.wn-table td.num { font-variant-numeric: tabular-nums; }

@@ -6,7 +6,7 @@
  */
 import data from "@/data/news/index.json";
 
-export type NewsCategory = "draw" | "scratch" | "unclaimed";
+export type NewsCategory = "draw" | "scratch" | "unclaimed" | "charity";
 
 export interface NewsFact {
   label: string;
@@ -34,6 +34,7 @@ export const CATEGORY_LABEL: Record<NewsCategory, string> = {
   draw: "Draw games",
   scratch: "Scratch tickets",
   unclaimed: "Unclaimed prizes",
+  charity: "Charity lotteries",
 };
 
 export function getNews(): NewsItem[] {

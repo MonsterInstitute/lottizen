@@ -57,13 +57,16 @@ export function Footer() {
             {region("EU", "Europe", "All European games")}
           </div>
           <div className="footer-col" data-country-scope="CA">
-            <h5>Scratch tickets</h5>
+            <h5>Scratch &amp; charity</h5>
             <ul>
               <li>
                 <Link href="/picks">This week&rsquo;s picks</Link>
               </li>
               <li>
                 <Link href="/scratch">Scratch rankings</Link>
+              </li>
+              <li>
+                <Link href="/charity">Charity lotteries</Link>
               </li>
               <li>
                 <Link href="/news/did-anyone-win-lotto-max">Did anyone win?</Link>

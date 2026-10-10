@@ -779,6 +779,88 @@ def unclaimed_deadlines(today: date) -> list[Item]:
 
 # ------------------------------------------------------------------- run
 
+# ------------------------------------------------------------- charity lotteries
+
+PROVINCE_NAME = {"ON": "Ontario", "QC": "Quebec", "BC": "British Columbia", "AB": "Alberta", "SK": "Saskatchewan",
+                 "MB": "Manitoba", "NS": "Nova Scotia", "NB": "New Brunswick", "PE": "Prince Edward Island",
+                 "NL": "Newfoundland and Labrador"}
+
+
+def charity_5050_record(today: date) -> list[Item]:
+    """A 50/50 pot on sale now that is larger than every pot in the results
+    the lottery has published and Lottizen holds (at least 20 of them)."""
+    lots = {l["id"]: l for l in db.fetch_all("charity_lotteries", "id,name,kind,province,team,url")}
+    eds = [e for e in db.fetch_all("charity_editions", "lottery_id,edition,title,status,jackpot,sales_close,raw")
+           if e.get("status") == "on_sale" and e.get("jackpot") and lots.get(e["lottery_id"], {}).get("kind") == "5050"]
+    res = db.fetch_all("charity_results", "lottery_id,edition,draw_date,pot")
+    pots: dict[str, list] = defaultdict(list)
+    for r in res:
+        if r.get("pot"):
+            pots[r["lottery_id"]].append(r)
+    items = []
+    for e in eds:
+        l = lots[e["lottery_id"]]
+        past = [r for r in pots.get(l["id"], []) if r["edition"] != e["edition"]]
+        if len(past) < 20 or e["raw"] and e["raw"].get("guarantee"):
+            continue
+        top = max(past, key=lambda r: r["pot"])
+        if float(e["jackpot"]) <= float(top["pot"]) or float(e["jackpot"]) < 50000:
+            continue
+        since = min(r["draw_date"] for r in past if r.get("draw_date"))
+        f = Fmt()
+        t = today.isoformat()
+        it = Item(f"charity-5050-record:{l['id']}:{e['edition']}", f"{l['id']}-pot-record-{slugify(e['edition'])}",
+                  "charity_5050_record", "charity", None, t, f)
+        prov = PROVINCE_NAME.get(l["province"], l["province"])
+        it.headline = f"{f.raw(l['name'])} pot reaches {f.money(float(e['jackpot']))}, the largest in its published results since {f.date(since)}"
+        it.dek = (f"The pot for {f.raw(e.get('title') or l['name'])} is above every one of the {f.n(len(past))} "
+                  f"pots in the {f.raw(l['name'])} results Lottizen holds; the largest before was {f.money(float(top['pot']))}.")
+        it.body = [
+            f"{f.raw(l['name'])} publishes the running pot while tickets are on sale. On {f.date(t)} it stood at "
+            f"{f.money(float(e['jackpot']))}. In the {f.n(len(past))} draws whose results it has published since "
+            f"{f.date(since)}, the largest pot was {f.money(float(top['pot']))}, drawn {f.date(top['draw_date'])}.",
+            f"Tickets are sold only to people in {prov}, on the raffle's own site. A bigger pot means more tickets "
+            "were sold, so it doesn't change any one ticket's chance of winning for the better.",
+        ]
+        it.fact("Pot now", f.money(float(e["jackpot"])), f"{l['name']} ticket site", l.get("url"))
+        it.fact("Previous largest pot", f.money(float(top["pot"])), f"{l['name']} published results")
+        it.fact("Results compared", f.n(len(past)), "Lottizen charity results")
+        items.append(it)
+    return items
+
+
+def charity_sold_out_early(today: date) -> list[Item]:
+    """A home lottery whose own site shows it sold out before its final deadline."""
+    lots = {l["id"]: l for l in db.fetch_all("charity_lotteries", "id,name,kind,province,url,operator")}
+    items = []
+    for e in db.fetch_all("charity_editions", "lottery_id,edition,status,sales_close,ticket_cap,draw_date"):
+        l = lots.get(e["lottery_id"])
+        if not l or l["kind"] not in ("home", "raffle") or e.get("status") != "sold_out" or not e.get("sales_close"):
+            continue
+        close = date.fromisoformat(e["sales_close"][:10])
+        if close <= today:
+            continue
+        f = Fmt()
+        t = today.isoformat()
+        days = (close - today).days
+        it = Item(f"charity-sold-out:{l['id']}:{e['edition']}", f"{l['id']}-sold-out-{e['edition'][:10]}",
+                  "charity_sold_out_early", "charity", None, t, f)
+        it.headline = f"{f.raw(l['name'])} sells out {f.n(days)} days before its final deadline"
+        cap = f" all {f.n(e['ticket_cap'])} tickets" if e.get("ticket_cap") else ""
+        it.dek = f"The lottery's site shows it sold out{cap} by {f.date(t)}; its final deadline was {f.date(close)}."
+        it.body = [
+            f"{f.raw(l['name'])} lists itself as sold out. Its rules set the final ticket deadline at {f.date(close)}"
+            + (f", with the grand prize draw on {f.date(e['draw_date'][:10])}." if e.get("draw_date") else "."),
+            "When a home lottery sells out early, its rules usually move the remaining draws earlier; the lottery's "
+            "own site has the dates.",
+        ]
+        it.fact("Status", "sold out", f"{l['name']} site", l.get("url"))
+        it.fact("Final deadline", f.date(close), f"{l['name']} rules")
+        it.fact("Days early", f.n(days), "Lottizen")
+        items.append(it)
+    return items
+
+
 def detect(today: date) -> list[Item]:
     items: list[Item] = []
 
@@ -794,7 +876,7 @@ def detect(today: date) -> list[Item]:
     for slug in ("lotto-max", "lotto-6-49", "daily-grand", "ontario-49", "lottario", "bc-49", "western-max", "western-6-49"):
         items += safe(rare_draw, slug, today)
     for fn in (scratch_top_gone, scratch_new, scratch_top10_out, scratch_pool, province_compare, price_point_compare,
-               unclaimed_deadlines):
+               unclaimed_deadlines, charity_5050_record, charity_sold_out_early):
         items += safe(fn, today)
     return items
 
