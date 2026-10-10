@@ -18,7 +18,7 @@ import { countrySlug, getLiveGame, type GameConfig } from "@/config/games";
 import { PROVINCES, isProvince, type Province } from "@/config/scratch";
 import { getRankings } from "@/lib/data";
 import { getLatestAll, getNumberStat, getStats, hasData } from "@/lib/draws";
-import { drawDate, humanDate, money, price, resolveNextDraw } from "@/lib/format";
+import { currentJackpot, drawDate, humanDate, money, price, resolveNextDraw } from "@/lib/format";
 import { SITE } from "@/lib/site";
 import type { Game } from "@/lib/types";
 
@@ -134,7 +134,7 @@ function ballsHtml(g: GameConfig, numbers: number[], bonus?: number | null, bonu
 
 function jackpotOf(g: GameConfig) {
   const l = getLatestAll().find((x) => x.slug === g.slug);
-  const amount = g.progressive && l?.nextJackpot != null ? l.nextJackpot : null;
+  const amount = currentJackpot(g, l);
   return { latest: l, amount, nextDraw: resolveNextDraw(l?.nextDraw, g.drawDays) };
 }
 

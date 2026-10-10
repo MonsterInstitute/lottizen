@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { countrySlug, getGame } from "@/config/games";
 import { getLatestAll } from "@/lib/draws";
-import { drawDate, money, resolveNextDraw } from "@/lib/format";
+import { currentJackpot, drawDate, money, resolveNextDraw } from "@/lib/format";
 import { Balls } from "@/components/draws/Balls";
 
 const BREAKDOWN_GAMES = new Set(["lotto-max", "lotto-6-49", "daily-grand", "bc-49", "western-max", "western-6-49"]);
@@ -22,10 +22,8 @@ export function DrawsList({ slugs, title }: { slugs: string[]; title: string }) 
           // The operator's jackpot belongs to the draw it was published for.
           // If that draw has passed and the results aren't in yet, the next
           // draw's jackpot is unknown (it resets if someone won), so show none.
-          const jp =
-            g.progressive && l.nextJackpot != null && l.nextDraw === next
-              ? money(l.nextJackpot, { compact: true, currency: g.currency })
-              : null;
+          const j = currentJackpot(g, l);
+          const jp = j != null ? money(j, { compact: true, currency: g.currency }) : null;
           return (
             <li key={g.slug}>
               <div className="home-draw-head">

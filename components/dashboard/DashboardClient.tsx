@@ -8,6 +8,7 @@ import type { LatestGame } from "@/lib/draws";
 import type { Game as ScratchGame } from "@/lib/types";
 import type { Combination, CombinationCheck, EmailLogRow } from "@/lib/supabase-admin";
 import { Balls } from "@/components/draws/Balls";
+import { currentJackpot, resolveNextDraw } from "@/lib/format";
 import { formatCheckResult, CONFIRMATION_NOTE } from "@/lib/prize-language";
 
 // Duplicated (not imported) from lib/subscribe.ts deliberately: that module
@@ -121,12 +122,12 @@ export function DashboardClient({
                     </div>
                     <div className="data-row">
                       <span className="k">Next draw</span>
-                      <span className="v">{latest.nextDraw ?? "—"}</span>
+                      <span className="v">{resolveNextDraw(latest.nextDraw, cfg.drawDays)}</span>
                     </div>
-                    {cfg.progressive && latest.nextJackpot ? (
+                    {currentJackpot(cfg, latest) != null ? (
                       <div className="data-row">
                         <span className="k">Est. jackpot</span>
-                        <span className="v">{cfg.currency} {latest.nextJackpot.toLocaleString()}</span>
+                        <span className="v">{cfg.currency} {currentJackpot(cfg, latest)!.toLocaleString()}</span>
                       </div>
                     ) : null}
                   </>

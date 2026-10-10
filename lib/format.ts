@@ -165,3 +165,19 @@ export function daysBetween(fromYmd: string, toYmd: string): number {
   };
   return Math.round((ms(toYmd) - ms(fromYmd)) / 86_400_000);
 }
+
+/**
+ * The jackpot to show for a game's NEXT draw, or null. The operator's
+ * jackpot figure belongs to the draw it was published for; once that draw
+ * has passed and its results aren't in yet, the next draw's jackpot is
+ * unknown (it resets if someone won), so nothing is shown — never the
+ * previous draw's figure presented as the next one. Every page showing a
+ * jackpot goes through this.
+ */
+export function currentJackpot(
+  g: { progressive?: boolean; drawDays: string[] },
+  l: { nextDraw: string | null; nextJackpot: number | null } | undefined | null,
+): number | null {
+  if (!g.progressive || !l || l.nextJackpot == null || !l.nextDraw) return null;
+  return l.nextDraw === resolveNextDraw(l.nextDraw, g.drawDays) ? l.nextJackpot : null;
+}
