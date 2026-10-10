@@ -88,10 +88,18 @@ export default function PressPage() {
           <h2>Figures you can quote today</h2>
           <p>As of {asOf}. Each links to the page that shows the underlying numbers.</p>
           <ul>
+            {scratch.onSaleAgencies.length > 0 && (
+              <li>
+                <strong>{scratch.totalTopGoneOnSale}</strong> of the {scratch.totalOnSale} scratch games on sale at{" "}
+                {new Intl.ListFormat("en", { type: "conjunction" }).format(scratch.onSaleAgencies)} (the agencies
+                whose current catalog Lottizen can match) have no top prize left (
+                <Link href="/data/canada-lottery-almanac">almanac</Link>).
+              </li>
+            )}
             <li>
-              <strong>{scratch.totalTopGone}</strong> of the {scratch.totalGames} scratch games listed by
-              Canada&rsquo;s five agencies have no top prize left (
-              <Link href="/data/canada-lottery-almanac">almanac</Link>).
+              The five agencies&rsquo; prize lists hold {scratch.totalGames} scratch games, including games that
+              have stopped selling but still have claimable prizes; {scratch.totalTopGone} of those listed games
+              have no top prize left.
             </li>
             {full.map((p) => (
               <li key={p.slug}>

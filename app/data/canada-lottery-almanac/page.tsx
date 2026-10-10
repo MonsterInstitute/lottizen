@@ -8,6 +8,7 @@ import { JsonLd } from "@/components/site/JsonLd";
 import { ScratchDisclaimer } from "@/components/site/ScratchDisclaimer";
 
 const PATH = "/data/canada-lottery-almanac";
+const listFmt = new Intl.ListFormat("en", { type: "conjunction" });
 
 export function generateMetadata(): Metadata {
   const s = scratchFacts();
@@ -65,11 +66,19 @@ export default function AlmanacPage() {
 
       <section className="section">
         <div className="container prose">
-          <h2>Scratch tickets currently listed</h2>
+          <h2>Scratch tickets on the agencies&rsquo; prize lists</h2>
           <p>
-            Lottizen tracks <strong>{scratch.totalGames} scratch games</strong> currently listed by the five
-            agencies. Of those, <strong>{scratch.totalTopGone}</strong> are still listed even though every top
-            prize has already been claimed. The agencies publish this; it is easy to miss when buying a ticket.
+            The five agencies list <strong>{scratch.totalGames} scratch games</strong> with prizes still to be
+            claimed. These lists include games that have stopped selling but whose prizes can still be claimed,
+            so a listed game isn&rsquo;t necessarily on sale.
+            {scratch.onSaleAgencies.length > 0 && (
+              <>
+                {" "}
+                {listFmt.format(scratch.onSaleAgencies)} also publish a current product catalog that Lottizen
+                matches against: <strong>{scratch.totalOnSale}</strong> of their listed games are on sale now, and{" "}
+                <strong>{scratch.totalTopGoneOnSale}</strong> of those on-sale games have no top prize left.
+              </>
+            )}
           </p>
           <div className="table-wrap">
             <table className="prize-table">
@@ -77,7 +86,9 @@ export default function AlmanacPage() {
                 <tr>
                   <th>Agency</th>
                   <th>Games listed</th>
-                  <th>Top prizes all claimed</th>
+                  <th>On sale now</th>
+                  <th>On sale, no top prize left</th>
+                  <th>Listed, no top prize left</th>
                 </tr>
               </thead>
               <tbody>
@@ -89,6 +100,8 @@ export default function AlmanacPage() {
                       </Link>
                     </td>
                     <td className="num">{p.games}</td>
+                    <td className="num">{p.onSaleKnown ? p.onSale : "not published"}</td>
+                    <td className="num">{p.onSaleKnown ? p.topPrizesGoneOnSale.length : "—"}</td>
                     <td className="num">{p.topPrizesGone.length}</td>
                   </tr>
                 ))}
@@ -96,14 +109,15 @@ export default function AlmanacPage() {
             </table>
           </div>
           <p>
-            We count only what each agency still lists. An agency may stop listing a game once its top prizes
-            are gone, so a zero means none in its current data, not necessarily none on store shelves.
+            &ldquo;On sale now&rdquo; means the game is in the agency&rsquo;s current product catalog. Where an
+            agency doesn&rsquo;t publish a catalog Lottizen can match game by game, its on-sale count is shown
+            as not published rather than estimated.
           </p>
-          {scratch.provinces.some((p) => p.topPrizesGone.length) && (
+          {scratch.provinces.some((p) => p.topPrizesGoneOnSale.length) && (
             <p>
-              Highest-priced examples:{" "}
+              On sale with no top prize left, highest-priced example per agency:{" "}
               {scratch.provinces
-                .flatMap((p) => p.topPrizesGone.slice(0, 1).map((g) => ({ p, g })))
+                .flatMap((p) => p.topPrizesGoneOnSale.slice(0, 1).map((g) => ({ p, g })))
                 .map(({ p, g }, i, arr) => (
                   <span key={g.slug}>
                     <Link href={`/scratch/${p.slug}/${g.slug}`}>{g.name}</Link> (${g.price}, {p.agency}, top prize{" "}

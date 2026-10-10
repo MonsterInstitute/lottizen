@@ -414,7 +414,7 @@ def snaps(day: str) -> dict[tuple[str, str], list[dict]]:
 
 def games_index() -> dict[tuple[str, str], dict]:
     return {(g["agency"], g["game_number"]): g for g in db.fetch_all(
-        "games", "game_number,agency,name,slug,province,price,launch_date")}
+        "games", "game_number,agency,name,slug,province,price,launch_date,on_sale")}
 
 
 def prize_phrase(f: Fmt, tier: dict) -> str:
@@ -423,6 +423,21 @@ def prize_phrase(f: Fmt, tier: dict) -> str:
     if is_annuity(label):
         return f"“{f.raw(label)}”"
     return f.money(tier["amount"])
+
+
+def sale_status_text(games: list[dict], agency_name: str) -> str:
+    """What we actually know about whether these games can still be bought.
+    "Still on the prize list" is never written as "on sale" (0025)."""
+    known = [g for g in games if g.get("on_sale") is not None]
+    if not known:
+        return (f"{agency_name} doesn't publish a product catalog Lottizen can match, so whether "
+                + ("this game is" if len(games) == 1 else "these games are") + " still on sale isn't known.")
+    on = [g for g in games if g.get("on_sale") is True]
+    if len(games) == 1:
+        return ("It is still on sale (it's in the agency's current catalog)." if on else
+                "It is no longer in the agency's current catalog; it stays on the list because prizes can still be claimed.")
+    return ("The table shows which are still in the agency's current catalog (on sale) and which are listed only "
+            "because their prizes can still be claimed.")
 
 
 def scratch_top_gone(today: date) -> list[Item]:
@@ -459,14 +474,16 @@ def scratch_top_gone(today: date) -> list[Item]:
             f"{name} publishes how many prizes in each tier are still unclaimed for every scratch ticket it sells. "
             f"Between {f.date(y)} and {f.date(t)}, the count for the top prize fell to zero on "
             + (f"the {f.money(g['price'])} {f.raw(g['name'])}." if len(rows) == 1 else f"{f.n(len(rows))} games."),
-            "The tickets stay on sale until the agency withdraws them, and their lower prizes are still unclaimed. "
-            "A claimed top prize doesn't change the odds printed for any individual ticket, and no agency "
-            "publishes how many tickets remain unsold.",
+            sale_status_text([r[0] for r in rows], name)
+            + " Their lower prizes are still unclaimed. A claimed top prize doesn't change the odds printed for "
+            "any individual ticket, and no agency publishes how many tickets remain unsold.",
         ]
-        it.table = {"columns": ["Game", "Price", "Top prize", "Printed", "Left before", "Left now"],
+        it.table = {"columns": ["Game", "Price", "Top prize", "Printed", "Left before", "Left now", "On sale"],
                     "rows": [[f.raw(r[0]["name"]), f.money(r[0]["price"]), prize_phrase(f, r[1]),
                               f.n(r[1]["total"]) if r[1].get("total") else "not published",
-                              f.n(r[2].get("remaining") or 0), f.n(r[1].get("remaining") or 0)] for r in rows]}
+                              f.n(r[2].get("remaining") or 0), f.n(r[1].get("remaining") or 0),
+                              {True: "yes", False: "no, prize claims only"}.get(r[0].get("on_sale"), "not published")]
+                             for r in rows]}
         it.fact("Agency", name, f"{name} published prize counts")
         it.fact("Games whose last top prize was claimed", f.n(len(rows)), "Lottizen daily snapshots")
         it.fact("Compared", f"{f.date(y)} and {f.date(t)}", "Lottizen daily snapshots")

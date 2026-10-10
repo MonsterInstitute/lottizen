@@ -27,9 +27,17 @@ export interface ProvinceScratchFacts {
   label: string;
   agency: string;
   method: string;
+  /** Games on the agency's prize list — includes games that stopped selling
+   *  but still have claimable prizes. Never call this "on sale". */
   games: number;
-  /** Games still on sale whose top prize tier has 0 remaining. */
+  /** Whether this agency gives a reliable on-sale signal (its catalog). */
+  onSaleKnown: boolean;
+  /** Games in the agency's current catalog (only when onSaleKnown). */
+  onSale: number;
+  /** Listed games whose top prize tier has 0 remaining (on sale or not). */
   topPrizesGone: Game[];
+  /** Of those, the ones still on sale (only meaningful when onSaleKnown). */
+  topPrizesGoneOnSale: Game[];
   /** Only for full-data agencies (printed + remaining for every listed tier). */
   share?: {
     medianPct: number;
@@ -50,7 +58,16 @@ function median(xs: number[]): number {
   return s.length % 2 ? s[m] : Math.round(((s[m - 1] + s[m]) / 2) * 10) / 10;
 }
 
-export function scratchFacts(): { provinces: ProvinceScratchFacts[]; totalGames: number; totalTopGone: number; asOf: string } {
+export function scratchFacts(): {
+  provinces: ProvinceScratchFacts[];
+  totalGames: number;
+  totalTopGone: number;
+  /** On-sale figures, over the agencies with a reliable on-sale signal only. */
+  onSaleAgencies: string[];
+  totalOnSale: number;
+  totalTopGoneOnSale: number;
+  asOf: string;
+} {
   const rankings = getAllRankings();
   const provinces = PROVINCES.map((p) => {
     const r = rankings.find((x) => x.province === p.slug);
@@ -58,13 +75,17 @@ export function scratchFacts(): { provinces: ProvinceScratchFacts[]; totalGames:
     const topPrizesGone = games
       .filter((g) => g.topPrizesTotal !== undefined && g.topPrizesRemaining === 0)
       .sort((a, b) => b.price - a.price || a.name.localeCompare(b.name));
+    const onSaleKnown = games.some((g) => g.onSale === true || g.onSale === false);
     const facts: ProvinceScratchFacts = {
       slug: p.slug,
       label: p.label,
       agency: p.agency === "QUEBEC" ? "Loto-Québec" : p.agency, // config uses the scraper's code
       method: p.scoringMethod,
       games: games.length,
+      onSaleKnown,
+      onSale: games.filter((g) => g.onSale === true).length,
       topPrizesGone,
+      topPrizesGoneOnSale: topPrizesGone.filter((g) => g.onSale === true),
     };
     if (p.scoringMethod === "retention") {
       const withShare = games
@@ -82,6 +103,9 @@ export function scratchFacts(): { provinces: ProvinceScratchFacts[]; totalGames:
     provinces,
     totalGames: provinces.reduce((s, p) => s + p.games, 0),
     totalTopGone: provinces.reduce((s, p) => s + p.topPrizesGone.length, 0),
+    onSaleAgencies: provinces.filter((p) => p.onSaleKnown).map((p) => p.agency),
+    totalOnSale: provinces.reduce((s, p) => s + (p.onSaleKnown ? p.onSale : 0), 0),
+    totalTopGoneOnSale: provinces.reduce((s, p) => s + (p.onSaleKnown ? p.topPrizesGoneOnSale.length : 0), 0),
     asOf,
   };
 }

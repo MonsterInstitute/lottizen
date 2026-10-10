@@ -47,7 +47,7 @@ export function generateMetadata({
   // prize money is still unclaimed, never the odds of a ticket winning.
   const n = games.length;
   const which = n === 1 ? `The only $${p} ${cfg.agency} scratch ticket` : `All ${n} $${p} ${cfg.agency} scratch tickets`;
-  const description = `${which} on sale in ${cfg.label}, ranked by how much of the prize money is still unclaimed.${
+  const description = `${which} on ${cfg.agency}'s prize list in ${cfg.label}, ranked by how much of the prize money is still unclaimed.${
     // No raw score: WCLC's index runs on a different scale (see /methodology).
     best && n > 1 ? ` Ranked first today: ${best.name}.` : ""
   } Updated daily.`;
