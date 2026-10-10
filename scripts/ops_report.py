@@ -62,6 +62,15 @@ RAPIDAPI_LISTING = "https://rapidapi.com/l3rundong/api/lottizen-data-api"
 # off, neither report reads Stripe or shows Plus / MRR / billing rows; the
 # Stripe class below stays so a future paid plan can switch them back on.
 BILLING_LIVE = False
+# Dated reminders that surface as weekly to-dos once their date arrives
+# (owner asked 2026-10-10 to be told when depletion-speed data is enough).
+# Estimates from scratch_rank_snapshots (2026-08-20 on): weeks of weekly
+# prize-money claims needed for the weekly rate to be within ±20%.
+REMINDERS = [
+    ("2026-10-26", "奖金消耗速度：BCLC 全省周消耗率应已稳定（约 9 周数据，±20%）。OLG（约 4 周）和魁北克已足够，可以开始写省级消耗速度报道。"),
+    ("2027-02-06", "奖金消耗速度：单款票、单奖级的消耗率（OLG/BCLC 约 17 周，奖级快照从 2026-10-09 起）应已可信；ALC 全省（约 19 周）也够了。"),
+    ("2027-06-12", "奖金消耗速度：WCLC 全省周消耗率（约 35 周，周间波动大）应已可信；在此之前只用月度数字。"),
+]
 FAILED = {"failure", "timed_out", "startup_failure", "cancelled"}
 
 
@@ -766,6 +775,10 @@ def build_weekly(today: date) -> tuple[str, str]:
         health += row("Workflow 运行", f"{wf['total']} 次", "",
                       f"{sum(f['count'] for f in wf['failures'])} 次失败，{len(unrec)} 个仍未恢复" if wf["failures"] else "本周全部成功")
         actions += [f'Workflow 仍失败：{link(f["url"], f["name"])}' for f in unrec]
+
+    for due, text in REMINDERS:
+        if due <= today.isoformat():
+            actions.append(f"提醒（{due}）：{E(text)}")
 
     issues, _ = try_(gh_json, ["issue", "list", "--repo", repo(), "--label", "auto-monitor", "--state", "open",
                                "--json", "title,url", "--limit", "30"])
