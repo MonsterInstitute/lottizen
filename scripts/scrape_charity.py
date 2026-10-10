@@ -47,6 +47,8 @@ def run_one(lot: dict, backfill: bool) -> tuple[list[dict], list[dict]]:
         return ascend.scrape_pot(lot)
     if p == "tap":
         return tap.scrape(lot)
+    if p == "tap-checkout":
+        return tap.scrape_checkout(lot)
     if p == "moitie":
         return moitie.scrape(lot)
     if p == "bump":
@@ -98,7 +100,13 @@ def main() -> int:
     ap.add_argument("--backfill", action="store_true", help="full results history where the vendor has it")
     args = ap.parse_args()
     lots = [l for l in LOTTERIES if not args.only or l["id"] in args.only.split(",")]
-    db.upsert_rows("charity_lotteries", [lottery_row(l) for l in lots], on_conflict="id")
+    # Gated lotteries (registry `gate`) are listed only once their check
+    # passes; after that they're ordinary rows. "on_sale": a current edition
+    # exists (e.g. a team whose season hasn't started). "rolled": a TAP feed
+    # has moved past the stale titles it showed when we found it.
+    listed = {r["id"] for r in db.fetch_all("charity_lotteries", "id")}
+    db.upsert_rows("charity_lotteries", [lottery_row(l) for l in lots if not l.get("gate") or l["id"] in listed],
+                   on_conflict="id")
 
     today = datetime.now(TZ).date().isoformat()
     drift, failures = [], []
@@ -110,6 +118,14 @@ def main() -> int:
             failures.append(l["id"])
             print(f"  ✗ {l['id']}: {type(e).__name__}: {str(e)[:200]}", file=sys.stderr)
             continue
+        if l.get("gate") and l["id"] not in listed:
+            ok = any(e.get("status") == "on_sale" for e in eds)
+            if not ok:
+                print(f"  … {l['id']}: not listed yet (gate {l['gate']}: no current edition)")
+                continue
+            db.upsert_rows("charity_lotteries", [lottery_row(l)], on_conflict="id")
+            listed.add(l["id"])
+            print(f"  + {l['id']}: gate {l['gate']} passed, now listed")
         rows = []
         for e in eds:
             miss = (e.get("raw") or {}).get("missing")

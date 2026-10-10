@@ -11,6 +11,10 @@ Fields:
   operator, team, platform + ref (how to read it), url, rules_url, buy_url,
   results_url, match (regex on event titles when a vendor tenant hosts
   several raffles).
+  Optional: facts_url (page with the dated deadlines when the rules page has
+  none), target_card (Catch the Ace), event_page (tap-checkout: the charity
+  page linking to the current TAP event), gate + seen (listed only once a
+  current edition shows up — see scripts/scrape_charity.py).
 
 buy_url is the lottery's own page, with no tracking parameters (AGCO: no
 payment per ticket sold to anyone promoting an electronic raffle).
@@ -245,6 +249,38 @@ PHASE2_5050 = [
          province="SK", team="Humboldt Broncos", operator="Humboldt Broncos", platform="tap", ref="273",
          url="https://www.humboldtbroncos.com/",
          buy_url="https://sk.tap5050.com/apex/f?p=TICKETBOOTH:1::::APP:P0_EVENT_ID:38273"),
+    # TAP feeds found 2026-10-10 still showing past games. Gated: listed only
+    # once a feed moves past the `seen` titles to a current game (scrape_charity).
+    dict(id="regina-pats-5050", name="Regina Pats 50/50", kind="5050", phase=2, province="SK", team="Regina Pats",
+         operator="Queen City Foundation", platform="tap", ref="335,1069", gate="rolled",
+         seen=["2026/27 Regina Pats Game 2 vs Prince Albert", "2026/27 Regina Pats Game 1 vs Swift Current"],
+         url="https://chl.ca/whl-pats/5050-2", buy_url="https://chl.ca/whl-pats/5050-2"),
+    dict(id="prince-albert-raiders-5050", name="Prince Albert Raiders 50/50", kind="5050", phase=2, province="SK",
+         team="Prince Albert Raiders", operator="Raider Education Fund", platform="tap", ref="627,1050,1061",
+         gate="rolled", seen=["2026-27 Prince Albert Raiders 50/50 Game 3 Sept 30",
+                              "2026 Prince Albert Raiders Playoffs - PO07"],
+         url="https://chl.ca/whl-raiders/", buy_url="https://chl.ca/whl-raiders/"),
+    dict(id="saskatoon-blades-5050", name="Saskatoon Blades 50/50 (Sask 5050)", kind="5050", phase=2, province="SK",
+         team="Saskatoon Blades", operator="Saskatchewan Community Foundation", platform="tap", ref="1099,1092,77,53",
+         gate="rolled", seen=["2026/27 Blades 5050 Game 3 vs Moose Jaw Oct 9", "2026/27 Blades 5050 Game 2 Oct 2"],
+         url="https://sask-5050.ca/", buy_url="https://sask-5050.ca/"),
+    dict(id="humboldt-broncos-game-day-5050", name="Humboldt Broncos Game Day 50/50", kind="5050", phase=2,
+         province="SK", team="Humboldt Broncos", operator="Humboldt Broncos", platform="tap", ref="426", gate="rolled",
+         seen=["Humboldt GM 5 vs LAR OCT 16/26"], url="https://www.humboldtbroncos.com/",
+         buy_url="https://www.humboldtbroncos.com/"),
+    # Nova Scotia on TAP without an RSS feed: read the checkout page the
+    # charity's own page links to. Gated until an event is on sale (the
+    # Thunderbirds' NLL season starts around December).
+    dict(id="halifax-thunderbirds-5050", name="Halifax Thunderbirds 50/50", kind="5050", phase=2, province="NS",
+         team="Halifax Thunderbirds", operator="Halifax Thunderbirds Lacrosse Giving Inc", platform="tap-checkout",
+         event_page="https://www.halifaxthunderbirds.com/fanzone/5050raffle", gate="on_sale",
+         url="https://www.halifaxthunderbirds.com/fanzone/5050raffle",
+         buy_url="https://www.halifaxthunderbirds.com/fanzone/5050raffle"),
+    dict(id="ns-halftime-5050", name="Nova Scotia's Halftime 50-50 Draw", kind="5050", phase=2, province="NS", team=None,
+         operator="Nova Scotia Heritage Organizations", platform="tap-checkout",
+         event_page="https://nsshf.com/nova-scotias-halftime-50-50-draw/", gate="on_sale",
+         url="https://nsshf.com/nova-scotias-halftime-50-50-draw/",
+         buy_url="https://nsshf.com/nova-scotias-halftime-50-50-draw/"),
     # Atlantic (2026-10-10). Most other Atlantic 50/50s run on Rafflebox (not tracked).
     _b("islanders-5050", "Charlottetown Islanders 50/50", "Charlottetown Islanders", "PE", "charlottetownislanders.ca-api",
        "https://isles5050.ca/", operator="Islanders Education", phase=2),

@@ -542,6 +542,22 @@ def replies_html(rs: list[dict]) -> str:
     return h2("合作方回复了") + table(rows) + note("原信在你的 Gmail（Reply-To），这里只记录它到了。")
 
 
+def new_charity(since: datetime) -> str:
+    """Charity lotteries first listed since `since` — including gated ones
+    (TAP feeds, season starts) that went live on their own."""
+    try:
+        import db
+        rows = db.fetch_all("charity_lotteries", "id,name,province,platform,listed_at",
+                            filters=[("gte", "listed_at", since.isoformat())])
+    except Exception:  # noqa: BLE001
+        return ""
+    if not rows:
+        return ""
+    body = "".join(row(r["name"], r["province"], "", f"{r['platform']} · 已上线 /charity") for r in
+                   sorted(rows, key=lambda r: r["listed_at"]))
+    return h2(f"慈善彩票新上线 {len(rows)} 个") + table(body)
+
+
 def open_rate(rc: dict | None) -> tuple[str, str]:
     if tracking_on() is False:
         return "未开启", "Resend 的 Open Tracking 没开，打开率无法统计（Resend 后台 Domains → mail.lottizen.com → Configuration 打开）"
@@ -741,7 +757,7 @@ def build_daily(today: date) -> tuple[str, str, dict]:
         headline_bits.append(f"MRR ${ps_now['mrr']:,.0f}")
     subject = f"Lottizen 日报 · {cn_date(y)} · " + " · ".join(headline_bits)
     preplies = partner_replies()
-    lat_html = replies_html(preplies) + lat_html
+    lat_html = replies_html(preplies) + new_charity(now - timedelta(days=1)) + lat_html
     if preplies:
         subject = "📬 合作方回复了 · " + subject
     if alerts:
