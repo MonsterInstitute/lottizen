@@ -30,6 +30,10 @@ export function ProRankingBoard({ games, initialFavourites }: ProRankingBoardPro
   const [minTopPrizesRemaining, setMinTopPrizesRemaining] = useState(0);
   const [minRemainingPool, setMinRemainingPool] = useState(0);
   const [search, setSearch] = useState("");
+  // The agencies' prize lists include games that stopped selling (BCLC: most
+  // of them). Default to what a buyer can actually buy, where we know.
+  const saleKnown = games.some((g) => g.onSale === true || g.onSale === false);
+  const [onSaleOnly, setOnSaleOnly] = useState(saleKnown);
   const [goalMode, setGoalMode] = useState<GoalMode>("overall");
   const [favourites, setFavourites] = useState<Set<string>>(
     new Set(initialFavourites.map((f) => favKey(f.agency, f.slug))),
@@ -41,6 +45,7 @@ export function ProRankingBoard({ games, initialFavourites }: ProRankingBoardPro
   const prices = useMemo(() => [...new Set(games.map((g) => Math.round(g.price)))].sort((a, b) => a - b), [games]);
 
   const filtered = rankByGoalMode(games, goalMode).filter((g) => {
+    if (onSaleOnly && g.onSale !== true) return false;
     if (priceFilter !== "all" && Math.round(g.price) !== priceFilter) return false;
     if (g.topPrizesRemaining < minTopPrizesRemaining) return false;
     if ((g.remainingPrizePool ?? 0) < minRemainingPool) return false;
@@ -120,6 +125,14 @@ export function ProRankingBoard({ games, initialFavourites }: ProRankingBoardPro
             onChange={(e) => setMinRemainingPool(Number(e.target.value) || 0)}
           />
         </div>
+        {saleKnown && (
+          <div className="field">
+            <label>
+              <input type="checkbox" checked={onSaleOnly} onChange={(e) => setOnSaleOnly(e.target.checked)} /> On sale
+              now only
+            </label>
+          </div>
+        )}
         <div className="field">
           <label>Search name or game #</label>
           <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="e.g. Bingo, 3087" />
@@ -156,6 +169,7 @@ export function ProRankingBoard({ games, initialFavourites }: ProRankingBoardPro
                 <Link href={`/scratch/${g.province}/${g.slug}`}>{g.name}</Link>
                 <span className="rank-gameno">
                   GAME #{g.gameNumber} · TOP PRIZE {g.topPrizeLabel}
+                  {g.onSale === false ? " · NOT ON SALE (prize claims only)" : ""}
                 </span>
               </div>
               <div className="rank-cell rank-num num-col">

@@ -60,8 +60,12 @@ export function getActivePricePoints(province: Province): number[] {
   return PRICE_POINTS.filter((p) => present.has(p));
 }
 
+/** The province's #1 game a buyer can actually buy: the top-ranked game in
+ *  the agency's current catalog, or the top-ranked game overall where the
+ *  agency gives no on-sale signal. */
 export function getTopPick(province: Province): Game {
-  return getRankings(province).games[0];
+  const games = getRankings(province).games;
+  return games.find((g) => g.onSale === true) ?? games[0];
 }
 
 /** Related games for a detail page: same price first, then next best value —

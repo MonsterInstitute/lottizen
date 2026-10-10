@@ -2,7 +2,7 @@
 """send_claim_reminders.py — the claim engine: work out what was won, then
 make sure nobody loses it to the calendar.
 
-Runs daily, in five passes:
+Runs daily, in six passes:
 
   1. check tickets      Draw tickets logged in the wallet, against the draw
                         that has since happened.
@@ -14,7 +14,10 @@ Runs daily, in five passes:
                         or so after the draw, i.e. usually after the claim was
                         created).
   4. expire             Tickets whose deadline has passed.
-  5. remind             30 / 7 / 3 days before a deadline.
+  5. win notice         One email the day a prize is found (win_notified_at,
+                        0028) — before this, a win surfaced only in the
+                        dashboard and the deadline reminders.
+  6. remind             30 / 7 / 3 days before a deadline.
 
 WHAT COUNTS AS A WIN. Nothing here decides that on its own. A ticket wins when
 the operator's own published prize breakdown (prize_breakdowns, 0015) lists a
@@ -46,13 +49,13 @@ from __future__ import annotations
 import argparse
 import os
 import sys
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import db  # noqa: E402
-from email_templates import claim_reminder_email  # noqa: E402
+from email_templates import claim_reminder_email, win_notice_email  # noqa: E402
 from game_meta import (  # noqa: E402
     CANADIAN_DRAW_CLAIM_DAYS,
     CURRENCY_SYMBOL,
@@ -380,6 +383,61 @@ def expire_tickets(today, dry: bool) -> int:
 # ---------------------------------------------------------------------------
 # Pass 5 — the reminders themselves
 # ---------------------------------------------------------------------------
+def send_win_notices(today, dry: bool) -> tuple[int, int, int]:
+    """One email per newly found prize (win_notified_at is null), sent the day
+    the engine finds it. Expired and already-collected prizes are skipped."""
+    claims = [
+        c for c in db.fetch_all("prize_claims", "*", filters=[("is_", "win_notified_at", "null")])
+        if not c.get("claimed_at") and (not c.get("claim_deadline") or days_until(c["claim_deadline"], today) >= 0)
+    ]
+    if not claims:
+        return 0, 0, 0
+    configured = bool(os.environ.get("RESEND_API_KEY"))
+    subs = {
+        s["id"]: s for s in db.fetch_all(
+            "subscribers", "id,email,magic_token,confirmed_at,unsubscribed_at",
+            filters=[("in_", "id", sorted({c["subscriber_id"] for c in claims}))],
+        )
+    }
+    sent = skipped = failed = 0
+    now = datetime.now(timezone.utc).isoformat()
+    for claim in claims:
+        sub = subs.get(claim["subscriber_id"])
+        if not sub or not sub.get("confirmed_at") or sub.get("unsubscribed_at"):
+            skipped += 1
+            continue
+        if dry or not configured:
+            # As with reminders: never mark on the back of a no-op send.
+            print(f"  [{'dry' if dry else 'skip'}] win notice for claim {claim['id']} -> {mask_email(sub['email'])}")
+            skipped += 1
+            continue
+        log_id = claim_send(sub["id"], "win_notice", f"claim-{claim['id']}")
+        if not log_id:
+            skipped += 1
+            continue
+        meta = GAME_META.get(claim.get("game_slug") or "", {})
+        unsubscribe_url = f"{SITE_URL}/api/subscribe/unsubscribe?token={sub['magic_token']}"
+        subject, html = win_notice_email(
+            game_name=meta.get("name"),
+            prize_tier=pretty_tier(claim.get("prize_tier")),
+            amount=money(claim.get("amount_cents"), meta.get("currency", "CAD")),
+            draw_date=claim.get("draw_date"),
+            deadline=claim.get("claim_deadline"),
+            from_saved_numbers=claim.get("source") == "combination",
+            dashboard_url=f"{SITE_URL}/dashboard",
+            preferences_url=f"{SITE_URL}/subscribe/preferences?token={sub['magic_token']}",
+            unsubscribe_url=unsubscribe_url,
+        )
+        if deliver(log_id, sub["email"], subject, html, unsubscribe_url=unsubscribe_url):
+            sent += 1
+        else:
+            failed += 1
+        # Marked after the attempt either way (a failure shows up in the email
+        # watchdog as a 'failed' email_log row rather than as daily retries).
+        db.update_row("prize_claims", {"win_notified_at": now}, {"id": claim["id"]})
+    return sent, skipped, failed
+
+
 def send_reminders(today, dry: bool) -> tuple[int, int, int]:
     claims = [
         c for c in db.fetch_all("prize_claims", "*", filters=[("is_", "claimed_at", "null")])
@@ -473,8 +531,11 @@ def main() -> int:
     print(f"Amounts filled from published breakdowns: {fill_amounts(dry)}")
     print(f"Tickets expired: {expire_tickets(today, dry)}")
 
+    w_sent, w_skipped, w_failed = send_win_notices(today, dry)
+    print(f"Win notices: {w_sent} sent, {w_skipped} skipped, {w_failed} failed")
     sent, skipped, failed = send_reminders(today, dry)
     print(f"Reminders: {sent} sent, {skipped} skipped, {failed} failed")
+    failed += w_failed
     # Same reasoning as send_draw_emails.py: continue-on-error keeps a bad send
     # from blocking anything, but a real Resend failure has to be visible in
     # the Actions UI rather than looking like a quiet day.

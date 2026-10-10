@@ -1729,3 +1729,52 @@ a.game-card:hover {
     padding: 14px;
   }
 }
+
+/* ---------- Homepage: region blocks (see components/home/RegionScript) ----------
+   Every region's block is in the HTML. Once the inline script has set
+   <html data-home-region>, only that region's block is shown. Without JS
+   (or before it runs) every block shows, in order. */
+html[data-home-region] [data-region-block] { display: none; }
+html[data-home-region="ontario"] [data-region-block="ontario"],
+html[data-home-region="quebec"] [data-region-block="quebec"],
+html[data-home-region="british-columbia"] [data-region-block="british-columbia"],
+html[data-home-region="western"] [data-region-block="western"],
+html[data-home-region="atlantic"] [data-region-block="atlantic"],
+html[data-home-region="usa"] [data-region-block="usa"],
+html[data-home-region="europe"] [data-region-block="europe"] { display: block; }
+
+.home-head { padding: 40px 0 8px; }
+.home-h1 { font-size: clamp(30px, 4.2vw, 52px); margin-bottom: 10px; }
+.region-picker { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.region-btn {
+  font: 600 13.5px/1 var(--font-sans), sans-serif; padding: 9px 14px; border-radius: 999px;
+  border: 1px solid var(--border-2); background: var(--surface); color: var(--ink-2); cursor: pointer;
+}
+.region-btn.active, .region-btn[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.region-btn:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+.home-regions { padding-bottom: 24px; }
+.home-region { padding-top: 18px; }
+.home-region-title { font-family: var(--font-serif), Georgia, serif; font-size: 22px; margin: 0 0 12px; }
+.home-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 18px; margin-bottom: 18px; }
+@media (max-width: 860px) { .home-grid { grid-template-columns: 1fr; } }
+.home-grid > .card { padding: 22px 24px; }
+.home-pick-title { font-family: var(--font-serif), Georgia, serif; font-size: clamp(26px, 3vw, 34px); line-height: 1.15; margin: 8px 0 8px; }
+.home-pick-title a { color: var(--ink); text-decoration: none; }
+.home-price { font-family: var(--font-mono), monospace; font-size: 0.6em; color: var(--ink-2); font-weight: 600; }
+.home-pick-reason { font-size: 15.5px; line-height: 1.55; margin: 0 0 8px; }
+.home-pick-note { font-size: 13px; color: var(--ink-3); margin: 0 0 14px; }
+.home-bands, .home-skip-list, .home-draw-list, .home-ticket-stats { list-style: none; margin: 0; padding: 0; }
+.home-bands li { display: flex; gap: 12px; align-items: baseline; padding: 7px 0; border-top: 1px solid var(--border); font-size: 14.5px; }
+.home-band { font-size: 12px; font-weight: 700; color: var(--ink-3); min-width: 72px; text-transform: uppercase; letter-spacing: 0.04em; }
+.home-skip-lede { font-size: 15.5px; margin: 8px 0 10px; }
+.home-skip-list li { padding: 6px 0; border-top: 1px solid var(--border); font-size: 14.5px; }
+.home-draw-list li { padding: 10px 0; border-top: 1px solid var(--border); }
+.home-draw-head { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 14.5px; }
+.home-draw-name { font-weight: 700; color: var(--ink); text-decoration: none; }
+.home-draw-next { color: var(--ink-2); }
+.home-draw-last { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 6px; }
+.home-ticket-stats li { padding: 6px 0; font-size: 15px; }
+.home-tickets .btn { margin-top: 12px; }
+.home-more { margin: 0 0 8px; font-weight: 600; }
+.home-secondary ul { list-style: none; display: flex; flex-wrap: wrap; gap: 8px 22px; padding: 0; margin: 8px 0 0; }
+.nav-results { display: inline-flex; gap: 10px; align-items: baseline; color: var(--ink-3); font-size: 0.95em; }

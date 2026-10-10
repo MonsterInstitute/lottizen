@@ -372,3 +372,63 @@ def claim_reminder_email(
         unsubscribe_url=unsubscribe_url,
     )
     return subject, html
+
+
+# ---------------------------------------------------------------------------
+# Win notice — sent once, as soon as the claim engine finds that a logged
+# ticket or a saved combination won a cash prize (prize_claims). Before this
+# (2026-10-10) a win surfaced only in the dashboard and in the 30/7/3-day
+# deadline reminders. Same honesty rule as the reminder: the amount is shown
+# only when it's the operator's published figure.
+# ---------------------------------------------------------------------------
+def win_notice_email(
+    *,
+    game_name: str | None,
+    prize_tier: str | None,
+    amount: str | None,
+    draw_date: str | None,
+    deadline: str | None,
+    from_saved_numbers: bool,
+    dashboard_url: str,
+    preferences_url: str,
+    unsubscribe_url: str,
+) -> tuple[str, str]:
+    subject = f"Your {game_name} ticket won" if game_name else "A ticket in your Lottizen wallet won"
+    if from_saved_numbers:
+        subject = f"Your saved {game_name} numbers matched a prize" if game_name else "Your saved numbers matched a prize"
+    what = prize_tier or "A prize tier"
+    if game_name:
+        what += f" on {game_name}"
+    if draw_date:
+        what += f" ({draw_date})"
+    value_line = (
+        f'<p style="margin:0 0 14px;font-size:15px;">That tier paid <strong>{amount}</strong> per winning ticket, '
+        f'according to the operator&rsquo;s published prize breakdown.</p>'
+        if amount
+        else '<p style="margin:0 0 14px;font-size:15px;color:#5c564b;">The operator hasn&rsquo;t published an '
+             'amount for this tier yet, so we won&rsquo;t guess what it&rsquo;s worth.</p>'
+    )
+    check = (
+        "These are numbers you saved, not necessarily a ticket you bought — check whether you played them for "
+        "this draw."
+        if from_saved_numbers
+        else "Check the ticket itself at a retailer or with the operator; their records decide every claim."
+    )
+    parts = [
+        '<p style="margin:0 0 6px;font-weight:600;font-size:13px;text-transform:uppercase;'
+        'letter-spacing:0.04em;color:#9c968a;">Prize found</p>',
+        f'<h1 style="font-family:Georgia,\'Times New Roman\',serif;font-size:22px;font-weight:700;'
+        f'color:#1a1815;margin:0 0 10px;">{what}</h1>',
+        value_line,
+        f'<p style="margin:0 0 14px;font-size:15px;">{check}</p>',
+        (f'<p style="margin:0 0 18px;font-size:15px;">Claim it by <strong>{deadline}</strong>. We&rsquo;ll remind '
+         f'you 30, 7 and 3 days before.</p>' if deadline else ""),
+        btn(dashboard_url, "Open your ticket wallet"),
+    ]
+    html = shell(
+        preview_text=f"{what}." + (f" Claim by {deadline}." if deadline else ""),
+        body_html="".join(parts),
+        preferences_url=preferences_url,
+        unsubscribe_url=unsubscribe_url,
+    )
+    return subject, html
