@@ -7,7 +7,8 @@ import { EU_COUNTRY_CODES } from "@/config/games";
  *                      saskatchewan | manitoba | territories | atlantic |
  *                      usa | europe
  *   data-home-country  CA | US | EU
- * from the visitor's own choice (localStorage, set by RegionSelect; "all"
+ * from the visitor's own choice (localStorage or the lottizen_region cookie,
+ * both set by RegionSelect; "all"
  * clears it), else the lottizen_geo cookie middleware.ts writes from
  * Vercel's geo headers ("CA-ON", "US-NY", "DE-BE"). CSS then HIDES blocks
  * that belong to another region (data-region-block / data-country-scope).
@@ -22,6 +23,7 @@ export function RegionScript() {
 var d=document.documentElement;
 if(/bot|crawl|spider|slurp|inspectiontool|lighthouse|headless/i.test(navigator.userAgent))return;
 var r=null;try{r=localStorage.getItem('lottizen_home_region')}catch(e){}
+if(!r){var k=document.cookie.match(/(?:^|; )lottizen_region=([^;]+)/);if(k)r=decodeURIComponent(k[1])}
 if(r==='all')return;
 if(!r){var m=document.cookie.match(/(?:^|; )lottizen_geo=([^;]+)/);if(m){var p=decodeURIComponent(m[1]).toUpperCase().split('-'),c=p[0],s=p[1]||'';
 if(c==='CA'){r={ON:'ontario',QC:'quebec',BC:'british-columbia',AB:'alberta',SK:'saskatchewan',MB:'manitoba',YT:'territories',NT:'territories',NU:'territories',NB:'atlantic',NS:'atlantic',PE:'atlantic',NL:'atlantic'}[s]||'ontario'}

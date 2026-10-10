@@ -6,19 +6,22 @@ import { SITE } from "@/lib/site";
 import { SubscribeForm } from "@/components/site/SubscribeForm";
 
 /**
- * Five columns by function. Region-specific links carry data-country-scope
- * and follow the same rule as the nav (RegionScript): a visitor from a known
- * region sees their region's results and, in Canada, the scratch column; with
- * no known region everything shows. No links to noindex pages.
+ * Five columns by function. The Results column lists Canada, the USA and
+ * Europe for everyone, whatever their region (internal links for every
+ * region's results). The Scratch column is Canada-only (data-country-scope).
+ * No links to noindex pages.
  */
 export function Footer() {
   const top = (code: Country, n: number) =>
     gamesForCountry(code).filter((g) => g.live && hasData(g.slug)).slice(0, n);
+  // Not region-scoped: every visitor (and crawler) sees all three regions.
   const region = (code: Country, label: string, all: string) => (
-    <div data-country-scope={code} className="footer-region">
-      <span className="footer-sub when-unknown">{label}</span>
+    <div className="footer-region">
+      <span className="footer-sub">
+        <Link href={`/${countrySlug(code)}`}>{label}</Link>
+      </span>
       <ul>
-        {top(code, 3).map((g) => (
+        {top(code, 4).map((g) => (
           <li key={g.slug}>
             <Link href={`/${countrySlug(code)}/${g.slug}`}>{g.name}</Link>
           </li>

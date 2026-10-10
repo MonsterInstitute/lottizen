@@ -1906,3 +1906,4 @@ html[data-home-country="CA"] .picks-jump { display: none; }
 }
 .compare-cta strong { color: var(--brand-deep); white-space: nowrap; }
 .compare-cta:hover { border-color: var(--brand-deep); }
+.footer-sub a { color: var(--ink); text-decoration: none; }

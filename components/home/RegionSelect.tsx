@@ -4,10 +4,16 @@ import { useEffect, useState } from "react";
 import { HOME_REGIONS } from "@/components/home/regions";
 
 const COUNTRY_OF = (r: string) => (r === "usa" ? "US" : r === "europe" ? "EU" : "CA");
+const RESULTS_PAGE = (r: string) => (r === "usa" ? "/usa" : r === "europe" ? "/europe" : "/canada");
 
-/** Region chooser (hero and nav). Remembers the choice in localStorage and
- *  applies it at once to <html data-home-region / data-home-country>, which
- *  the whole page's CSS keys on. "All regions" clears it: everything shows. */
+/** Region chooser (hero, nav, /picks). Every instance does the same thing:
+ *  applies the choice at once to <html data-home-region / data-home-country>,
+ *  which the whole page's CSS keys on, remembers it (localStorage + the
+ *  lottizen_region cookie, both read by RegionScript), and tells the other
+ *  selectors on the page (lottizen-region event) so they stay in sync.
+ *  "All regions" clears it: everything shows. The nav's selector, used away
+ *  from the homepage, then goes to that region's results page (except a
+ *  Canadian province chosen on /picks, which switches the province there). */
 export function RegionSelect({ compact = false }: { compact?: boolean }) {
   const [active, setActive] = useState<string>("all");
   useEffect(() => {
@@ -28,9 +34,14 @@ export function RegionSelect({ compact = false }: { compact?: boolean }) {
     try {
       localStorage.setItem("lottizen_home_region", key);
     } catch {
-      /* private mode: not remembered */
+      /* private mode: the cookie below still remembers it */
     }
+    document.cookie = `lottizen_region=${key}; path=/; max-age=31536000; samesite=lax`;
+    setActive(key);
     window.dispatchEvent(new CustomEvent("lottizen-region", { detail: key }));
+    const path = window.location.pathname;
+    const staysHere = path === "/" || (COUNTRY_OF(key) === "CA" && key !== "all" && path.startsWith("/picks"));
+    if (compact && key !== "all" && !staysHere) window.location.assign(RESULTS_PAGE(key));
   };
   return (
     <label className={compact ? "region-select region-select-compact" : "region-select"}>
