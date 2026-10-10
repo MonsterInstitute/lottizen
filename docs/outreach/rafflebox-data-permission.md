@@ -1,14 +1,15 @@
 To: support@rafflebox.ca
-(Address taken from the contact section of Rafflebox's Terms of Use, https://rafflebox.ca/wp-content/uploads/2026/07/Rafflebox-Terms-of-use.pdf. General help address, also published on rafflebox.ca: help@rafflebox.ca. Put that one in CC.)
+CC: help@rafflebox.ca
+(Address taken from the contact section of Rafflebox's Terms of Use, https://rafflebox.ca/wp-content/uploads/2026/07/Rafflebox-Terms-of-use.pdf. The CC is their general help address, also published on rafflebox.ca.)
 Subject: Request for written permission to list Rafflebox raffles on Lottizen
 
 ---
 
 Hello Rafflebox team,
 
-I run Lottizen (https://lottizen.com), a free, independent site about Canadian lotteries. Next to draw-game results and scratch-ticket data, it now covers charity lotteries: hospital home lotteries, team 50/50s and Catch the Ace. It tracks 91 of them so far, organized by province.
+We run Lottizen (https://lottizen.com), a free, independent site about Canadian lotteries. Next to draw-game results and scratch-ticket data, it now covers charity lotteries: hospital home lotteries, team 50/50s and Catch the Ace. It tracks 91 of them so far, organized by province.
 
-Many of the community raffles our readers ask about run on Rafflebox. Your Terms of Use say that automated access to the platform needs your express prior written consent. So before we include any Rafflebox raffle, I'm writing to ask for that consent, on terms that suit you.
+Many of the community raffles our readers ask about run on Rafflebox. Your Terms of Use say that automated access to the platform needs your express prior written consent. So before we include any Rafflebox raffle, we're writing to ask for that consent, on terms that suit you.
 
 What we'd show for each raffle:
 - Name, charity, licence number and licensing province
@@ -28,9 +29,9 @@ How we'd access the data:
 - Each listing would credit Rafflebox as the platform, if you'd like that.
 - You or any charity can ask us to remove a listing at any time.
 
-If you're open to this, a short written reply granting permission, with any conditions you want attached, is all we need. I'm also happy to talk it through on a call.
+If you're open to this, a short written reply granting permission, with any conditions you want attached, is all we need. We're also happy to talk it through on a call.
 
 Thank you for considering it.
 
-Rundong Li
-Lottizen — https://lottizen.com
+The Lottizen Team
+https://lottizen.com

@@ -1,0 +1,40 @@
+name: Outreach send
+
+# Manual. "info" shows Resend domains/receiving (no send). "send" emails the
+# partnership drafts in docs/outreach/ once each (Resend Idempotency-Key).
+# The owner's Reply-To address is a secret, never an input: logs are public.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        type: choice
+        options: [info, send, replies]
+        default: info
+      files:
+        description: "Drafts to send (space-separated paths under docs/outreach/)"
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  outreach:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Outreach
+        env:
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          OWNER: ${{ secrets.OUTREACH_EMAIL }}
+          OPS: ${{ secrets.OPS_REPORT_EMAIL }}
+          REPLY_WATCH: ${{ vars.OUTREACH_REPLY_WATCH }}
+          MODE: ${{ inputs.mode }}
+          FILES: ${{ inputs.files }}
+        run: |
+          if [ "$MODE" = "send" ]; then
+            for f in $FILES; do case "$f" in docs/outreach/*.md) ;; *) echo "refusing $f"; exit 1;; esac; done
+            python scripts/outreach_send.py send $FILES
+          else python scripts/outreach_send.py "$MODE"; fi
