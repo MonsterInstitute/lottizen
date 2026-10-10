@@ -113,7 +113,7 @@ export default async function DashboardPage({ searchParams }: { searchParams: { 
       </div>
       <section className="section" style={{ paddingTop: 8 }}>
         <div className="container">
-          <div className="section-eyebrow">My tickets</div>
+          <div className="section-eyebrow" id="tickets">My tickets</div>
           <h2 className="section-headline" style={{ fontSize: "clamp(20px,2.4vw,26px)", marginBottom: 14 }}>
             Every ticket you&rsquo;re holding.
           </h2>

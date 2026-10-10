@@ -1783,3 +1783,14 @@ html[data-home-region="alberta"] [data-region-block="alberta"],
 html[data-home-region="saskatchewan"] [data-region-block="saskatchewan"],
 html[data-home-region="manitoba"] [data-region-block="manitoba"],
 html[data-home-region="territories"] [data-region-block="territories"] { display: block; }
+
+/* ---------- Homepage (restored design + region hero cards) ---------- */
+.hero-cards { display: flex; flex-direction: column; gap: 10px; }
+.region-select { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-3); justify-content: flex-end; }
+.region-select select { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--border-2); border-radius: 8px; padding: 5px 8px; }
+.hero-tools { display: flex; flex-wrap: wrap; gap: 6px 14px; }
+.hero-tools a { color: var(--brand-deep); text-decoration: none; font-weight: 600; }
+.home-news-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; margin-top: 28px; }
+.home-news-title { font-family: var(--font-serif), Georgia, serif; font-size: 18px; line-height: 1.3; margin: 8px 0 6px; color: var(--ink); }
+.home-tickets:empty { display: none; }
+.region-select select { width: auto; max-width: 70%; }

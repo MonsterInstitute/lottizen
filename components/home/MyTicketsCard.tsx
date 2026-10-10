@@ -15,7 +15,7 @@ interface Claim {
 /** The signed-in visitor's tickets at a glance (from /api/account/tickets),
  *  or an invitation to log one. Rendered client-side so the page itself
  *  stays static and identical for every visitor. */
-export function MyTicketsCard() {
+export function MyTicketsCard({ onlySignedIn = false }: { onlySignedIn?: boolean } = {}) {
   const [state, setState] = useState<"loading" | "anon" | { tickets: Ticket[]; claims: Claim[] }>("loading");
   useEffect(() => {
     fetch("/api/account/tickets", { credentials: "same-origin" })
@@ -24,8 +24,9 @@ export function MyTicketsCard() {
       .catch(() => setState("anon"));
   }, []);
 
-  if (state === "loading") return <div className="card home-tickets" aria-busy="true" />;
+  if (state === "loading") return onlySignedIn ? null : <div className="card home-tickets" aria-busy="true" />;
   if (state === "anon") {
+    if (onlySignedIn) return null;
     return (
       <div className="card home-tickets">
         <div className="section-eyebrow">Your tickets</div>
