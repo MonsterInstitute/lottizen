@@ -103,7 +103,11 @@ export default function LotteryPage({ params }: { params: { province: string; id
                     {e.cardsLeft}
                     <em>/{e.cardsTotal}</em>
                   </div>
-                  <div className="foot">The ace of spades is one of them until it&rsquo;s drawn.</div>
+                  <div className="foot">
+                    {l.targetCard
+                      ? `The ${l.targetCard} is one of them until it’s drawn.`
+                      : "The winning card is one of them until it’s drawn."}
+                  </div>
                 </div>
               )}
               {l.kind === "catch_the_ace" && (e.weeklyPot != null || e.weeklyPrize != null) && (
@@ -114,11 +118,11 @@ export default function LotteryPage({ params }: { params: { province: string; id
               )}
               {is5050 && e.jackpot != null && e.status === "on_sale" && (
                 <div className="stat-tile">
-                  <div className="k">{l.kind === "catch_the_ace" ? "Ace jackpot" : e.guarantee ? "Guaranteed pot" : "Pot now"}</div>
+                  <div className="k">{l.kind === "catch_the_ace" ? "Progressive jackpot" : e.guarantee ? "Guaranteed pot" : "Pot now"}</div>
                   <div className="v">{money(e.jackpot)}</div>
                   <div className="foot">
                     {l.kind === "catch_the_ace"
-                      ? "Won when the ace of spades is drawn."
+                      ? `Won when the ${l.targetCard ?? "winning card"} is drawn.`
                       : e.percentPrize
                         ? `The total pot; the winner gets ${e.percentPrize}% of it.`
                         : "The total pot."}

@@ -24,7 +24,7 @@ from zoneinfo import ZoneInfo
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import db  # noqa: E402
-from charity import ascend, bump, rules, stride, tap  # noqa: E402
+from charity import ascend, bump, moitie, rules, stride, tap  # noqa: E402
 from charity.registry import LOTTERIES  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -47,12 +47,14 @@ def run_one(lot: dict, backfill: bool) -> tuple[list[dict], list[dict]]:
         return ascend.scrape_pot(lot)
     if p == "tap":
         return tap.scrape(lot)
+    if p == "moitie":
+        return moitie.scrape(lot)
     if p == "bump":
         eds, res = bump.scrape_5050(lot)
-        if backfill:
-            res += bump.history(lot)
-        else:
-            res += bump.history(lot, max_pages=1)
+        try:
+            res += bump.history(lot) if backfill else bump.history(lot, max_pages=1)
+        except Exception as e:  # noqa: BLE001 — keep the live edition when only the history call fails
+            print(f"  ! {lot['id']} history: {e}", file=sys.stderr)
         return eds, res
     if p == "bump-home":
         eds, res = bump.scrape_home(lot)

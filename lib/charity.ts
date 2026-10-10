@@ -93,6 +93,8 @@ export interface CharityLottery {
   buyUrl: string | null;
   resultsUrl: string | null;
   team: string | null;
+  /** Catch the Ace: the card that wins the progressive jackpot, when the rules name it. */
+  targetCard?: string | null;
   current: CharityEdition | null;
   editions: CharityEdition[];
   results: CharityResult[];

@@ -182,10 +182,13 @@ def scrape_home(lot: dict) -> tuple[list[dict], list[dict]]:
                                        f"{base(ref)}/web/event/{ev['id']}"))
         grand = None
         if grand_date:
-            m = re.search(r"(\w+) (\d{1,2}), (\d{4})", grand_date)
+            from .common import FR_DATE_RE, parse_date
+            m = re.search(r"([A-Za-z]+) (\d{1,2}), (\d{4})", grand_date)
+            f = re.search(FR_DATE_RE, grand_date, re.I)
             if m:
-                from .common import parse_date
                 grand = parse_date(m.group(1), m.group(2), m.group(3))
+            elif f:
+                grand = parse_date(f.group(2), f.group(1), f.group(3))
         editions.append({
             "edition": str(ev["id"]), "title": det.get("title"),
             "status": _status(start, end, False, now) if not (end and now > datetime.fromisoformat(end)) else "closed",

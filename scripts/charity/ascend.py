@@ -11,9 +11,29 @@ The recent-winners list is short, so results accumulate in charity_results.
 """
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone
 
 from .common import fetch_json, num
+
+
+# Members-only / season-ticket-holder tiers aren't open to the public.
+MEMBERS = re.compile(r"(?i)\bmembres?\b|\bmembers?\b|season.?ticket|abonn")
+
+
+def on_sale_now(p: dict, now: datetime) -> bool:
+    """A tier's schedule: availableByDefault, flipped inside each exceptPeriod
+    (e.g. a "6 for $5" promo that only runs for a few days)."""
+    s = p.get("schedule") or {}
+    avail = s.get("availableByDefault", True)
+    for per in s.get("exceptPeriods") or []:
+        try:
+            a, b = datetime.fromisoformat(per["startTime"]), datetime.fromisoformat(per["endTime"])
+        except (KeyError, ValueError):
+            continue
+        if a <= now <= b:
+            return not avail
+    return avail
 
 
 def scrape(lot: dict) -> tuple[list[dict], list[dict]]:
@@ -51,8 +71,12 @@ def scrape(lot: dict) -> tuple[list[dict], list[dict]]:
         guarantee = num(str(ev.get("guarantee"))) if ev.get("guarantee") else None
         editions.append({
             "edition": str(n), "title": ev.get("title"), "status": "closed" if closed else "on_sale",
-            "price_tiers": [{"tickets": p.get("numberOfTickets"), "price": num(str(p.get("price"))), "label": p.get("title")}
-                            for p in pts if p.get("display", True) and p.get("numberOfTickets")] or None,
+            "price_tiers": sorted([{"tickets": p.get("numberOfTickets"), "price": num(str(p.get("price"))),
+                                    "label": p.get("title")}
+                                   for p in pts if p.get("display", True) and p.get("numberOfTickets")
+                                   and not p.get("soldOut") and on_sale_now(p, now)
+                                   and not MEMBERS.search(p.get("title") or "")],
+                                  key=lambda x: (x["price"] or 0, x["tickets"])) or None,
             "sales_open": start, "sales_close": end, "draw_date": end,
             # Catch the Ace: the progressive (ace) jackpot; 50/50: the running pot.
             "jackpot": (num(str(pot["jackpot"])) if lot.get("kind") == "catch_the_ace" and pot.get("jackpot")

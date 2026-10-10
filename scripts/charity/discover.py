@@ -17,8 +17,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from charity.common import fetch, fetch_json, text_of  # noqa: E402
 
 LICENCE_PROVINCE = [
-    (r"\bRAF\s?\d{6,8}", "ON"), (r"AGD-\d+", "NS"), (r"LGCA|LCGA", "MB"), (r"BC Gaming|Gaming Event Licen", "BC"),
-    (r"\bLR\d{2}-\d+", "SK"), (r"AGLC", "AB"), (r"RACJ", "QC"), (r"Service NL|\d{2}-\d{8}LT", "NL"),
+    # Quebec first: RACJ licences are "L-0NNNN", and some Quebec Ascend sites
+    # carry a template "RAF1214331" that would otherwise read as Ontario.
+    (r"RACJ|\bL-0\d{4}\b", "QC"), (r"\bRAF\s?\d{6,8}", "ON"), (r"AGD-\d+", "NS"), (r"LGCA|LCGA", "MB"), (r"BC Gaming|Gaming Event Licen", "BC"),
+    (r"\bLR\d{2}-\d+", "SK"), (r"AGLC", "AB"), (r"Service NL|\d{2}-\d{8}LT", "NL"),
     (r"PEI|Prince Edward Island", "PE"), (r"New Brunswick|Nouveau-Brunswick", "NB"),
 ]
 

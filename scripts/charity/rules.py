@@ -45,7 +45,7 @@ def build(lot: dict, rules_text: str, home_text: str = "") -> dict | None:
         "price_tiers": f.get("price_tiers"),
         "draws": [{"name": d["name"], "cutoff": d["cutoff"], "draw_date": d.get("draw_date"), "prize": None, "prize_value": None}
                   for d in dls],
-        "sales_close": close, "draw_date": grand, "sold_out": sold_out, "source_url": lot.get("rules_url"),
+        "sales_close": close, "draw_date": grand, "sold_out": sold_out, "source_url": lot.get("facts_url") or lot.get("rules_url"),
         "raw": {"sold_pct": int(m.group(1)) if (m := SOLD_PCT.search(home_text or "")) else None,
                 "sold_pct_text": m.group(0) if m else None,
                 "quotes": f["quotes"], "eligibility": f.get("eligibility"), "missing": missing,
@@ -54,7 +54,9 @@ def build(lot: dict, rules_text: str, home_text: str = "") -> dict | None:
 
 
 def scrape(lot: dict) -> tuple[list[dict], list[dict]]:
-    rules_html = fetch(lot["rules_url"])
+    # facts_url: the page that publishes the dated deadlines, when the rules
+    # page itself doesn't (e.g. Fill Your Boots' grand-prize page).
+    rules_html = fetch(lot.get("facts_url") or lot["rules_url"])
     home = ""
     if lot.get("url") and lot["url"] != lot["rules_url"]:
         try:

@@ -60,7 +60,7 @@ def text_of(page_html: str) -> str:
     t = re.sub(r"(?is)<(script|style|noscript|svg)[^>]*>.*?</\1>", " ", page_html)
     t = re.sub(r"(?i)<br\s*/?>|</(p|li|h\d|div|tr|td|th|section)>", " | ", t)
     t = re.sub(r"<[^>]+>", " ", t)
-    t = htmlmod.unescape(t).replace("\xa0", " ")
+    t = htmlmod.unescape(t).replace("\xa0", " ").replace("\u202f", " ")
     t = re.sub(r"[ \t\r\n]+", " ", t)
     return re.sub(r"(\s*\|\s*)+", " | ", t).strip()
 
@@ -70,9 +70,16 @@ def now_iso() -> str:
 
 
 def num(s: str | None) -> float | None:
+    """'1,250,000' / '$70,099' / '6086.00', and French '1 250 000 $' /
+    '29 260,00 $' (space thousands, comma decimals)."""
     if s is None:
         return None
-    s = s.replace(",", "").replace("$", "").strip()
+    s = s.replace("$", "").replace("\xa0", " ").replace("\u202f", " ").strip()
+    if re.fullmatch(r"\d{1,3}(?: \d{3})*,\d{1,2}", s):
+        s = s.replace(" ", "").replace(",", ".")
+    elif re.fullmatch(r"\d{1,3}(?: \d{3})+(?:\.\d+)?", s):
+        s = s.replace(" ", "")
+    s = s.replace(",", "")
     try:
         return float(s)
     except ValueError:
@@ -86,8 +93,19 @@ MON_RE = r"(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|June?|July?|Aug
 DATE_RE = MON_RE + r"\s+(\d{1,2})(?:st|nd|rd|th)?,?\s+(\d{4})"
 
 
+FR_MONTHS = {"janvier": 1, "janv": 1, "février": 2, "fevrier": 2, "févr": 2, "fevr": 2, "mars": 3, "avril": 4,
+             "avr": 4, "mai": 5, "juin": 6, "juillet": 7, "juil": 7, "août": 8, "aout": 8, "septembre": 9,
+             "sept": 9, "octobre": 10, "oct": 10, "novembre": 11, "nov": 11, "décembre": 12, "decembre": 12,
+             "déc": 12, "dec": 12}
+FR_MON_RE = r"(janv(?:ier)?|f[ée]vr(?:ier)?|mars|avr(?:il)?|mai|juin|juil(?:let)?|ao[uû]t|sept(?:embre)?|oct(?:obre)?|nov(?:embre)?|d[ée]c(?:embre)?)\.?"
+# "15 novembre 2026", "1er juin 2026", "jeudi 15 octobre 2026"
+FR_DATE_RE = r"(\d{1,2})(?:er)?\s+" + FR_MON_RE + r"\s+(\d{4})"
+
+
 def parse_date(mon: str, day: str, year: str) -> str | None:
     m = mon.lower().rstrip(".")
+    if m in FR_MONTHS and m not in ("dec", "oct", "nov", "sept"):
+        return f"{int(year):04d}-{FR_MONTHS[m]:02d}-{int(day):02d}"
     for name, i in MONTHS.items():
         if name.startswith(m[:3]):
             return f"{int(year):04d}-{i:02d}-{int(day):02d}"

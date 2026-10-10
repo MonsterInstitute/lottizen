@@ -19,7 +19,7 @@ export function LotteryCard({ l }: { l: CharityLottery }) {
       {l.operator && <div className="field-hint">{l.operator}</div>}
       {e && l.kind !== "home" && e.jackpot != null && e.status === "on_sale" && (
         <div className="charity-figure">
-          <span className="lbl">{l.kind === "catch_the_ace" ? "Ace jackpot" : e.guarantee ? "Guaranteed pot" : "Pot now"}</span>
+          <span className="lbl">{l.kind === "catch_the_ace" ? "Progressive jackpot" : e.guarantee ? "Guaranteed pot" : "Pot now"}</span>
           <span className="amt">{money(e.jackpot)}</span>
         </div>
       )}

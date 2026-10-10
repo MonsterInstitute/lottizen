@@ -15,6 +15,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import db  # noqa: E402
+from charity.registry import LOTTERIES  # noqa: E402
+
+TARGET = {x["id"]: x.get("target_card") for x in LOTTERIES}
 
 ROOT = Path(__file__).resolve().parent.parent
 OPEN = ("on_sale", "sold_out", "upcoming")
@@ -101,7 +104,7 @@ def main() -> int:
             "province": l["province"], "provinces": l.get("provinces") or [l["province"]],
             "licenceAuthority": l.get("licence_authority"), "platform": l.get("platform"), "url": l.get("url"),
             "rulesUrl": l.get("rules_url"), "buyUrl": l.get("buy_url"), "resultsUrl": l.get("results_url"),
-            "team": l.get("team"),
+            "team": l.get("team"), "targetCard": TARGET.get(l["id"]),
             "current": edition_json(current, snaps_of.get((l["id"], current["edition"]), [])) if current else None,
             "editions": [edition_json(e, []) for e in recent[:12]],
             "results": results,

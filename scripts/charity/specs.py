@@ -136,6 +136,10 @@ SPECS: dict[str, dict] = {
         ],
         "licence": r"Lottery Licence #(\S+LT)",
     },
+    "fill-your-boots-5050": {
+        "deadlines": [r"DEADLINE {D} \| DRAW DATE {D}"],
+        "licence": r"Lottery Licence #(\S+LT)",
+    },
     "london-dream-lottery": {
         "cap": r"maximum of ([\d,]+) tickets available for sale",
         "prizes": r"([\d,]+) prizes will be awarded in the Dream Lottery",
