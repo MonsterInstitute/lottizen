@@ -122,10 +122,33 @@ def parse_games(html: str) -> list[dict]:
 
 
 CURRENT_URL = "https://www.wclc.com/games/scratch-win/current-tickets.htm"
+LAUNCH: dict[str, str] = {}   # game number -> launch date, from the Active Tickets page
+COMING: list[dict] = []       # the "Coming Soon" tab
 
 
 def _key(name: str, price: float) -> str:
     return f"{price:g}|" + re.sub(r"[^a-z0-9]", "", name.lower())
+
+
+def _thumbs(container) -> list[dict]:
+    """[{number, name, price, launch_date}] from a tab's snwThumb entries.
+    Launch timestamps read like "Tue Oct 06 06:00:00 CDT 2026"."""
+    from datetime import datetime as _dt
+    out = []
+    for th in container.find_all(class_="snwThumb"):
+        name_el, date_el = th.find(class_="snwThumbName"), th.find(class_="snwThumbDate")
+        m = re.match(r"^\$([\d.]+)\s+(.*?)(?:\s+-\s+(\d+))?$", name_el.get_text(" ", strip=True) if name_el else "")
+        if not m:
+            continue
+        launch = None
+        if date_el:
+            parts = date_el.get_text(" ", strip=True).split()
+            try:  # drop the timezone abbreviation, which strptime can't parse portably
+                launch = _dt.strptime(" ".join(parts[:3] + parts[-1:]), "%a %b %d %Y").date().isoformat()
+            except ValueError:
+                launch = None
+        out.append({"number": m.group(3), "name": m.group(2), "price": float(m.group(1)), "launch_date": launch})
+    return out
 
 
 def fetch_on_sale() -> tuple[set[str], set[str]] | None:
@@ -146,17 +169,19 @@ def fetch_on_sale() -> tuple[set[str], set[str]] | None:
         print("  ! WCLC active-tickets tab not found; on-sale status left unknown", file=sys.stderr)
         return None
     nums, keys = set(), set()
-    for el in tab.find_all(class_="snwThumbName"):
-        text = el.get_text(" ", strip=True)
-        m = re.match(r"^\$([\d.]+)\s+(.*?)(?:\s+-\s+(\d+))?$", text)
-        if not m:
-            continue
-        if m.group(3):
-            nums.add(m.group(3))
+    global LAUNCH, COMING
+    LAUNCH, COMING = {}, []
+    for t in _thumbs(tab):
+        if t["number"]:
+            nums.add(t["number"])
+            if t["launch_date"]:
+                LAUNCH[t["number"]] = t["launch_date"]
         else:
             # Only for entries with no number: older printings share a name and
             # price with the current one ("The Western" 25395/25402/25410 vs 25419).
-            keys.add(_key(m.group(2), float(m.group(1))))
+            keys.add(_key(t["name"], t["price"]))
+    coming = soup.find(id="snwComingTicketsTab")
+    COMING = [t for t in _thumbs(coming) if t["number"]] if coming else []
     if len(nums) < 20:  # WCLC shows ~70; far fewer means the page changed
         print(f"  ! WCLC active tickets parsed to {len(nums)}; on-sale status left unknown", file=sys.stderr)
         return None
@@ -179,6 +204,18 @@ def run_live() -> int:
     active = fetch_on_sale()
     for g in games:
         g["on_sale"] = (g["game_number"] in active[0] or _key(g["name"], g["price"]) in active[1]) if active else None
+        g["launch_date"] = LAUNCH.get(g["game_number"])
+    if active is not None:
+        from datetime import date as _date
+        db.get_client().table("scratch_coming_soon").delete().eq("agency", AGENCY).execute()
+        if COMING:
+            db.upsert_rows("scratch_coming_soon", [
+                {"agency": AGENCY, "game_number": c["number"], "name": c["name"], "price": c["price"],
+                 # The Coming Soon tab's dates are listing dates (already past
+                 # on 2026-10-10), not launch dates, so none is stored.
+                 "launch_date": None, "captured_on": _date.today().isoformat()} for c in COMING],
+                on_conflict="agency,game_number")
+        print(f"  launch dates for {sum(1 for g in games if g['launch_date'])} games; {len(COMING)} coming soon")
     if active:
         print(f"  on sale (WCLC active tickets): {sum(1 for g in games if g['on_sale'])}/{len(games)}")
     n = db.replace_scratch_games(AGENCY, PROVINCE, games, source="wclc-live")

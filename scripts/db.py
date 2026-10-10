@@ -289,6 +289,8 @@ _PAGE_KEYS: dict[str, tuple[str, ...]] = {
     "scratch_favourites": ("subscriber_id", "agency", "game_slug"),
     "indexnow_urls": ("url",),
     "table_row_counts": ("captured_date", "table_name"),
+    "scratch_launch_dates": ("agency", "game_number"),
+    "scratch_coming_soon": ("agency", "game_number"),
 }
 
 

@@ -1778,3 +1778,4 @@ html[data-home-region="europe"] [data-region-block="europe"] { display: block; }
 .home-more { margin: 0 0 8px; font-weight: 600; }
 .home-secondary ul { list-style: none; display: flex; flex-wrap: wrap; gap: 8px 22px; padding: 0; margin: 8px 0 0; }
 .nav-results { display: inline-flex; gap: 10px; align-items: baseline; color: var(--ink-3); font-size: 0.95em; }
+.home-grid > .home-new { grid-column: 1 / -1; }

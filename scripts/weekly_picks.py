@@ -67,6 +67,18 @@ def skip_list(games: list[dict]) -> list[dict]:
                   key=lambda g: (-g["price"], g["name"]))
 
 
+NEW_DAYS = 35
+
+
+def new_tickets(games: list[dict], today: date) -> list[dict]:
+    """On sale and launched within the last NEW_DAYS days, newest first. A new
+    game has had the least time for its prizes to be claimed — a statement
+    about prize money, never about odds."""
+    since = (today - timedelta(days=NEW_DAYS)).isoformat()
+    return sorted((g for g in games if g.get("on_sale") is True and g.get("launch_date") and since <= g["launch_date"] <= today.isoformat()),
+                  key=lambda g: (g["launch_date"], g["price"]), reverse=True)
+
+
 def why_replaced(g: dict | None) -> str | None:
     """None if a stored pick is still eligible, else the reason it isn't."""
     if g is None:
@@ -134,6 +146,7 @@ def run(dry: bool) -> int:
     ws = week_start(today)
     games = load_games()
     client = db.get_client()
+    coming = db.fetch_all("scratch_coming_soon", "agency,game_number,name,price")
     stored = db.fetch_all("weekly_picks", "id,week_start,province,band,agency,game_number,game_slug,chosen_on,"
                                           "replaced_on,replaced_reason",
                           filters=[("eq", "week_start", ws.isoformat())])
@@ -178,6 +191,10 @@ def run(dry: bool) -> int:
                                               "old": {"name": (by_key.get(r["game_number"]) or {}).get("name", r["game_slug"]),
                                                       "slug": r["game_slug"]}})
         entry["skip"] = [public(g) for g in skip_list(gs)]
+        entry["newTickets"] = [public(g) | {"launch_date": g["launch_date"]} for g in new_tickets(gs, today)]
+        entry["launchDatesKnown"] = any(g.get("launch_date") for g in gs)
+        entry["comingSoon"] = [{"name": c["name"], "price": float(c["price"]), "game_number": c["game_number"]}
+                               for c in coming if c["agency"] == agency]
     for prov, e in result["provinces"].items():
         p = e["picks"].get("overall")
         print(f"{e['label']}: " + (f"pick {p['name']} (${p['price']:.0f}); " if p else "no pick; ")

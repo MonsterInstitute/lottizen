@@ -37,6 +37,12 @@ export interface ProvincePicks {
   picks: Partial<Record<"overall" | "1-5" | "10" | "20+", PickGame | null>>;
   replacements: { band: string; on: string; reason: string; old: { name: string; slug: string } }[];
   skip: PickGame[];
+  /** On sale, launched in the last 35 days, newest first. */
+  newTickets?: (PickGame & { launch_date: string })[];
+  /** False where the agency publishes no launch dates (OLG). */
+  launchDatesKnown?: boolean;
+  /** Announced but not launched (WCLC only); no date is published for these. */
+  comingSoon?: { name: string; price: number; game_number: string }[];
 }
 
 export interface PicksFile {

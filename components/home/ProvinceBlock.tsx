@@ -116,6 +116,35 @@ export function ProvinceBlock({ p }: { p: ProvincePicks }) {
           the latest daily refresh.
         </p>
       </div>
+
+      <div className="card home-new">
+        <div className="section-eyebrow">New tickets</div>
+        {p.launchDatesKnown === false ? (
+          <p className="field-hint">{p.agencyName} doesn&rsquo;t publish launch dates.</p>
+        ) : p.newTickets && p.newTickets.length ? (
+          <>
+            <p className="home-skip-lede">
+              Launched in the last five weeks. A new ticket has had the least time for its prizes to be claimed.
+            </p>
+            <ul className="home-skip-list">
+              {p.newTickets.slice(0, 5).map((g) => (
+                <li key={g.game_number}>
+                  <Link href={href(g)}>{g.name}</Link> <span className="home-price">{money(g.price)}</span>
+                  <span className="field-hint"> · launched {drawDate(g.launch_date)}</span>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : (
+          <p className="field-hint">No new {p.agencyName} tickets in the last five weeks.</p>
+        )}
+        {p.comingSoon && p.comingSoon.length > 0 && (
+          <p className="field-hint" style={{ marginTop: 10 }}>
+            Coming soon ({p.agencyName} hasn&rsquo;t published dates):{" "}
+            {p.comingSoon.map((c) => `${c.name} (${money(c.price)})`).join(", ")}.
+          </p>
+        )}
+      </div>
     </div>
   );
 }

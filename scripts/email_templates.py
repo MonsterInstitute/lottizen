@@ -282,6 +282,11 @@ def picks_section(p: dict) -> str:
         out.append(f'<p style="margin:0 0 4px;font-size:14.5px;"><strong>Skip:</strong> {len(skip)} '
                    f'{"ticket" if len(skip) == 1 else "tickets"} still on sale in {p["label"]} '
                    f'{"has" if len(skip) == 1 else "have"} no top prize left: {names}</p>')
+    new = p.get("newTickets") or []
+    if new:
+        names = ", ".join(f'{x["name"]} ({money(x["price"])}, {x["launch_date"]})' for x in new[:4])
+        out.append(f'<p style="margin:10px 0 4px;font-size:14.5px;"><strong>New tickets:</strong> {names}. '
+                   f'A new ticket has had the least time for its prizes to be claimed.</p>')
     out.append(f'<p style="margin:0 0 20px;font-size:13px;"><a href="{SITE_URL}/" style="color:#c2652a;">'
                f'See this week&rsquo;s pick and skip list for {p["label"]} &rarr;</a></p>')
     return ('<div style="margin:0 0 24px;padding:16px 18px;border:1px solid #e6e0d4;border-radius:10px;">'

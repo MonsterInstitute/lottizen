@@ -67,3 +67,11 @@ def test_replacement_reasons():
 def test_week_starts_monday():
     assert wp.week_start(date(2026, 10, 10)) == date(2026, 10, 5)   # Saturday -> Monday
     assert wp.week_start(date(2026, 10, 12)) == date(2026, 10, 12)  # Monday
+
+
+def test_new_tickets_are_on_sale_recent_and_newest_first():
+    today = date(2026, 10, 10)
+    games = [dict(g("Old", 5, 1), launch_date="2026-08-01"), dict(g("New", 5, 1), launch_date="2026-10-05"),
+             dict(g("Newer", 2, 1), launch_date="2026-10-07"), dict(g("Off", 5, 1, on_sale=False), launch_date="2026-10-08"),
+             dict(g("Future", 5, 1), launch_date="2026-10-20"), dict(g("NoDate", 5, 1), launch_date=None)]
+    assert [x["name"] for x in wp.new_tickets(games, today)] == ["Newer", "New"]
