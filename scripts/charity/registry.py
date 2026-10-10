@@ -238,4 +238,62 @@ PHASE2_5050 = [
        "https://rogersarena5050.com/", operator="Canucks for Kids Fund", phase=2),
 ]
 
-LOTTERIES = PHASE1_HOME + PHASE1_5050 + PHASE2_5050
+def _p(id, name, province, pot_url, url, operator=None):
+    """Old Ascend WordPress sites: only the running pot is published."""
+    return dict(id=id, name=name, kind="5050", phase=2, province=province, operator=operator, team=None,
+                platform="ascend-pot", ref=pot_url, url=url, buy_url=url)
+
+
+AWS = "https://{}.execute-api.us-west-2.amazonaws.com/v1/{}/currentpot"
+
+# Hospital and charity 50/50s and Catch the Ace (phase 2), found by reading
+# each charity's own site (scripts/charity/discover.py).
+PHASE2_CHARITY = [
+    _b("almonte-catch-the-ace", "Almonte Catch the Ace", None, "ON", "almonte.ca-api", "https://catchtheacealmonte.ca/",
+       operator="Almonte General Hospital", phase=2) | {"kind": "catch_the_ace"},
+    _b("hospice-niagara-catch-the-ace", "Hospice Niagara Catch the Ace", None, "ON", "hospiceniagaracta.ca-api",
+       "https://catchtheaceniagara.ca/", operator="Hospice Niagara", phase=2) | {"kind": "catch_the_ace"},
+    _b("sickkids-catch-the-ace", "SickKids Catch the Ace", None, "ON", "sickkidscta.ca-api", "https://www.sickkidsace.ca/",
+       operator="SickKids Foundation", phase=2) | {"kind": "catch_the_ace"},
+    _b("thunder-bay-catch-the-ace", "Thunder Bay Catch the Ace", None, "ON", "tbhcta.ca-api",
+       "https://thunderbaycatchtheace.ca/", operator="Thunder Bay Regional Health Sciences Foundation",
+       phase=2) | {"kind": "catch_the_ace"},
+    _b("thunder-bay-hospital-5050", "Thunder Bay 50/50", None, "ON", "tbh.ca-api", "https://www.tbay5050draw.ca/",
+       operator="Thunder Bay Regional Health Sciences Foundation", phase=2),
+    _a("niagara-health-5050", "Niagara Health Lottery 50/50", None, "ON", ASC_PUB + "niagarahealthraffle.5050central.com",
+       "https://niagarahealthlottery.com/", operator="Niagara Health Foundation", phase=2),
+    _a("one-great-lottery-5050", "One Great Lottery 50/50", None, "MB", ASC_PUB + "onegreatlotteryraffle.5050central.com",
+       "https://onegreatlottery.ca/", phase=2),
+    _a("st-josephs-hamilton-5050", "St. Joseph's Healthcare Foundation 50/50", None, "ON",
+       ASC_PUB + "stjoesfoundationraffle.5050central.com", "https://stjoeslottery.ca/",
+       operator="St. Joseph's Healthcare Foundation (Hamilton)", phase=2),
+    _a("markham-stouffville-hospital-5050", "Markham Stouffville Hospital Foundation 50/50", None, "ON",
+       ASC_PUB + "mshfraffle.5050central.com", "https://mshf5050.ca/", operator="Markham Stouffville Hospital Foundation", phase=2),
+    _a("carleton-place-catch-the-ace", "Carleton Place Catch the Ace", None, "ON", ASC_PUB + "carletonplaceraffle.5050central.com",
+       "https://cpcatchtheace.ca/", phase=2, kind="catch_the_ace"),
+    _a("knights-of-columbus-bc-5050", "Knights of Columbus (BC) Charity Foundation 50/50", None, "BC",
+       ASC_PUB + "kofcbcraffle.5050central.com", "https://kofccharity.ca/", operator="Knights of Columbus (BC) Charity Foundation", phase=2),
+    _a("pembroke-catch-the-ace", "Pembroke Regional Hospital Catch the Ace", None, "ON", ASC_PUB + "prhfraffle.5050central.com",
+       "https://prhcatchtheace.ca/", operator="Pembroke Regional Hospital Foundation", phase=2, kind="catch_the_ace"),
+    _a("rvh-auxiliary-5050", "RVH Auxiliary Community 50/50", None, "ON", ASC_PUB + "rvhraffle.5050central.com",
+       "https://rvhauxiliary5050.com/", operator="Royal Victoria Regional Health Centre Auxiliary", phase=2),
+    _a("windsor-regional-hospital-5050", "Windsor Regional Hospital Foundation 50/50", None, "ON",
+       ASC_PUB + "wrhraffle.5050central.com", "https://wrhlottery.ca/", operator="Windsor Regional Hospital Foundation", phase=2),
+    _a("cnib-catch-the-ace", "CNIB Catch the Ace", None, "ON", ASC_PRD + "cnibcta.5050central.com",
+       "https://www.cnibcatchtheace.ca/", operator="CNIB Foundation", phase=2, kind="catch_the_ace"),
+    _p("childrens-hospital-manitoba-5050", "Children's Hospital Foundation of Manitoba 50/50", "MB",
+       AWS.format("3qr4fsmr9b", "44c01b1e"), "https://www.goodbear5050.ca/", "Children's Hospital Foundation of Manitoba"),
+    _p("iwk-5050-nova-scotia", "IWK Foundation 50/50 (Nova Scotia)", "NS", AWS.format("zzku2i44ld", "23db63fd"),
+       "https://www.iwk5050ns.ca/", "IWK Foundation"),
+    _p("iwk-5050-pei", "IWK Foundation 50/50 (PEI)", "PE", AWS.format("zzku2i44ld", "a0f89401"),
+       "https://www.iwk5050pei.ca/", "IWK Foundation"),
+    _p("special-olympics-manitoba-5050", "Special Olympics Manitoba 50/50", "MB", AWS.format("tk8pl7kim1", "a0d55ca3"),
+       "https://www.mb5050.ca/", "Special Olympics Manitoba"),
+    _p("nature-canada-5050", "Nature Canada 50/50", "ON", AWS.format("tk8pl7kim1", "cd8b559d"),
+       "https://www.nature5050.com/", "Nature Canada"),
+    _p("peterborough-regional-health-5050", "Peterborough Regional Health Centre Foundation 50/50", "ON",
+       AWS.format("tk8pl7kim1", "6b022a8e"), "https://www.prhcfoundation5050.com/", "PRHC Foundation"),
+    _p("central-alberta-child-advocacy-5050", "Central Alberta Child Advocacy Centre 50/50", "AB",
+       AWS.format("ccbqel594l", "02024038"), "https://www.cacac5050.ca/", "Central Alberta Child Advocacy Centre"),
+]
+LOTTERIES = PHASE1_HOME + PHASE1_5050 + PHASE2_5050 + PHASE2_CHARITY

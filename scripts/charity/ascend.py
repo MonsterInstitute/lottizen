@@ -35,6 +35,17 @@ def scrape(lot: dict) -> tuple[list[dict], list[dict]]:
             pts = fetch_json(f"{b}/getpricepoints/{n}") or []
         except Exception:  # noqa: BLE001
             pts = []
+        cta = {}
+        if lot.get("kind") == "catch_the_ace":
+            try:
+                deck = fetch_json(f"{b}/getcarddeck") or {}
+                total = deck.get("cardCount")
+                if total:
+                    cta = {"cards_total": total, "cards_left": total - len(deck.get("revealedCards") or [])}
+            except Exception:  # noqa: BLE001
+                pass
+            if pot.get("jackpot"):
+                cta["weekly_pot"] = pot.get("currentEventPot")
         start, end = ev.get("salesStart"), ev.get("salesEnd")
         closed = bool(ev.get("sellingClosed")) or (end and datetime.fromisoformat(end.replace("Z", "+00:00")) < now)
         guarantee = num(str(ev.get("guarantee"))) if ev.get("guarantee") else None
@@ -43,10 +54,12 @@ def scrape(lot: dict) -> tuple[list[dict], list[dict]]:
             "price_tiers": [{"tickets": p.get("numberOfTickets"), "price": num(str(p.get("price"))), "label": p.get("title")}
                             for p in pts if p.get("display", True) and p.get("numberOfTickets")] or None,
             "sales_open": start, "sales_close": end, "draw_date": end,
-            "jackpot": num(str(pot.get("currentEventPot"))) if pot.get("currentEventPot") is not None else None,
+            # Catch the Ace: the progressive (ace) jackpot; 50/50: the running pot.
+            "jackpot": (num(str(pot["jackpot"])) if lot.get("kind") == "catch_the_ace" and pot.get("jackpot")
+                        else num(str(pot.get("currentEventPot"))) if pot.get("currentEventPot") is not None else None),
             "jackpot_at": now.replace(microsecond=0).isoformat(),
             "sold_out": None, "source_url": f"{b}/getpot/{n}",
-            "raw": {"guarantee": guarantee, "funds": ev.get("fundsBreakdown")},
+            "raw": {"guarantee": guarantee, "funds": ev.get("fundsBreakdown"), **cta},
         })
     try:
         winners = fetch_json(f"{b}/getrecentwinners") or []
@@ -65,3 +78,14 @@ def scrape(lot: dict) -> tuple[list[dict], list[dict]]:
             "source_url": f"{b}/getrecentwinners",
         })
     return editions, results
+
+
+def scrape_pot(lot: dict) -> tuple[list[dict], list[dict]]:
+    """Older Ascend WordPress sites publish only the running pot."""
+    j = fetch_json(lot["ref"]) or {}
+    total = num(str(j.get("total"))) if j.get("total") is not None else None
+    now = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+    if not total:
+        return [], []
+    return [{"edition": "current", "title": None, "status": "on_sale", "jackpot": total, "jackpot_at": now,
+             "source_url": lot["url"], "raw": {"pot_only": True}}], []

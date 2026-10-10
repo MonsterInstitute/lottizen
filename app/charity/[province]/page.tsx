@@ -67,7 +67,7 @@ export default function ProvinceCharity({ params }: { params: { province: string
       {fifties.length > 0 && (
         <section className="section" style={{ paddingTop: 12 }}>
           <div className="container">
-            <h2 className="section-headline">50/50s on sale</h2>
+            <h2 className="section-headline">50/50s and Catch the Ace on sale</h2>
             <div className="charity-grid">
               {fifties.map((l) => (
                 <LotteryCard key={l.id} l={l} />

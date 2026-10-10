@@ -96,12 +96,32 @@ export default function LotteryPage({ params }: { params: { province: string; id
                   <div className="foot">{fmtDeadline(next.at, l.province)}</div>
                 </div>
               )}
+              {l.kind === "catch_the_ace" && e.cardsLeft != null && e.cardsTotal != null && (
+                <div className="stat-tile">
+                  <div className="k">Cards left in the deck</div>
+                  <div className="v">
+                    {e.cardsLeft}
+                    <em>/{e.cardsTotal}</em>
+                  </div>
+                  <div className="foot">The ace of spades is one of them until it&rsquo;s drawn.</div>
+                </div>
+              )}
+              {l.kind === "catch_the_ace" && (e.weeklyPot != null || e.weeklyPrize != null) && (
+                <div className="stat-tile">
+                  <div className="k">{e.weeklyPot != null ? "This week’s pot" : "This week’s prize"}</div>
+                  <div className="v">{money((e.weeklyPot ?? e.weeklyPrize)!)}</div>
+                </div>
+              )}
               {is5050 && e.jackpot != null && e.status === "on_sale" && (
                 <div className="stat-tile">
-                  <div className="k">{e.guarantee ? "Guaranteed pot" : "Pot now"}</div>
+                  <div className="k">{l.kind === "catch_the_ace" ? "Ace jackpot" : e.guarantee ? "Guaranteed pot" : "Pot now"}</div>
                   <div className="v">{money(e.jackpot)}</div>
                   <div className="foot">
-                    {e.percentPrize ? `The total pot; the winner gets ${e.percentPrize}% of it.` : "The total pot."}
+                    {l.kind === "catch_the_ace"
+                      ? "Won when the ace of spades is drawn."
+                      : e.percentPrize
+                        ? `The total pot; the winner gets ${e.percentPrize}% of it.`
+                        : "The total pot."}
                     {e.guarantee ? ` A guaranteed minimum of ${money(e.guarantee)}.` : ""}
                   </div>
                 </div>

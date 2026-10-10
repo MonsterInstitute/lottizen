@@ -45,6 +45,14 @@ export interface CharityEdition {
   percentPrize: number | null;
   /** 50/50: a published guaranteed minimum pot. */
   guarantee: number | null;
+  /** Catch the Ace: cards still in the deck, and the deck size. */
+  cardsLeft: number | null;
+  cardsTotal: number | null;
+  /** Catch the Ace: this week's draw pot (Ascend) or this week's prize (BUMP). */
+  weeklyPot: number | null;
+  weeklyPrize: number | null;
+  /** Only the running pot is published (older Ascend sites): no dates or tiers. */
+  potOnly: boolean;
   /** Rules-page sentences on which draws a ticket bought by each deadline is entered in, verbatim. */
   eligibility: string[];
   /** The exact text each figure was read from. */

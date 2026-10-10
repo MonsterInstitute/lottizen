@@ -43,6 +43,8 @@ def run_one(lot: dict, backfill: bool) -> tuple[list[dict], list[dict]]:
         return stride.scrape(lot)
     if p == "ascend":
         return ascend.scrape(lot)
+    if p == "ascend-pot":
+        return ascend.scrape_pot(lot)
     if p == "tap":
         return tap.scrape(lot)
     if p == "bump":

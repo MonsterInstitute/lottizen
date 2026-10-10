@@ -35,6 +35,8 @@ def edition_json(e: dict, snaps: list[dict]) -> dict:
         "jackpot": float(e["jackpot"]) if e.get("jackpot") is not None else None, "jackpotAt": e.get("jackpot_at"),
         "soldOut": e.get("sold_out"), "sourceUrl": e.get("source_url"), "scrapedAt": e.get("scraped_at"),
         "percentPrize": raw.get("percent_prize"), "guarantee": raw.get("guarantee"),
+        "cardsLeft": raw.get("cards_left"), "cardsTotal": raw.get("cards_total"),
+        "weeklyPot": raw.get("weekly_pot"), "weeklyPrize": raw.get("weekly_prize"), "potOnly": bool(raw.get("pot_only")),
         "eligibility": raw.get("eligibility") or [], "quotes": raw.get("quotes") or {},
         "history": [{"date": s["captured_date"], "jackpot": float(s["jackpot"]) if s.get("jackpot") is not None else None,
                      "soldOut": s.get("sold_out")} for s in sorted(snaps, key=lambda s: s["captured_date"])],

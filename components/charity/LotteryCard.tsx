@@ -19,7 +19,7 @@ export function LotteryCard({ l }: { l: CharityLottery }) {
       {l.operator && <div className="field-hint">{l.operator}</div>}
       {e && l.kind !== "home" && e.jackpot != null && e.status === "on_sale" && (
         <div className="charity-figure">
-          <span className="lbl">{e.guarantee ? "Guaranteed pot" : "Pot now"}</span>
+          <span className="lbl">{l.kind === "catch_the_ace" ? "Ace jackpot" : e.guarantee ? "Guaranteed pot" : "Pot now"}</span>
           <span className="amt">{money(e.jackpot)}</span>
         </div>
       )}
@@ -27,6 +27,11 @@ export function LotteryCard({ l }: { l: CharityLottery }) {
         <div className="charity-figure">
           <span className="lbl">{e.prizeCount ? `${e.prizeCount.toLocaleString("en-CA")} prizes worth` : "Prizes worth"}</span>
           <span className="amt">{money(e.prizeValue)}</span>
+        </div>
+      )}
+      {l.kind === "catch_the_ace" && e?.cardsLeft != null && (
+        <div className="field-hint">
+          {e.cardsLeft} of {e.cardsTotal} cards left
         </div>
       )}
       {e?.ticketCap != null && l.kind !== "5050" && (

@@ -73,7 +73,7 @@ def scrape_5050(lot: dict) -> tuple[list[dict], list[dict]]:
         title = ev.get("title") or ""
         if match and not match.search(title):
             continue
-        if ev.get("percent_prize") == 0 and not num(ev.get("jackpot")):
+        if ev.get("percent_prize") == 0 and not num(str(ev.get("jackpot"))):
             continue
         start, end = _iso(ev.get("start_at"), tz), _iso(ev.get("end_at"), tz)
         draws = ev.get("draws") or []
@@ -93,6 +93,19 @@ def scrape_5050(lot: dict) -> tuple[list[dict], list[dict]]:
         prices = [by_qty[q] for q in sorted(by_qty)]
         pct = detail.get("percent_prize", ev.get("percent_prize"))
         jackpot = num(str(ev.get("jackpot"))) if ev.get("jackpot") is not None else None
+        cta = {}
+        if lot.get("kind") == "catch_the_ace":
+            cards = detail.get("cards") or ev.get("cards")
+            if isinstance(cards, str):
+                import ast
+                try:
+                    cards = ast.literal_eval(cards)
+                except (ValueError, SyntaxError):
+                    cards = None
+            if isinstance(cards, list) and cards:
+                cta = {"cards_total": len(cards), "cards_left": sum(1 for c in cards if not c.get("drawn"))}
+            if ev.get("prize") is not None:
+                cta["weekly_prize"] = num(str(ev.get("prize")))
         editions.append({
             "edition": str(ev["id"]), "title": title, "status": status,
             "price_tiers": prices or None, "sales_open": start, "sales_close": end,
@@ -101,7 +114,7 @@ def scrape_5050(lot: dict) -> tuple[list[dict], list[dict]]:
             "sold_out": None, "source_url": f"{base(ref)}/web/event/{ev['id']}",
             "raw": {"percent_prize": pct, "prize": num(str(ev.get("prize"))) if ev.get("prize") is not None else None,
                     "addons": [{"title": a.get("title"), "jackpot": num(str(a.get("jackpot")))}
-                               for a in (detail.get("addons") or [])]},
+                               for a in (detail.get("addons") or [])], **cta},
         })
         for d in draws:
             if d.get("number"):
