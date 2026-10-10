@@ -24,6 +24,7 @@ on:
       - "Daily European draw results"
       - "Claim reminders"
       - "Unclaimed prizes daily refresh"
+      - "News from the data"
       - "Owner daily report"
     types: [completed]
 

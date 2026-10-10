@@ -592,6 +592,16 @@ def save_snapshot(today: date, metrics: dict) -> None:
 
 # --------------------------------------------------------------------- weekly
 
+def db_news(w) -> list[dict]:
+    """News items published or updated in the window, newest first."""
+    import db
+    rows = db.fetch_all("news_items", "id,slug,headline,published_at,updated_at",
+                        filters=[("gte", "updated_at", w[0].isoformat()), ("lt", "updated_at", w[1].isoformat())])
+    rows.sort(key=lambda r: r["updated_at"], reverse=True)
+    return [{"slug": r["slug"], "headline": r["headline"],
+             "updated": not within(r["published_at"], w)} for r in rows]
+
+
 def load_json(name: str):
     p = ROOT / name
     try:
@@ -779,8 +789,17 @@ def build_weekly(today: date) -> tuple[str, str]:
                 f'<ol style="margin:0;padding-left:20px;font-size:13.5px;line-height:1.5;color:{INK}">{lis}</ol></div>')
     else:
         todo = ok_box("✓ 本周没有需要你处理的事")
+    news_html = ""
+    news, nerr = try_(lambda: db_news(w))
+    if news:
+        lis = "".join(f'<li style="margin:0 0 6px">{link(SITE + "/news/" + n["slug"], n["headline"])}'
+                      f'{" <span style=\"color:" + INK3 + "\">（更新）</span>" if n["updated"] else ""}</li>' for n in news)
+        news_html = h2(f"本周新闻 · {len(news)}") + (f'<ul style="margin:0;padding-left:18px;font-size:13.5px;'
+                                                    f'line-height:1.5">{lis}</ul>')
+    elif news is not None:
+        news_html = h2("本周新闻") + note("本周没有触发任何新闻规则。")
     body = (todo + h2("经营") + business + h2(f"收录 · {since}") + table(index_rows)
-            + h2("健康") + table(health)
+            + h2("健康") + table(health) + news_html
             + note(("Plus 与 MRR 由 Stripe 订阅时间戳推算（按当前价格，不含优惠券）；" if BILLING_LIVE else "")
                    + "收录数来自 reports/metrics-history.csv；"
                    "内部测试账号 @lottizen.com 已排除。"))

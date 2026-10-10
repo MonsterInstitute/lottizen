@@ -21,6 +21,7 @@ export function Header() {
           <Link href="/generator">Tools</Link>
           <Link href="/guides">Guides</Link>
           <Link href="/scratch">Scratch value</Link>
+          <Link href="/news">News</Link>
         </nav>
         <div className="nav-right">
           <Link href="/dashboard" className="nav-cta">

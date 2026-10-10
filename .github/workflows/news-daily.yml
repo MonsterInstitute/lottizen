@@ -1,0 +1,60 @@
+name: News from the data
+
+# Runs scripts/news_engine.py after each data workflow that can change a
+# story's facts (draw results, the five scratch refreshes, unclaimed lists),
+# plus a daily fallback. The engine writes or updates news_items; only when
+# something changed does it publish data/news/index.json and redeploy.
+# Every number in an item is verified against the values the detector read
+# from the database before it is stored (see the engine's docstring).
+on:
+  workflow_run:
+    workflows:
+      - "Daily draw results"
+      - "Scratch — OLG (Ontario) daily refresh"
+      - "Scratch — BCLC (British Columbia) daily refresh"
+      - "Scratch — WCLC (Western Canada (AB/SK/MB)) daily refresh"
+      - "Scratch — ALC (Atlantic Canada (NB/NS/PE/NL)) daily refresh"
+      - "Scratch — Loto-Québec (Quebec) daily refresh"
+      - "Unclaimed prizes daily refresh"
+    types: [completed]
+  schedule:
+    - cron: "0 20 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: news-daily
+  cancel-in-progress: false
+
+jobs:
+  news:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Python dependencies
+        run: python -m pip install --upgrade pip supabase certifi
+
+      - name: Detect, verify and store news items
+        id: engine
+        run: python scripts/news_engine.py
+
+      - name: Publish to site_json
+        if: steps.engine.outputs.changed == 'true'
+        run: python scripts/publish_site_json.py news
+
+      - name: Redeploy
+        if: steps.engine.outputs.changed == 'true'
+        env:
+          VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
+        run: curl -fsS -X POST "$VERCEL_DEPLOY_HOOK" && echo "✓ Vercel deploy triggered"

@@ -4,6 +4,7 @@ import { getActivePricePoints, getAllProvinceSlugs, getAllRankings, getAllSlugs,
 import { getDrawsByYear, getLatestAll, getNumberStat, getPlayableSlugs, getResultYears, getStats, hasData } from "@/lib/draws";
 import { getAllGuides } from "@/lib/guides";
 import { getUnclaimed } from "@/lib/unclaimed";
+import { getNews } from "@/lib/news";
 import { absUrl } from "@/lib/site";
 import { SITEMAP_TIER, TIER, type SitemapTier } from "@/config/sitemap";
 
@@ -78,6 +79,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
   push("/press", scratchOverallLatest); // quotes live scratch figures
   push("/data/canada-lottery-almanac", scratchOverallLatest);
   push("/unclaimed", new Date(`${getUnclaimed().asOfDate}T12:00:00Z`));
+  const news = getNews();
+  if (news.length) push("/news", new Date(news[0].updated_at));
+  for (const n of news) push(`/news/${n.slug}`, new Date(n.updated_at));
   push("/responsible-play");
   push("/guides");
   push("/api");

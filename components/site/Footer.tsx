@@ -71,6 +71,9 @@ export function Footer() {
                 <Link href="/unclaimed">Unclaimed Prizes</Link>
               </li>
               <li>
+                <Link href="/news">News</Link>
+              </li>
+              <li>
                 <Link href="/press">Press &amp; Data</Link>
               </li>
               <li>
