@@ -100,13 +100,15 @@ Key properties:
 | `europe-daily.yml` | EuroMillions / EuroJackpot / UK Lotto → same chain |
 | `claim-reminders.yml` | Ticket wallet: check stored tickets against results, sync claims, send claim-deadline reminders |
 | `weekly-digest.yml` | Sunday digest email |
-| `freshness-watchdog.yml` | Monitoring: data freshness + deployed-site freshness, self-heal by re-dispatch |
+| `freshness-watchdog.yml` | Monitoring: data freshness + deployed-site freshness, self-heal by re-dispatch; history tables only grow (`history_integrity.py`) |
 | `ci-failure-alert.yml` | Monitoring: opens/closes an issue when any data workflow fails |
 | `billing-health.yml` | **Disabled** (Plus retired 2026-10-09). Was: real Stripe test-mode round trip + live config + Plus gating |
 | `email-delivery-watchdog.yml` | Monitoring: expected sends were attempted, every `email_log` row has an outcome, and every `sent` row is `delivered` in Resend |
 | `seo-health.yml` | Monitoring: crawl/sitemap/structured-data checks, business metrics, weekly report commit |
 | `unclaimed-daily.yml` | Official unclaimed-prize lists (OLG, WCLC, Loto-Québec; BCLC/ALC publish none) → `unclaimed_prizes` → `/unclaimed` |
 | `news-daily.yml` | After each data workflow: `scripts/news_engine.py` writes/updates `news_items` (every number verified against the detector's data) → `/news`, RSS |
+| (in `news-daily.yml`) | `weekly_picks.py` (this week's pick / skip / new tickets / 30-day ranking per province; on-sale games only) and `publish_breakdowns.py` ("Did anyone win?" + per-draw pages for the 6 breakdown games) |
+| `tests.yml` | `pytest scripts/tests` on every push touching scripts/ (pick/skip rules) |
 | `admin-daily.yml` | Owner's daily operating email (`scripts/ops_report.py daily`): yesterday vs the day before, current totals, anomalies on top |
 | `resend-diagnose.yml` | Manual only: end-to-end Resend delivery probe, sent to the `OPS_REPORT_EMAIL` secret |
 | `email-log-backfill.yml` | Manual only, one-off (run 2026-10-05): gave pre-0019 `email_log` rows an outcome from Resend's sent list |
