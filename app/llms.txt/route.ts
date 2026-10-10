@@ -56,7 +56,7 @@ ${gameLinks}
 
 - Lottery draws are independent. No number, pattern, frequency or "overdue" number changes the chance of any combination being drawn. Number statistics on Lottizen are historical counts, not predictions.
 - Scratch-ticket figures describe how much prize money is still unclaimed, from the agencies' published prize counts. They do not change the odds of any ticket winning. No Canadian agency publishes how many tickets remain unsold, so Lottizen never states a number of tickets left.
-- Lottizen's Value Score ranks games by how much prize money is still unclaimed; the method depends on what each agency publishes (see the methodology page). It is not an expected return: for OLG, BCLC and Loto-Québec it applies an assumed 62% payout rate that no agency publishes per game.
+- Lottizen's Value Score ranks games by how much prize money is still unclaimed; the method depends on what each agency publishes (see the methodology page). It is not an expected return. For OLG it uses the payout rate OLG publishes for each game; where an agency publishes none it uses an assumed 62% (the methodology page lists which).
 - Unclaimed-prize lists are dated by each agency and can lag; a listed prize may have been claimed since. A prize that leaves a list is described as "no longer listed", never as "claimed".
 
 ## How to cite

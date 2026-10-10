@@ -40,6 +40,10 @@ export interface Game {
    *  the agency (OLG's product pages); null where not published. A design
    *  fact about the whole game — not the odds of any ticket. */
   publishedPayoutPct?: number | null;
+  /** The payout rate that scaled this game's Value Score, and where it came
+   *  from: the agency's published figure, or the assumed 62% (retention only). */
+  payoutUsedPct?: number;
+  payoutSource?: "published" | "assumed";
   /** "1 in N" overall odds of winning ANY prize, as published at launch.
    * Only ALC's adapter currently scrapes this — null elsewhere. See
    * Not displayed anywhere (an odds figure — see CLAUDE.md). */

@@ -18,8 +18,9 @@
  *     comparison that remains is the share of printed prize money still
  *     unclaimed today against 100% at launch.
  *   - The Value Score is never presented as "expected value" or "cents back
- *     per dollar": for OLG/BCLC/Quebec it applies an assumed 62% payout rate
- *     (scripts/calculate_rankings.py) that no agency publishes per game.
+ *     per dollar": it is scaled by a payout rate — OLG's published per-game
+ *     rate, an assumed 62% where an agency publishes none
+ *     (scripts/calculate_rankings.py).
  *   - Remaining-share figures are only computed where scoringMethod ===
  *     "retention" (OLG/BCLC/Quebec, which publish printed AND remaining
  *     counts). WCLC/ALC report "unsupported", honestly, with the reason.

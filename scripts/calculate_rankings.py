@@ -23,8 +23,11 @@ same way. This is disclosed on every province ranking page, not hidden.
      g = remaining_pool / printed_pool     (value-weighted share left)
      f = count_remaining / count_total     (head-count share left)
      retention = g / f
-   Value Score = NOMINAL_RTP × retention × 100. retention > 1 means the
-   big prizes are disproportionately still unclaimed (buy signal).
+   Value Score = payout × retention × 100, where payout is the game's own
+   published prize payout rate where the agency publishes one (OLG, on each
+   game's product page; scratch_game_facts) and NOMINAL_RTP otherwise.
+   retention > 1 means the big prizes are disproportionately still
+   unclaimed. It describes prize money left, never the odds of a ticket.
 
 2) REMAINING VALUE INDEX (agency == WCLC — "remaining counts only")
    WCLC publishes ONLY a remaining count per tier (>= $100), never a
@@ -58,7 +61,10 @@ import db  # noqa: E402 — shared Supabase data-layer helper
 ROOT = Path(__file__).resolve().parent.parent
 OUT_DIR = ROOT / "data" / "rankings"
 
-NOMINAL_RTP = 0.62  # documented display scale; does not affect rank order within an agency
+# Assumed payout for games whose agency publishes none per game. Since
+# 2026-10-10 OLG games use their published payout instead (it varies 63-75%
+# by game, so it DOES change OLG's order; it's the agency's own figure).
+NOMINAL_RTP = 0.62
 
 # Agency -> (province slug, display label, scoring method, data-completeness badge)
 AGENCY_META = {
@@ -150,7 +156,9 @@ def compute_retention(game: dict) -> dict | None:
     g_frac = remaining_pool / printed_pool
     f_frac = count_remaining / count_total
     retention = g_frac / f_frac if f_frac > 0 else 0.0
-    value_score = round(NOMINAL_RTP * retention * 100, 1)
+    published = game.get("publishedPayoutPct")
+    payout = published / 100 if published else NOMINAL_RTP
+    value_score = round(payout * retention * 100, 1)
 
     top = next((t for t in tiers if t["isTop"]), scored[0])
     game.update({
@@ -164,6 +172,10 @@ def compute_retention(game: dict) -> dict | None:
         "valueRetention": round(retention, 3),
         "valueScore": value_score,
         "scoringMethod": "retention",
+        # Which payout rate scaled the score: the agency's published figure
+        # for this game, or the assumed NOMINAL_RTP (methodology page).
+        "payoutUsedPct": round(payout * 100, 2),
+        "payoutSource": "published" if published else "assumed",
     })
     return game
 

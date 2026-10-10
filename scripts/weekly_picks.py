@@ -18,7 +18,7 @@ Rules (agreed 2026-10-10; CLAUDE.md honesty constraints apply):
     every day: a pick that stops being on sale or loses its last top prize
     is replaced that day, with the reason recorded and shown.
   * SKIP: on sale and every top prize claimed — a fact, recomputed daily.
-    No "value line": Value Score assumes a 62% payout rate, so any cutoff on
+    No "value line": Value Score's scale is partly an assumed payout rate, so any cutoff on
     it would be a line we made up.
 """
 from __future__ import annotations

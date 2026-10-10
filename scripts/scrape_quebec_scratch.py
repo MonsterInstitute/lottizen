@@ -86,6 +86,7 @@ PROVINCE = "quebec"
 
 ETAT_URL = "https://loteries.lotoquebec.com/fr/resultats/etat-de-reclamation-des-lots"
 GRAPHQL_URL = "https://loteries.assets.lotoquebec.com/api/exp/loteries"
+LQ_PAGE = "https://loteries.lotoquebec.com/fr/loteries/jeu/a-gratter"
 PERSISTED_QUERY_HASH = "043e70afae1b923481e88b538d1b42842f39a19d9cbca01b9840b44e5afc46bb"
 COLLECTION_SLUGS = [
     "/loteries/collection/en-magasin-3-et-moins",
@@ -116,6 +117,45 @@ def http_get(url: str) -> bytes:
         return r.read()
 
 
+# Loto-Québec's published "TAUX DE RETOUR THÉORIQUE" (theoretical return
+# rate) per edition, read from the same catalog response (scratch_game_facts,
+# 0031). edition code (digits, as lel_product_code) -> (rate %, page url)
+PAYOUT: dict[str, tuple[float, str]] = {}
+
+
+def _texts(node) -> list[str]:
+    """Every "text" leaf of a rich-text JSON tree, in order."""
+    if isinstance(node, dict):
+        out = [node["text"]] if isinstance(node.get("text"), str) else []
+        for k, v in node.items():
+            if k != "text":
+                out += _texts(v)
+        return out
+    if isinstance(node, list):
+        return [t for x in node for t in _texts(x)]
+    return []
+
+
+def parse_payouts(description_json) -> dict[str, float]:
+    """{"76033": 63.0, ...}. One description can cover several editions,
+    each with its own rate ("TAUX ... : 63 %" then "NUMÉRO D'ÉMISSION DU
+    PRODUIT : 7-6801", then the next pair), so each rate is paired with the
+    edition number that follows it. Rates use a decimal comma ("57,80")."""
+    text = re.sub(r"\s+", " ", " ".join(_texts(description_json)))
+    toks = sorted(
+        [(m.start(), "rate", m.group(1)) for m in re.finditer(r"TAUX DE RETOUR TH[ÉE]ORIQUE\s*:?\s*([\d,.]+)\s*%", text, re.I)]
+        + [(m.start(), "ed", m.group(1)) for m in re.finditer(r"NUM[ÉE]RO D.[ÉE]MISSION DU PRODUIT\s*:?\s*(\d-\d{4})", text, re.I)]
+    )
+    out, pending = {}, None
+    for _, kind, val in toks:
+        if kind == "rate":
+            pending = float(val.replace(",", "."))
+        elif pending is not None:
+            out[val.replace("-", "")] = pending
+            pending = None
+    return out
+
+
 def fetch_price_lookup() -> dict[str, dict]:
     lookup: dict[str, dict] = {}
     for slug in COLLECTION_SLUGS:
@@ -128,6 +168,10 @@ def fetch_price_lookup() -> dict[str, dict]:
             print(f"  ! collection fetch failed ({slug}): {e}", file=sys.stderr)
             continue
         for g in data.get("data", {}).get("games", {}).get("items", []):
+            desc = ((g.get("product_info") or {}).get("game_description") or {})
+            page = "https://loteries.lotoquebec.com/fr" + (g.get("url") or "") if g.get("url") else LQ_PAGE
+            for ed, rate in parse_payouts(desc.get("json") if isinstance(desc, dict) else None).items():
+                PAYOUT[ed] = (rate, page)
             code = g.get("lel_product_code")
             if not code or not str(code).isdigit():
                 continue
@@ -226,6 +270,21 @@ def run_live() -> int:
         return 0
 
     n = db.replace_scratch_games(AGENCY, PROVINCE, games, source="quebec-live")
+    if PAYOUT:
+
+        from datetime import date as _date
+
+        rows = [{"agency": AGENCY, "game_number": g["game_number"], "payout_pct": PAYOUT[g["game_number"]][0],
+
+                 "source_url": PAYOUT[g["game_number"]][1], "fetched_on": _date.today().isoformat()}
+
+                for g in games if g["game_number"] in PAYOUT]
+
+        if rows:
+
+            db.upsert_rows("scratch_game_facts", rows, on_conflict="agency,game_number")
+
+        print(f"  published return rate (taux de retour théorique): {len(rows)}/{len(games)} games")
     tier_n = sum(len(g["prize_tiers"]) for g in games)
     print(f"✓ stored {n} live games / {tier_n} prize tiers ({unmatched}/{len(raw_games)} état-page games had no price match, skipped)")
     return n

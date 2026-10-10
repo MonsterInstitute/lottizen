@@ -222,18 +222,67 @@ export default function MethodologyPage() {
               </li>
             </ul>
 
-            <h3>4 · Scale to a familiar number</h3>
+            <h3>4 · Scale by the game&rsquo;s payout rate</h3>
             <div className="formula">
-              <strong>Value Score = 0.62 × retention × 100</strong>
+              <strong>Value Score = payout rate × retention × 100</strong>
             </div>
             <p>
-              The <code>0.62</code> is a rough instant-game return-to-player,
-              used only so a baseline game reads about <strong>62</strong> on a
-              familiar scale. No agency publishes a per-game return-to-player, so
-              the score is not &ldquo;cents back per dollar&rdquo; or an expected
-              return. It&rsquo;s a fixed multiplier, so it never changes the <em>order</em> of the
-              ranking within a province; that&rsquo;s driven entirely by the
-              agency&rsquo;s own counts. We list every game highest score first.
+              The payout rate is the share of a game&rsquo;s sales it is printed to return as prizes. Where the agency
+              publishes it for each game, Lottizen uses that figure; where it doesn&rsquo;t, Lottizen uses an assumed
+              62%, a rough instant-game average, and says so below. The score is still not &ldquo;cents back per
+              dollar&rdquo; or an expected return: it describes how the game is built and how much of its prize money is
+              left, never the odds of any ticket.
+            </p>
+
+            <h2 id="by-province">How each province is ranked</h2>
+            <p>
+              Each agency publishes different data, so each province&rsquo;s ranking uses the method its data supports.
+              Scores are only comparable within a province.
+            </p>
+            <div className="table-wrap">
+              <table className="prize-table">
+                <thead>
+                  <tr>
+                    <th>Province</th>
+                    <th>Method</th>
+                    <th>Payout rate used</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {PROVINCES.map((p) => {
+                    const games = getAllRankings().find((r) => r.province === p.slug)?.games ?? [];
+                    const published = games.filter((g) => g.payoutSource === "published").length;
+                    const agency = p.agency === "QUEBEC" ? "Loto-Québec" : p.agency;
+                    return (
+                      <tr key={p.slug}>
+                        <td>
+                          {p.label} ({agency})
+                        </td>
+                        <td>
+                          {p.scoringMethod === "retention"
+                            ? "Retention (printed and remaining counts for every tier)"
+                            : p.scoringMethod === "remaining_value_index"
+                              ? "Remaining value index (remaining counts only; no printed totals published)"
+                              : "Top-prize fraction (top-prize counts only)"}
+                        </td>
+                        <td>
+                          {p.scoringMethod !== "retention"
+                            ? "Not used by this method"
+                            : published > 0
+                              ? `Published by ${agency} for ${published} of ${games.length} games; the assumed 62% for the rest (games no longer in its catalog have no product page)`
+                              : `Assumed 62%: ${agency} doesn't publish a payout rate per game`}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <p>
+              Using a published payout rate changes the order within a province, because rates differ by game (OLG&rsquo;s
+              run from about 63% on $2 tickets to about 75% on its $50 and $100 tickets). An assumed rate is the same for
+              every game, so it doesn&rsquo;t change the order; it only sets the scale. See the{" "}
+              <Link href="/scratch/ontario/prices">Ontario price guide</Link> for the published rates by price.
             </p>
 
             <h2>What the score is — and isn&rsquo;t</h2>

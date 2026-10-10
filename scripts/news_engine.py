@@ -45,6 +45,7 @@ OUT = ROOT / "data" / "news" / "index.json"
 TZ = ZoneInfo("America/Toronto")
 SITE = "https://lottizen.com"
 AGENCY = {"OLG": "OLG", "BCLC": "BCLC", "WCLC": "WCLC", "ALC": "Atlantic Lottery", "QUEBEC": "Loto-Québec"}
+PROVINCE_SLUG = {"OLG": "ontario", "BCLC": "british-columbia", "WCLC": "western", "ALC": "atlantic", "QUEBEC": "quebec"}
 PROVINCE = {"OLG": "Ontario", "BCLC": "British Columbia", "WCLC": "Western Canada", "ALC": "Atlantic Canada",
             "QUEBEC": "Quebec"}
 # Games with a published prize breakdown (BCLC PlayNow / WCLC): the only ones
@@ -662,6 +663,66 @@ def province_compare(today: date) -> list[Item]:
     return [it]
 
 
+def price_point_compare(today: date) -> list[Item]:
+    """$20 vs $5 scratch tickets on sale, per agency that publishes a payout
+    rate per game (OLG). One story per agency per month, updated as the data
+    moves. Two published facts side by side — how the games are built (the
+    printed payout rate) and how much of their printed prize money is still
+    unclaimed — and nothing about the chance of winning. The headline only
+    calls the pattern out when the data shows it."""
+    import statistics
+    import weekly_picks as wp
+    games = wp.load_games()
+    facts = {(r["agency"], r["game_number"]): float(r["payout_pct"]) for r in db.fetch_all(
+        "scratch_game_facts", "agency,game_number,payout_pct") if r["payout_pct"] is not None}
+    out = []
+    for agency, gs in games.items():
+        on = [g for g in gs if g["on_sale"] is True]
+        by = {p: [g for g in on if g["price"] == p] for p in (5.0, 20.0)}
+        pay = {p: [facts[(agency, g["game_number"])] for g in by[p] if (agency, g["game_number"]) in facts] for p in by}
+        share = {p: [g["share_left_pct"] for g in by[p] if g["share_left_pct"] is not None] for p in by}
+        if min(len(pay[5.0]), len(pay[20.0]), len(share[5.0]), len(share[20.0])) < 3:
+            continue  # too few games at a price point to say anything
+        f = Fmt()
+        name = AGENCY[agency]
+        prov = PROVINCE[agency]
+        mp = {p: statistics.median(v) for p, v in pay.items()}
+        ms = {p: statistics.median(v) for p, v in share.items()}
+        it = Item(f"price-compare:{agency}:{today:%Y-%m}", f"{slugify(prov)}-20-vs-5-scratch-tickets-{today:%Y-%m}",
+                  "price_compare", "scratch", None, today.isoformat(), f)
+        twenty, five = f.money(20), f.money(5)
+        if mp[20.0] > mp[5.0] and ms[20.0] < ms[5.0]:
+            it.headline = (f"{prov}'s {twenty} scratch tickets are printed to pay out more than its {five} tickets, "
+                           f"but have far less prize money left")
+        else:
+            it.headline = f"{prov}'s {twenty} and {five} scratch tickets: payout rates and prize money left"
+        it.dek = (f"On {f.date(today)}, {name}'s {twenty} tickets on sale have a median printed payout rate of "
+                  f"{f.raw(f'{mp[20.0]:.2f}')}% and {f.raw(f'{ms[20.0]:.1f}%')} of their printed prize money still unclaimed; "
+                  f"its {five} tickets, {f.raw(f'{mp[5.0]:.2f}')}% and {f.raw(f'{ms[5.0]:.1f}%')}.")
+        it.body = [
+            f"{name} publishes, on each instant game's product page, the share of the game's sales it is printed to pay "
+            f"out as prizes. Across the {f.n(len(pay[20.0]))} {twenty} tickets on sale the median is "
+            f"{f.raw(f'{mp[20.0]:.2f}')}%; across the {f.n(len(pay[5.0]))} {five} tickets, {f.raw(f'{mp[5.0]:.2f}')}%. "
+            f"That describes how the games are built, across all their tickets.",
+            f"{name} also publishes how many prizes in each tier were printed and how many are still unclaimed. The "
+            f"median {twenty} ticket on sale has {f.raw(f'{ms[20.0]:.1f}%')} of its printed prize money still unclaimed; the "
+            f"median {five} ticket, {f.raw(f'{ms[5.0]:.1f}%')}. Older games have had longer for their prizes to be claimed, so "
+            f"this also reflects how long each game has been on sale.",
+            "Neither figure is the chance of winning, which this doesn't compare. No agency publishes how many "
+            "tickets remain unsold, so nobody can say how much prize money is left per ticket at any price.",
+        ]
+        it.table = {"columns": ["Price", "Games on sale", "Median printed payout rate", "Median printed prize money unclaimed"],
+                    "rows": [[f.money(p), f.n(len(by[p])), f"{f.raw(f'{mp[p]:.2f}')}%", f.raw(f'{ms[p]:.1f}%')] for p in (20.0, 5.0)]}
+        it.fact(f"Median payout rate, {twenty} tickets", f"{f.raw(f'{mp[20.0]:.2f}')}%", f"{name} game pages")
+        it.fact(f"Median payout rate, {five} tickets", f"{f.raw(f'{mp[5.0]:.2f}')}%", f"{name} game pages")
+        it.fact(f"Median printed prize money unclaimed, {twenty} / {five}", f"{f.raw(f'{ms[20.0]:.1f}%')} / {f.raw(f'{ms[5.0]:.1f}%')}",
+                f"{name} published prize counts")
+        it.fact("Price guide", f"lottizen.com/scratch/{PROVINCE_SLUG[agency]}/prices", "Lottizen",
+                f"{SITE}/scratch/{PROVINCE_SLUG[agency]}/prices")
+        out.append(it)
+    return out
+
+
 # ---------------------------------------------------------------- unclaimed
 
 def unclaimed_deadlines(today: date) -> list[Item]:
@@ -732,7 +793,8 @@ def detect(today: date) -> list[Item]:
         items += safe(jackpot_run, slug, today) + safe(jackpot_won, slug, today)
     for slug in ("lotto-max", "lotto-6-49", "daily-grand", "ontario-49", "lottario", "bc-49", "western-max", "western-6-49"):
         items += safe(rare_draw, slug, today)
-    for fn in (scratch_top_gone, scratch_new, scratch_top10_out, scratch_pool, province_compare, unclaimed_deadlines):
+    for fn in (scratch_top_gone, scratch_new, scratch_top10_out, scratch_pool, province_compare, price_point_compare,
+               unclaimed_deadlines):
         items += safe(fn, today)
     return items
 

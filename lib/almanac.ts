@@ -7,8 +7,8 @@
  *  - Scratch figures describe prize money still unclaimed, measured directly
  *    from what each agency publishes. They say nothing about the odds of any
  *    ticket winning. The site's Value Score is NOT quoted as an "expected
- *    value": it applies an assumed 62% payout rate (calculate_rankings.py),
- *    which no agency publishes per game.
+ *    value": it is scaled by a payout rate — OLG's published per-game rate, or
+ *    an assumed 62% where an agency publishes none (calculate_rankings.py).
  *  - Share-of-prize-money comparisons only use OLG, BCLC and Loto-Québec,
  *    the three agencies that publish printed AND remaining counts. WCLC and
  *    ALC publish less, so they appear only in the measures their data
@@ -153,4 +153,32 @@ export function drawGameFacts(country: "CA" | "US" | "EU" = "CA"): DrawGameFacts
       }];
     })
     .sort((a, b) => (a.archiveSince ?? "9999").localeCompare(b.archiveSince ?? "9999"));
+}
+
+export interface PriceComparison {
+  province: string;
+  label: string;
+  agency: string;
+  /** $20 vs $5 tickets on sale: median published payout rate and median share
+   *  of printed prize money still unclaimed. Only where the agency publishes a
+   *  payout rate per game and prints full prize counts. */
+  rows: { price: number; games: number; medianPayout: number; medianShareLeft: number }[];
+}
+
+/** The "$20 vs four $5" comparison, per agency where the data supports it. */
+export function priceComparisons(): PriceComparison[] {
+  const out: PriceComparison[] = [];
+  for (const p of PROVINCES) {
+    const games = (getAllRankings().find((r) => r.province === p.slug)?.games ?? []).filter((g) => g.onSale === true);
+    const rows = [20, 5].map((price) => {
+      const gs = games.filter((g) => g.price === price);
+      const pays = gs.map((g) => g.publishedPayoutPct).filter((x): x is number => x != null);
+      const shares = gs.map(unclaimedSharePct).filter((x): x is number => x != null);
+      return { price, games: gs.length, medianPayout: pays.length >= 3 ? median(pays) : NaN, medianShareLeft: shares.length >= 3 ? median(shares) : NaN };
+    });
+    if (rows.every((r) => Number.isFinite(r.medianPayout) && Number.isFinite(r.medianShareLeft))) {
+      out.push({ province: p.slug, label: p.label, agency: p.agency === "QUEBEC" ? "Loto-Québec" : p.agency, rows });
+    }
+  }
+  return out;
 }

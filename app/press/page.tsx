@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { drawGameFacts, scratchFacts } from "@/lib/almanac";
+import { drawGameFacts, priceComparisons, scratchFacts } from "@/lib/almanac";
 import { getDraws, getPlayableSlugs } from "@/lib/draws";
 import { humanDate } from "@/lib/format";
 import { SITE, absUrl } from "@/lib/site";
@@ -112,6 +112,20 @@ export default function PressPage() {
           <h2>Figures you can quote today</h2>
           <p>As of {asOf}. Each links to the page that shows the underlying numbers.</p>
           <ul>
+            {priceComparisons().map((c) => {
+              const [t, f] = c.rows;
+              return (
+                <li key={c.province}>
+                  {c.label}: {c.agency}&rsquo;s $20 scratch tickets on sale are printed to pay out a median{" "}
+                  <strong>{t.medianPayout.toFixed(2)}%</strong> of sales as prizes{" "}
+                  {t.medianPayout > f.medianPayout ? "(more than" : t.medianPayout < f.medianPayout ? "(less than" : "(the same as"} its $5
+                  tickets&rsquo; <strong>{f.medianPayout.toFixed(2)}%</strong>), and have a median{" "}
+                  <strong>{t.medianShareLeft.toFixed(1)}%</strong> of their printed prize money still unclaimed, against{" "}
+                  <strong>{f.medianShareLeft.toFixed(1)}%</strong> for the $5 tickets (<Link href={`/scratch/${c.province}/prices`}>price guide</Link>). Payout rates as {c.agency}{" "}
+                  publishes them per game; neither figure is the chance of winning.
+                </li>
+              );
+            })}
             {scratch.onSaleAgencies.length > 0 && (
               <li>
                 <strong>{scratch.totalTopGoneOnSale}</strong> of the {scratch.totalOnSale} scratch games on sale at{" "}
