@@ -53,9 +53,14 @@ def main() -> int:
     before = call("GET", f"/domains/{d['id']}")
     print(f"before: open_tracking={before.get('open_tracking')} click_tracking={before.get('click_tracking')}")
     import time
-    resp = call("PATCH", f"/domains/{d['id']}", {"open_tracking": True, "click_tracking": True})
-    print(f"PATCH response: {resp}")
-    time.sleep(5)
+    for body in ({"open_tracking": True, "click_tracking": True}, {"openTracking": True, "clickTracking": True}):
+        resp = call("PATCH", f"/domains/{d['id']}", body)
+        time.sleep(4)
+        cur = call("GET", f"/domains/{d['id']}")
+        print(f"PATCH {list(body)} → {resp}; now open={cur.get('open_tracking')} click={cur.get('click_tracking')}")
+        if cur.get("open_tracking"):
+            break
+    print("capabilities:", call("GET", f"/domains/{d['id']}").get("capabilities"))
     after = call("GET", f"/domains/{d['id']}")
     print(f"after:  open_tracking={after.get('open_tracking')} click_tracking={after.get('click_tracking')}")
     print("domain keys:", sorted(after.keys()))
