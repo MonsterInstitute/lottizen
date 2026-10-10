@@ -103,6 +103,8 @@ def load_all_games() -> dict[str, list[dict]]:
             # (false) / no reliable signal for this agency (null). Buy/skip
             # features use only true — never "still on the prize list" (0025).
             "onSale": g.get("on_sale"),
+            # Province codes where sold, if not everywhere the agency sells (0032).
+            "soldIn": g.get("sold_in"),
             "claimExpiry": g.get("claim_expiry"),
             # Share of sales the game is printed to return as prizes, as the
             # agency publishes it (OLG only so far); null elsewhere.

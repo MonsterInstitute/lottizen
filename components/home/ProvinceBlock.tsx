@@ -36,7 +36,7 @@ function whyFirst(p: ProvincePicks): string {
 
 export function ProvinceBlock({ p }: { p: ProvincePicks }) {
   const pick = p.picks.overall ?? null;
-  const href = (g: PickGame) => `/scratch/${g.province}/${g.slug}`;
+  const href = (g: PickGame) => `/scratch/${g.province}/${g.slug}`; // g.province = the scratch board slug
   return (
     <div className="home-grid">
       <div className="card home-pick">
@@ -115,10 +115,10 @@ export function ProvinceBlock({ p }: { p: ProvincePicks }) {
               ))}
             </ul>
             <p className="field-hint" style={{ marginTop: 8 }}>
-          <Link href={`/scratch/${p.province}/prices`}>$20 ticket, four $5 tickets or Lotto Max? Compare by price →</Link>
+          <Link href={`/scratch/${p.scratchSlug}/prices`}>$20 ticket, four $5 tickets or Lotto Max? Compare by price →</Link>
         </p>
         {p.skip.length > 6 && (
-              <Link href={`/scratch/${p.province}`} className="field-hint">
+              <Link href={`/scratch/${p.scratchSlug}`} className="field-hint">
                 See all {p.skip.length} →
               </Link>
             )}

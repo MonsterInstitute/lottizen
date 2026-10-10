@@ -83,3 +83,13 @@ def test_monthly_needs_enough_days_and_ranks_by_average():
     out = wp.monthly(games, ranks, days=4)
     assert [x["name"] for x in out] == ["Steady", "Spiky"]   # New: 1 of 4 days; Off: not on sale
     assert out[0]["avg_rank"] == 2.2
+
+
+def test_single_province_games_only_count_where_sold():
+    ab_only = dict(g("Only In Alberta Bingo", 2, 150), sold_in=["AB"])
+    everywhere = dict(g("The Western", 2, 90), sold_in=None)
+    assert wp.sold_here(ab_only, "AB") and not wp.sold_here(ab_only, "SK")
+    assert not wp.sold_here(ab_only, "")           # territories: region-wide games only
+    assert wp.sold_here(everywhere, "SK") and wp.sold_here(everywhere, "")
+    sk_games = [x for x in (ab_only, everywhere) if wp.sold_here(x, "SK")]
+    assert wp.choose(sk_games)["overall"]["name"] == "The Western"

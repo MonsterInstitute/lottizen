@@ -36,8 +36,22 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "data" / "picks" / "canada.json"
 TZ = ZoneInfo("America/Toronto")
 PROVINCE_OF = {"OLG": "ontario", "BCLC": "british-columbia", "WCLC": "western", "ALC": "atlantic", "QUEBEC": "quebec"}
-LABEL = {"ontario": "Ontario", "british-columbia": "British Columbia", "western": "Alberta, Saskatchewan & Manitoba",
+LABEL = {"ontario": "Ontario", "british-columbia": "British Columbia", "alberta": "Alberta",
+         "saskatchewan": "Saskatchewan", "manitoba": "Manitoba", "territories": "Yukon, Northwest Territories & Nunavut",
          "atlantic": "Atlantic Canada", "quebec": "Quebec"}
+# Where buyers are. Each agency sells across one or more of these; a game
+# with sold_in set (0032) is only shown in the regions it's sold in. The
+# territories get WCLC's region-wide games only.
+REGIONS = {"OLG": [("ontario", None)], "BCLC": [("british-columbia", None)], "ALC": [("atlantic", None)],
+           "QUEBEC": [("quebec", None)],
+           "WCLC": [("alberta", "AB"), ("saskatchewan", "SK"), ("manitoba", "MB"), ("territories", "")]}
+
+
+def sold_here(g: dict, code: str | None) -> bool:
+    """code None = the agency's single region; "" = only region-wide games."""
+    if code is None or not g.get("sold_in"):
+        return True
+    return code in g["sold_in"]
 AGENCY_NAME = {"OLG": "OLG", "BCLC": "BCLC", "WCLC": "WCLC", "ALC": "Atlantic Lottery", "QUEBEC": "Loto-Québec"}
 RETENTION = {"OLG", "BCLC", "QUEBEC"}  # publish printed AND remaining counts for every tier
 BANDS = (("1-5", 1, 5), ("10", 6, 10), ("20+", 11, 10_000))
@@ -116,7 +130,7 @@ def load_games() -> dict[str, list[dict]]:
     """agency -> games with on_sale, top-tier counts, Value Score and the
     published share of printed prize money still unclaimed (where it exists)."""
     import db
-    games = db.fetch_all("games", "game_number,agency,name,slug,province,price,on_sale,launch_date")
+    games = db.fetch_all("games", "game_number,agency,name,slug,province,price,on_sale,launch_date,sold_in")
     tiers = db.fetch_all("prize_tiers", "id,game_number,agency,amount,label,total,remaining,is_top")
     latest = max(r["captured_date"] for r in db.fetch_all(
         "scratch_rank_snapshots", "id,captured_date",
@@ -137,7 +151,7 @@ def load_games() -> dict[str, list[dict]]:
         out.setdefault(g["agency"], []).append({
             "agency": g["agency"], "game_number": g["game_number"], "slug": g["slug"], "name": g["name"],
             "province": PROVINCE_OF[g["agency"]], "price": float(g["price"]), "on_sale": g["on_sale"],
-            "launch_date": g["launch_date"],
+            "launch_date": g["launch_date"], "sold_in": g.get("sold_in"),
             "top_label": top["label"] if top else None, "top_amount": float(top["amount"]) if top else None,
             "top_total": top["total"] if top and top["total"] else None,
             "top_remaining": top["remaining"] if top else None,
@@ -174,7 +188,7 @@ def public(g: dict | None) -> dict | None:
     if g is None:
         return None
     return {k: g[k] for k in ("agency", "game_number", "slug", "name", "province", "price", "top_label", "top_amount",
-                              "top_total", "top_remaining", "share_left_pct", "rank")}
+                              "top_total", "top_remaining", "share_left_pct", "rank", "sold_in")}
 
 
 def run(dry: bool) -> int:
@@ -197,10 +211,12 @@ def run(dry: bool) -> int:
                           filters=[("eq", "week_start", ws.isoformat())])
     result = {"generatedAt": datetime.now(TZ).isoformat(timespec="seconds"), "asOf": today.isoformat(),
               "weekStart": ws.isoformat(), "provinces": {}}
-    for agency, gs in sorted(games.items()):
-        prov = PROVINCE_OF[agency]
+    regions = [(agency, prov, code, [g for g in all_gs if sold_here(g, code)])
+               for agency, all_gs in sorted(games.items()) for prov, code in REGIONS[agency]]
+    for agency, prov, code, gs in regions:
         known = any(g["on_sale"] is not None for g in gs)
-        entry = {"province": prov, "label": LABEL[prov], "agency": agency, "agencyName": AGENCY_NAME[agency],
+        entry = {"province": prov, "scratchSlug": PROVINCE_OF[agency], "label": LABEL[prov], "agency": agency,
+                 "agencyName": AGENCY_NAME[agency],
                  "onSaleKnown": known, "onSaleCount": sum(1 for g in gs if g["on_sale"] is True),
                  "listedCount": len(gs), "picks": {}, "replacements": [], "skip": []}
         result["provinces"][prov] = entry

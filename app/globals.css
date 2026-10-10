@@ -1779,3 +1779,7 @@ html[data-home-region="europe"] [data-region-block="europe"] { display: block; }
 .home-secondary ul { list-style: none; display: flex; flex-wrap: wrap; gap: 8px 22px; padding: 0; margin: 8px 0 0; }
 .nav-results { display: inline-flex; gap: 10px; align-items: baseline; color: var(--ink-3); font-size: 0.95em; }
 .home-grid > .home-new { grid-column: 1 / -1; }
+html[data-home-region="alberta"] [data-region-block="alberta"],
+html[data-home-region="saskatchewan"] [data-region-block="saskatchewan"],
+html[data-home-region="manitoba"] [data-region-block="manitoba"],
+html[data-home-region="territories"] [data-region-block="territories"] { display: block; }

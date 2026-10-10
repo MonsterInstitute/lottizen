@@ -221,6 +221,8 @@ def replace_scratch_games(agency: str, province: str, games: list[dict], source:
                 "launch_date": g.get("launch_date"),
                 # None = the agency gives no reliable on-sale signal (0025).
                 "on_sale": g.get("on_sale"),
+                # None = everywhere the agency sells; else province codes (0032).
+                "sold_in": g.get("sold_in"),
                 "claim_expiry": g.get("claim_expiry"),
                 "source": source,
                 "scraped_at": ts,

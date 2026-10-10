@@ -24,10 +24,14 @@ export interface PickGame {
   top_remaining: number | null;
   share_left_pct: number | null;
   rank: number | null;
+  sold_in?: string[] | null;
 }
 
 export interface ProvincePicks {
+  /** Region key: a province, or WCLC's alberta/saskatchewan/manitoba/territories. */
   province: string;
+  /** The /scratch/<slug> board this region's agency lives on ("western" for WCLC). */
+  scratchSlug: string;
   label: string;
   agency: string;
   agencyName: string;
@@ -66,5 +70,5 @@ export interface PicksFile {
 export const BAND_LABEL: Record<string, string> = { "1-5": "$1–5", "10": "$6–10", "20+": "Over $10" };
 
 export function getPicks(): PicksFile {
-  return data as PicksFile;
+  return data as unknown as PicksFile;
 }

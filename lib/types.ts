@@ -31,6 +31,9 @@ export interface Game {
    *  prizes can still be claimed; null/undefined = the agency gives no
    *  reliable on-sale signal. Buy/skip features use only `true`. */
   onSale?: boolean | null;
+  /** Province codes the game is sold in, when narrower than the agency's
+   *  whole region (WCLC's "Only In Alberta" games); null = everywhere. */
+  soldIn?: string[] | null;
   /** Claim deadline the agency publishes for the game (ALC only so far). */
   claimExpiry?: string | null;
   /** Share of sales the game is printed to pay out as prizes, as published by

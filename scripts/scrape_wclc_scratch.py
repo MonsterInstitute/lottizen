@@ -126,6 +126,20 @@ LAUNCH: dict[str, str] = {}   # game number -> launch date, from the Active Tick
 COMING: list[dict] = []       # the "Coming Soon" tab
 
 
+# WCLC marks single-province games only in their names (0032); ordinary
+# games are sold across AB, SK, MB and the territories.
+SOLD_IN_MARKERS = (
+    (re.compile(r"only in alberta|alberta exclusive|\(ab only\)", re.I), "AB"),
+    (re.compile(r"only in saskatchewan|saskatchewan exclusive|\(sk only\)", re.I), "SK"),
+    (re.compile(r"only in manitoba|manitoba exclusive|\(mb only\)", re.I), "MB"),
+)
+
+
+def sold_in(name: str) -> list[str] | None:
+    codes = [code for rx, code in SOLD_IN_MARKERS if rx.search(name or "")]
+    return codes or None
+
+
 def _key(name: str, price: float) -> str:
     return f"{price:g}|" + re.sub(r"[^a-z0-9]", "", name.lower())
 
@@ -205,6 +219,7 @@ def run_live() -> int:
     for g in games:
         g["on_sale"] = (g["game_number"] in active[0] or _key(g["name"], g["price"]) in active[1]) if active else None
         g["launch_date"] = LAUNCH.get(g["game_number"])
+        g["sold_in"] = sold_in(g["name"])
     if active is not None:
         from datetime import date as _date
         db.get_client().table("scratch_coming_soon").delete().eq("agency", AGENCY).execute()

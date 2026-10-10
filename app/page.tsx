@@ -24,7 +24,10 @@ const NATIONAL = ["lotto-max", "lotto-6-49", "daily-grand"];
 const REGIONAL: Record<string, string[]> = {
   ontario: ["ontario-49", "lottario", "megadice"],
   "british-columbia": ["bc-49"],
-  western: ["western-max", "western-6-49"],
+  alberta: ["western-max", "western-6-49"],
+  saskatchewan: ["western-max", "western-6-49"],
+  manitoba: ["western-max", "western-6-49"],
+  territories: ["western-max", "western-6-49"],
   quebec: [],
   atlantic: [],
 };
@@ -78,7 +81,9 @@ export default function HomePage() {
                 <MyTicketsCard />
               </div>
               <p className="home-more">
-                <Link href={`/scratch/${r.key}`}>Every {r.label} scratch ticket, ranked →</Link>
+                <Link href={`/scratch/${p?.scratchSlug ?? r.key}`}>
+                  Every {p?.agencyName ?? r.label} scratch ticket, ranked →
+                </Link>
               </p>
             </section>
           );

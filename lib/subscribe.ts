@@ -92,7 +92,10 @@ export const PREF_PROVINCES = [
   { slug: "ontario", label: "Ontario" },
   { slug: "quebec", label: "Quebec" },
   { slug: "british-columbia", label: "British Columbia" },
-  { slug: "western", label: "Alberta, Saskatchewan, Manitoba or the territories" },
+  { slug: "alberta", label: "Alberta" },
+  { slug: "saskatchewan", label: "Saskatchewan" },
+  { slug: "manitoba", label: "Manitoba" },
+  { slug: "territories", label: "Yukon, Northwest Territories or Nunavut" },
   { slug: "atlantic", label: "New Brunswick, Nova Scotia, PEI or Newfoundland and Labrador" },
 ] as const;
 export type PrefProvince = (typeof PREF_PROVINCES)[number]["slug"];

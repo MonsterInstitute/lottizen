@@ -170,6 +170,9 @@ export function ProRankingBoard({ games, initialFavourites }: ProRankingBoardPro
                 <span className="rank-gameno">
                   GAME #{g.gameNumber} · TOP PRIZE {g.topPrizeLabel}
                   {g.onSale === false ? " · NOT ON SALE (prize claims only)" : ""}
+                  {g.soldIn?.length
+                    ? ` · SOLD IN ${g.soldIn.map((c) => ({ AB: "ALBERTA", SK: "SASKATCHEWAN", MB: "MANITOBA" })[c] ?? c).join(", ")} ONLY`
+                    : ""}
                 </span>
               </div>
               <div className="rank-cell rank-num num-col">
