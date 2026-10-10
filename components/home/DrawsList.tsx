@@ -17,7 +17,13 @@ export function DrawsList({ slugs, title }: { slugs: string[]; title: string }) 
       <ul className="home-draw-list">
         {rows.map(({ g, l }) => {
           const next = resolveNextDraw(l.nextDraw, g.drawDays);
-          const jp = g.progressive && l.nextJackpot != null ? money(l.nextJackpot, { compact: true, currency: g.currency }) : null;
+          // The operator's jackpot belongs to the draw it was published for.
+          // If that draw has passed and the results aren't in yet, the next
+          // draw's jackpot is unknown (it resets if someone won), so show none.
+          const jp =
+            g.progressive && l.nextJackpot != null && l.nextDraw === next
+              ? money(l.nextJackpot, { compact: true, currency: g.currency })
+              : null;
           return (
             <li key={g.slug}>
               <div className="home-draw-head">
