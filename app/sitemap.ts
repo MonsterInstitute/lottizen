@@ -5,6 +5,8 @@ import { getDrawsByYear, getLatestAll, getNumberStat, getPlayableSlugs, getResul
 import { getAllGuides } from "@/lib/guides";
 import { getUnclaimed } from "@/lib/unclaimed";
 import { getNews } from "@/lib/news";
+import { DID_ANYONE_WIN_PREFIX, DRAW_PAGE_FRESH_DAYS, allBreakdowns, drawPageSlug } from "@/lib/breakdowns";
+import { daysBetween } from "@/lib/format";
 import { absUrl } from "@/lib/site";
 import { SITEMAP_TIER, TIER, type SitemapTier } from "@/config/sitemap";
 
@@ -82,6 +84,15 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const news = getNews();
   if (news.length) push("/news", new Date(news[0].updated_at));
   for (const n of news) push(`/news/${n.slug}`, new Date(n.updated_at));
+  // "Did anyone win?" pages, and per-draw pages only while fresh (after
+  // DRAW_PAGE_FRESH_DAYS their canonical moves to the evergreen page).
+  const todayIso = new Date().toISOString().slice(0, 10);
+  for (const g of allBreakdowns()) {
+    push(`/news/${DID_ANYONE_WIN_PREFIX}${g.slug}`, new Date(g.generatedAt));
+    for (const d of g.draws) {
+      if (daysBetween(d.date, todayIso) <= DRAW_PAGE_FRESH_DAYS) push(`/news/${drawPageSlug(g.slug, d.date)}`, new Date(`${d.date}T12:00:00Z`));
+    }
+  }
   push("/responsible-play");
   push("/guides");
   push("/api");

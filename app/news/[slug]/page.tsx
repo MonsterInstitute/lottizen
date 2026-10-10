@@ -5,14 +5,30 @@ import { CATEGORY_LABEL, getNews, getNewsItem } from "@/lib/news";
 import { humanDate, humanDateTime } from "@/lib/format";
 import { SITE, absUrl } from "@/lib/site";
 import { JsonLd } from "@/components/site/JsonLd";
+import { DID_ANYONE_WIN_PREFIX, allBreakdowns, breakdownsFor, drawPageSlug, parseDrawPageSlug } from "@/lib/breakdowns";
+import { DidAnyoneWinPage, DrawResultPage, didAnyoneWinMetadata, drawPageMetadata } from "@/components/news/DidAnyoneWin";
 
 export const dynamicParams = false;
 
 export function generateStaticParams() {
-  return getNews().map((n) => ({ slug: n.slug }));
+  // News items, plus the "Did anyone win?" page and one page per draw for
+  // the six games with a published prize breakdown (lib/breakdowns.ts).
+  return [
+    ...getNews().map((n) => ({ slug: n.slug })),
+    ...allBreakdowns().flatMap((g) => [
+      { slug: `${DID_ANYONE_WIN_PREFIX}${g.slug}` },
+      ...g.draws.map((d) => ({ slug: drawPageSlug(g.slug, d.date) })),
+    ]),
+  ];
 }
 
 export function generateMetadata({ params }: { params: { slug: string } }): Metadata {
+  if (params.slug.startsWith(DID_ANYONE_WIN_PREFIX)) {
+    const g = breakdownsFor(params.slug.slice(DID_ANYONE_WIN_PREFIX.length));
+    return g ? didAnyoneWinMetadata(g) : {};
+  }
+  const dp = parseDrawPageSlug(params.slug);
+  if (dp) return drawPageMetadata(dp.game, dp.draw);
   const n = getNewsItem(params.slug);
   if (!n) return {};
   const path = `/news/${n.slug}`;
@@ -38,6 +54,13 @@ const RELATED: Record<string, { href: string; label: string }> = {
 };
 
 export default function NewsArticlePage({ params }: { params: { slug: string } }) {
+  if (params.slug.startsWith(DID_ANYONE_WIN_PREFIX)) {
+    const g = breakdownsFor(params.slug.slice(DID_ANYONE_WIN_PREFIX.length));
+    if (!g) notFound();
+    return <DidAnyoneWinPage g={g} />;
+  }
+  const dp = parseDrawPageSlug(params.slug);
+  if (dp) return <DrawResultPage g={dp.game} d={dp.draw} />;
   const n = getNewsItem(params.slug);
   if (!n) notFound();
   const url = absUrl(`/news/${n.slug}`);

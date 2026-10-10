@@ -4,6 +4,8 @@ import { getLatestAll } from "@/lib/draws";
 import { drawDate, money, resolveNextDraw } from "@/lib/format";
 import { Balls } from "@/components/draws/Balls";
 
+const BREAKDOWN_GAMES = new Set(["lotto-max", "lotto-6-49", "daily-grand", "bc-49", "western-max", "western-6-49"]);
+
 /** Next draw (and jackpot where the operator publishes one) plus the latest
  *  numbers, for the given games. */
 export function DrawsList({ slugs, title }: { slugs: string[]; title: string }) {
@@ -33,6 +35,12 @@ export function DrawsList({ slugs, title }: { slugs: string[]; title: string }) 
                 <span className="home-draw-next">
                   Next draw {drawDate(next)}
                   {jp ? <strong> · {jp}</strong> : null}
+                  {BREAKDOWN_GAMES.has(g.slug) ? (
+                    <>
+                      {" · "}
+                      <Link href={`/news/did-anyone-win-${g.slug}`}>Did anyone win?</Link>
+                    </>
+                  ) : null}
                 </span>
               </div>
               <div className="home-draw-last">

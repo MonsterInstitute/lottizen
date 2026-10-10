@@ -54,6 +54,11 @@ jobs:
         id: picks
         run: python scripts/weekly_picks.py
 
+      # "Did anyone win?" and per-draw pages for the six games with a
+      # published prize breakdown. Small files; republished every run.
+      - name: Prize breakdowns for the result pages
+        run: python scripts/publish_breakdowns.py && python scripts/publish_site_json.py breakdowns
+
       - name: Publish news to site_json
         if: steps.engine.outputs.changed == 'true'
         run: python scripts/publish_site_json.py news
@@ -63,7 +68,9 @@ jobs:
         run: python scripts/publish_site_json.py picks
 
       - name: Redeploy
-        if: steps.engine.outputs.changed == 'true' || steps.picks.outputs.changed == 'true'
+        # Breakdowns change after every draw; redeploying on every run keeps
+        # the "Did anyone win?" pages current (runs follow the data workflows).
+        if: success()
         env:
           VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
         run: curl -fsS -X POST "$VERCEL_DEPLOY_HOOK" && echo "✓ Vercel deploy triggered"
