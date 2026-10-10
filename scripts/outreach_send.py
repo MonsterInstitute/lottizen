@@ -25,7 +25,9 @@ import urllib.request
 from pathlib import Path
 
 API = "https://api.resend.com"
-FROM = "The Lottizen Team <press@lottizen.com>"
+# lottizen.com itself isn't a verified Resend domain (its DNS is on Cloudflare,
+# MX = Cloudflare Email Routing); mail.lottizen.com is.
+FROM = "The Lottizen Team <press@mail.lottizen.com>"
 PARTNER_DOMAINS = ("rafflebox.ca", "rafflenexus.com")
 
 
@@ -70,7 +72,7 @@ def info() -> None:
     except RuntimeError as e:
         print(f"receiving API: {e}")
     o, r = os.environ.get("OWNER", ""), os.environ.get("OPS", "")
-    print(f"OUTREACH_EMAIL={mask(o) if o else '-'} OPS_REPORT_EMAIL={mask(r) if r else '-'} same={o == r}")
+    print(f"OUTREACH_EMAIL={mask(o) if o else '-'} OPS_REPORT_EMAIL={mask(r) if r else '-'} same={o == r} same_ignoring_case={o.lower() == r.lower()}")
     print(f"REPLY_WATCH set={bool(os.environ.get('REPLY_WATCH'))}")
 
 

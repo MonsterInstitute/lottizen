@@ -5,7 +5,7 @@ import { getAllRankings } from "@/lib/data";
 import { getPlayableSlugs } from "@/lib/draws";
 import { JsonLd } from "@/components/site/JsonLd";
 
-const RAPIDAPI_URL = "https://rapidapi.com/l3rundong/api/lottizen-data-api";
+const RAPIDAPI_URL = "/go/rapidapi";
 
 export const metadata: Metadata = {
   title: "Lottizen Data API — Canada, US & Europe Lottery Data (REST/JSON)",

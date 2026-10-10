@@ -521,6 +521,27 @@ def tracking_on() -> bool | None:
         return None
 
 
+def partner_replies() -> list[dict]:
+    """Replies from Rafflebox / Raffle Nexus that reached a Resend receiving
+    address (see scripts/outreach_send.py). Empty when none or unknown."""
+    if not os.environ.get("RESEND_API_KEY"):
+        return []
+    try:
+        import outreach_send
+        return outreach_send.replies()
+    except Exception:  # noqa: BLE001
+        return []
+
+
+def replies_html(rs: list[dict]) -> str:
+    if not rs:
+        return ""
+    names = {"rafflebox.ca": "Rafflebox", "rafflenexus.com": "Raffle Nexus"}
+    rows = "".join(row(names.get(r["domain"], r["domain"]), (r["at"] or "")[:16].replace("T", " ") + " UTC",
+                       "", r["subject"] or "") for r in rs)
+    return h2("合作方回复了") + table(rows) + note("原信在你的 Gmail（Reply-To），这里只记录它到了。")
+
+
 def open_rate(rc: dict | None) -> tuple[str, str]:
     if tracking_on() is False:
         return "未开启", "Resend 的 Open Tracking 没开，打开率无法统计（Resend 后台 Domains → mail.lottizen.com → Configuration 打开）"
@@ -719,6 +740,10 @@ def build_daily(today: date) -> tuple[str, str, dict]:
     if ps_now and ps_now["mrr"] is not None:
         headline_bits.append(f"MRR ${ps_now['mrr']:,.0f}")
     subject = f"Lottizen 日报 · {cn_date(y)} · " + " · ".join(headline_bits)
+    preplies = partner_replies()
+    lat_html = replies_html(preplies) + lat_html
+    if preplies:
+        subject = "📬 合作方回复了 · " + subject
     if alerts:
         subject = f"⚠ {len(alerts)} 项需注意 · " + subject
 

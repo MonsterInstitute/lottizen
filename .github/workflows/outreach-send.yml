@@ -28,8 +28,8 @@ jobs:
       - name: Outreach
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
-          OWNER: ${{ secrets.OUTREACH_EMAIL }}
-          OPS: ${{ secrets.OPS_REPORT_EMAIL }}
+          OWNER: ${{ secrets.OPS_REPORT_EMAIL }}
+          OPS: ${{ secrets.OUTREACH_EMAIL }}
           REPLY_WATCH: ${{ vars.OUTREACH_REPLY_WATCH }}
           MODE: ${{ inputs.mode }}
           FILES: ${{ inputs.files }}

@@ -84,6 +84,13 @@ const nextConfig = {
         destination: "/scratch/ontario/price/:price",
         permanent: true,
       },
+      {
+        // The RapidAPI listing lives under the owner's personal username; keep
+        // it out of our HTML and structured data.
+        source: "/go/rapidapi",
+        destination: "https://rapidapi.com/l3rundong/api/lottizen-data-api",
+        permanent: false,
+      },
       ...legacyScratchRedirects(),
       ...quebecAccentSlugRedirects(),
     ];
