@@ -1,0 +1,35 @@
+name: Bing URL check
+
+# Manual. What Bing knows about recently IndexNow-submitted URLs
+# (scripts/bing_url_check.py). Read-only.
+on:
+  workflow_dispatch:
+    inputs:
+      match:
+        description: "Regex the URLs must match"
+        required: false
+        default: ""
+      limit:
+        required: false
+        default: "15"
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install --upgrade pip supabase certifi
+      - name: Check
+        env:
+          BING_WEBMASTER_API_KEY: ${{ secrets.BING_WEBMASTER_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          MATCH: ${{ inputs.match }}
+          LIMIT: ${{ inputs.limit }}
+        run: python scripts/bing_url_check.py --match "$MATCH" --limit "$LIMIT"
