@@ -49,6 +49,7 @@ jobs:
           node-version: "22"
 
       - name: Redeploy if the published data changed
+        id: deploy
         env:
           VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
         run: node scripts/trigger-deploy-if-changed.mjs
@@ -57,6 +58,16 @@ jobs:
         env:
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
         run: python scripts/send_charity_alerts.py
+        continue-on-error: true
+
+      # Tell IndexNow engines (Bing & co.) which pages changed: only URLs whose
+      # sitemap lastmod moved since the last submission, read from the live
+      # sitemap once the deploy above is live. Never fails the run.
+      - name: IndexNow — submit changed pages
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: python scripts/indexnow_submit.py --trigger "${{ github.workflow }}" ${{ steps.deploy.outputs.deployed == 'true' && '--after-deploy' || '--live' }}
         continue-on-error: true
 
       # A rules page that stopped matching its patterns (scripts/charity/specs.py)

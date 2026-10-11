@@ -62,7 +62,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     for (const p of CHARITY_PROVINCES) if (lotteriesIn(p.code).length) push(`/charity/${p.slug}`, new Date(charity.generatedAt));
     for (const l of charity.lotteries) {
       const changed = l.results[0]?.drawDate ?? l.current?.scrapedAt?.slice(0, 10);
-      if (l.current || l.results.length) push(lotteryPath(l), changed ? new Date(`${changed.slice(0, 10)}T12:00:00Z`) : undefined);
+      // Every lottery has an indexable page (between editions too: the
+      // province page links it), so every one is listed.
+      push(lotteryPath(l), changed ? new Date(`${changed.slice(0, 10)}T12:00:00Z`) : undefined);
       if (l.results.length) push(`${lotteryPath(l)}/winning-numbers`, l.results[0].drawDate ? new Date(`${l.results[0].drawDate}T12:00:00Z`) : undefined);
     }
   }

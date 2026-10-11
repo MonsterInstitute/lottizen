@@ -17,9 +17,16 @@ the "expected" sitemap is the one this run just built locally
 shows the same lastmod for each changed URL. URLs that aren't live by
 --wait seconds are left for the next run (not recorded as submitted).
 
+Workflows that deploy through the hook without building locally (charity,
+deploy-data for news/unclaimed/scratch) pass --after-deploy when they just
+triggered a deploy: it waits for the live /data-version.json builtAt to move,
+then reads the live sitemap.
+
 Usage:
   python scripts/indexnow_submit.py --trigger "Daily draw results"   # changed pages
+  python scripts/indexnow_submit.py --after-deploy                    # same, once the hook's deploy is live
   python scripts/indexnow_submit.py --all --trigger initial           # every sitemap URL once
+  python scripts/indexnow_submit.py --all --live --match '/charity'   # every live URL matching a regex, once
   python scripts/indexnow_submit.py --dry-run                         # show what would go
 
 The key is public by design: IndexNow verifies ownership by fetching
@@ -91,6 +98,29 @@ def live_sitemap() -> dict[str, str | None]:
         return parse_sitemap(r.read().decode("utf-8"))
 
 
+def live_built_at() -> str | None:
+    try:
+        req = urllib.request.Request(f"{SITE}/data-version.json?t={time.time():.0f}", headers={"Cache-Control": "no-cache"})
+        with urllib.request.urlopen(req, timeout=20, context=CTX) as r:
+            return json.loads(r.read().decode()).get("builtAt")
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def wait_for_new_build(wait: int) -> bool:
+    """The deploy hook was just POSTed: wait until the live build changes."""
+    before = live_built_at()
+    deadline = time.time() + wait
+    while time.time() < deadline:
+        time.sleep(20)
+        now = live_built_at()
+        if now and now != before:
+            print(f"  new build live (builtAt {now})")
+            return True
+        print("  waiting for the triggered deploy to go live…", flush=True)
+    return False
+
+
 def submitted_state() -> dict[str, str | None]:
     return {r["url"]: norm(r["lastmod"]) for r in db.fetch_all("indexnow_urls", "url,lastmod")}
 
@@ -131,16 +161,25 @@ def main() -> int:
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--trigger", default=os.environ.get("GITHUB_WORKFLOW", "manual"))
     ap.add_argument("--wait", type=int, default=600, help="seconds to wait for the deploy to go live")
+    ap.add_argument("--after-deploy", action="store_true", help="a deploy was just triggered: wait for it, then use the live sitemap")
+    ap.add_argument("--live", action="store_true", help="use the live sitemap even if a local build exists")
+    ap.add_argument("--match", help="only URLs matching this regex")
     args = ap.parse_args()
 
     k = key()
-    if LOCAL_SITEMAP.exists():
+    local = LOCAL_SITEMAP.exists() and not (args.live or args.after_deploy)
+    if args.after_deploy and not wait_for_new_build(args.wait):
+        print(f"  triggered deploy not live after {args.wait}s; leaving changes for the next run")
+        return 0
+    if local:
         expected_all = parse_sitemap(LOCAL_SITEMAP.read_text())
         print(f"local build sitemap: {len(expected_all)} URLs")
     else:
         expected_all = live_sitemap()
         print(f"no local build; using the live sitemap: {len(expected_all)} URLs")
 
+    if args.match:
+        expected_all = {u: lm for u, lm in expected_all.items() if re.search(args.match, u)}
     state = submitted_state()
     if args.all:
         changed = dict(expected_all)
@@ -155,7 +194,7 @@ def main() -> int:
             print("  ", u, changed[u])
         return 0
 
-    ready = wait_until_live(changed, args.wait) if LOCAL_SITEMAP.exists() else set(changed)
+    ready = wait_until_live(changed, args.wait) if local else set(changed)
     if len(ready) < len(changed):
         print(f"  {len(changed) - len(ready)} URL(s) not live after {args.wait}s; leaving them for the next run")
     urls = sorted(ready)
