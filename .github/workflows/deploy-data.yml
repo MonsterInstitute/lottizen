@@ -1,0 +1,65 @@
+name: Deploy data changes
+
+# The ONE deploy for the morning scratch batch, the unclaimed lists and news.
+# Those workflows only publish to site_json; this runs when any of them
+# completes, waits for the batch to settle, then fires the Vercel deploy hook
+# once — and only if site_json differs from what the live site carries
+# (scripts/trigger-deploy-if-changed.mjs compares against the live
+# /data-version.json the current build wrote).
+#
+# Debounce: cancel-in-progress means each new completion cancels the run that
+# is still sleeping, so a burst (5 scratch agencies + the news run after each)
+# ends in a single deploy DEBOUNCE_SECONDS after the last one. Runs cancelled
+# that way are expected and are deliberately not watched by
+# ci-failure-alert.yml; a deploy that never lands is caught by
+# freshness-watchdog.yml.
+#
+# Draw results (draws/usa/europe-daily) and charity pots deploy from their own
+# workflows straight away, through the same change check.
+#
+# workflow_run keys off each workflow's `name:` — keep in sync by hand.
+on:
+  workflow_run:
+    workflows:
+      - "Scratch — OLG (Ontario) daily refresh"
+      - "Scratch — BCLC (British Columbia) daily refresh"
+      - "Scratch — WCLC (Western Canada (AB/SK/MB)) daily refresh"
+      - "Scratch — ALC (Atlantic Canada (NB/NS/PE/NL)) daily refresh"
+      - "Scratch — Loto-Québec (Quebec) daily refresh"
+      - "Unclaimed prizes daily refresh"
+      - "News from the data"
+    # Any conclusion: a scratch run that fails its scrape still republishes
+    # rankings from last-good data before it goes red.
+    types: [completed]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-data
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Wait for the batch to settle
+        if: ${{ github.event_name == 'workflow_run' }}
+        env:
+          DEBOUNCE_SECONDS: "1200" # the 5 scratch runs are scheduled 35 min apart in total, ≤15 min between neighbours
+        run: sleep "$DEBOUNCE_SECONDS"
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Deploy if the published data changed
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
+        run: node scripts/trigger-deploy-if-changed.mjs

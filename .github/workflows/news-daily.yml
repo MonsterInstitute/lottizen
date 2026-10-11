@@ -4,7 +4,8 @@ name: News from the data
 # Runs scripts/news_engine.py after each data workflow that can change a
 # story's facts (draw results, the five scratch refreshes, unclaimed lists),
 # plus a daily fallback. The engine writes or updates news_items; only when
-# something changed does it publish data/news/index.json and redeploy.
+# something changed does it publish data/news/index.json (deploy-data.yml
+# then redeploys if site_json changed).
 # Every number in an item is verified against the values the detector read
 # from the database before it is stored (see the engine's docstring).
 on:
@@ -67,10 +68,6 @@ jobs:
         if: steps.picks.outputs.changed == 'true'
         run: python scripts/publish_site_json.py picks
 
-      - name: Redeploy
-        # Breakdowns change after every draw; redeploying on every run keeps
-        # the "Did anyone win?" pages current (runs follow the data workflows).
-        if: success()
-        env:
-          VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
-        run: curl -fsS -X POST "$VERCEL_DEPLOY_HOOK" && echo "✓ Vercel deploy triggered"
+      # No deploy here: deploy-data.yml runs when this workflow completes and
+      # deploys once (after the batch settles) if site_json changed — e.g. new
+      # breakdowns for the "Did anyone win?" pages.

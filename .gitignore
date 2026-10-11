@@ -43,3 +43,6 @@ scripts/.cache/
 
 # vercel
 .vercel
+
+# Written by scripts/prefetch_supabase.mjs at build time (the live data version).
+/public/data-version.json

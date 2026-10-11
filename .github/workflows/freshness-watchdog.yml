@@ -157,10 +157,20 @@ jobs:
             gh issue close "$existing" --repo "$GITHUB_REPOSITORY" && echo "closed #$existing (recovered)"
           fi
 
+      - uses: actions/setup-node@v4
+        if: ${{ steps.deploy.outputs.stale == '1' && github.event.inputs.selftest != 'true' }}
+        with:
+          node-version: "22"
+
       - name: Ping Vercel deploy hook to self-heal (if configured)
         # Optional auto-heal: set the VERCEL_DEPLOY_HOOK secret to a Vercel Deploy
         # Hook URL and a stale deployment triggers a fresh production build. No-op
-        # if the secret is unset. Skipped during --selftest.
+        # if the secret is unset. Skipped during --selftest. Goes through
+        # trigger-deploy-if-changed.mjs, which deploys when the live site's data
+        # version differs from site_json, its "Updated" stamp lags > 12h (this
+        # check's own rule), or its data-version.json is unreadable — so a real
+        # stale site is rebuilt, and nothing here can trigger itself again (one
+        # run per day; a deploy starts no workflow).
         if: ${{ steps.deploy.outputs.stale == '1' && github.event.inputs.selftest != 'true' }}
         env:
           HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
@@ -169,5 +179,5 @@ jobs:
             echo "VERCEL_DEPLOY_HOOK not set — skipping deploy-hook auto-heal."
             exit 0
           fi
-          echo "Deployment stale — pinging Vercel deploy hook to trigger a rebuild."
-          curl -fsS -X POST "$HOOK" && echo "deploy hook triggered" || echo "deploy hook failed (continuing)"
+          echo "Deployment stale — checking whether a rebuild would change anything."
+          VERCEL_DEPLOY_HOOK="$HOOK" node scripts/trigger-deploy-if-changed.mjs || echo "deploy trigger failed (continuing)"

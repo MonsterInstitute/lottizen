@@ -48,11 +48,14 @@ jobs:
         uses: ./.github/actions/build-and-audit
       - name: Publish JSON to Supabase (site_json)
         run: python scripts/publish_site_json.py draws stats
-      - name: Trigger Vercel deploy
+      # Deploys only if site_json now differs from what the live site carries
+      # (scripts/trigger-deploy-if-changed.mjs); a run that fetched no new draw
+      # finishes without a rebuild.
+      - name: Deploy if the published data changed
+        id: deploy
         env:
           VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
-        run: |
-          curl -fsS -X POST "$VERCEL_DEPLOY_HOOK" && echo "✓ Vercel deploy triggered"
+        run: node scripts/trigger-deploy-if-changed.mjs
 
       # Instant draw-result emails — see draws-daily.yml for the full note.
       - name: Send draw-result emails

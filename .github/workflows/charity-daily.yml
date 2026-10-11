@@ -2,7 +2,8 @@ name: Charity lotteries refresh
 
 # Home lotteries, 50/50s and Catch the Ace (scripts/charity/registry.py):
 # scrape every lottery's own rules page / ticket API into Supabase, snapshot
-# today's pots and sell-out state, publish data/charity/index.json, redeploy,
+# today's pots and sell-out state, publish data/charity/index.json, redeploy
+# if anything changed,
 # then email followers (deadlines 3 days out, selling out, winning numbers).
 # Several runs a day because 50/50 pots move by the hour; GitHub starts
 # crons hours late, which is fine for a several-times-daily refresh.
@@ -40,10 +41,17 @@ jobs:
       - name: Build data/charity/index.json and publish to site_json
         run: python scripts/charity_publish.py && python scripts/publish_site_json.py charity
 
-      - name: Redeploy
+      # Deploy only if site_json now differs from what the live site carries
+      # (trigger-deploy-if-changed.mjs); a run that only restamps scrapedAt
+      # finishes without a rebuild.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Redeploy if the published data changed
         env:
           VERCEL_DEPLOY_HOOK: ${{ secrets.VERCEL_DEPLOY_HOOK }}
-        run: curl -fsS -X POST "$VERCEL_DEPLOY_HOOK" && echo "✓ Vercel deploy triggered"
+        run: node scripts/trigger-deploy-if-changed.mjs
 
       - name: Email followers
         env:

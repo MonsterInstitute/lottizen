@@ -8,52 +8,18 @@
 // throws "native WebSocket not found" on Node < 22. A simple SELECT needs none of
 // that. Credentials come from the environment (Vercel build env); for local runs
 // it also loads a git-ignored .env.local.
-import { mkdirSync, writeFileSync, readFileSync, existsSync } from "node:fs";
+import { mkdirSync, writeFileSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
-
-const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-
-// Minimal .env.local loader for local dev (Vercel already has env vars set).
-function loadEnvLocal() {
-  const f = resolve(ROOT, ".env.local");
-  if (!existsSync(f)) return;
-  for (const line of readFileSync(f, "utf-8").split("\n")) {
-    const t = line.trim();
-    if (!t || t.startsWith("#") || !t.includes("=")) continue;
-    const i = t.indexOf("=");
-    const k = t.slice(0, i).trim();
-    const v = t.slice(i + 1).trim().replace(/^["']|["']$/g, "");
-    if (!(k in process.env)) process.env[k] = v;
-  }
-}
+import { ROOT, loadEnvLocal, fetchSiteJson, dataVersion } from "./data-version.mjs";
 
 async function main() {
   loadEnvLocal();
-  const url = process.env.SUPABASE_URL;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
-  if (!url || !key) {
-    console.error(
-      "✗ SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not set. On Vercel add them to " +
-        "Project → Environment Variables; locally put them in .env.local.",
-    );
+  let rows;
+  try {
+    rows = await fetchSiteJson();
+  } catch (e) {
+    console.error(`✗ ${e.message}`);
     process.exit(1);
-  }
-  // Page past PostgREST's 1000-row cap (well above our ~43 files, but safe).
-  const rows = [];
-  const page = 1000;
-  const rest = url.replace(/\/$/, "") + "/rest/v1/site_json";
-  for (let from = 0; ; from += page) {
-    const res = await fetch(
-      `${rest}?select=path,content&order=path&offset=${from}&limit=${page}`,
-      { headers: { apikey: key, Authorization: `Bearer ${key}` } },
-    );
-    if (!res.ok) {
-      throw new Error(`site_json read failed: ${res.status} ${await res.text()}`);
-    }
-    const data = await res.json();
-    rows.push(...data);
-    if (data.length < page) break;
   }
   if (rows.length === 0) {
     console.error(
@@ -81,9 +47,15 @@ async function main() {
     written++;
     bytes += content.length;
   }
+  // Record which data this build carries (public/data-version.json, served by
+  // the live site). trigger-deploy-if-changed.mjs compares against it so the
+  // deploy hook only fires when site_json actually changed.
+  const version = { ...dataVersion(rows), builtAt: new Date().toISOString() };
+  writeFileSync(resolve(ROOT, "public", "data-version.json"), JSON.stringify(version) + "\n");
   console.log(
     `✓ prefetched ${written} JSON files from Supabase (${(bytes / 1e6).toFixed(1)} MB) -> data/` +
-      (skipped ? ` (${skipped} local files kept)` : ""),
+      (skipped ? ` (${skipped} local files kept)` : "") +
+      `; data version ${version.hash.slice(0, 12)}`,
   );
 }
 
