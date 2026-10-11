@@ -17,6 +17,7 @@ import os
 import re
 import ssl
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -56,15 +57,19 @@ def main() -> int:
     rows = sorted(db.fetch_all("indexnow_urls", "url,submitted_at"), key=lambda r: r["submitted_at"] or "", reverse=True)
     urls = [r for r in rows if re.search(a.match, r["url"])][: a.limit]
     print(f"submission quota: {call('GetUrlSubmissionQuota')}")
+    # The homepage is a control: if Bing shows nothing for it either, the
+    # API isn't returning crawl data, not "Bing hasn't seen these".
+    urls = [{"url": SITE, "submitted_at": "(control)"}] + urls
     seen = 0
     for r in urls:
+        time.sleep(2)  # GetUrlInfo throttles back-to-back calls (ThrottleHost)
         d = call("GetUrlInfo", url=r["url"])
         found = day(d.get("DiscoveryDate")) != "-" or day(d.get("LastCrawledDate")) != "-"
         seen += found
         print(f"{r['url'].removeprefix(SITE.rstrip('/'))}  submitted {r['submitted_at'][:16]}  "
               f"discovered {day(d.get('DiscoveryDate'))}  crawled {day(d.get('LastCrawledDate'))}  "
               f"http {d.get('HttpStatus', '-')}{'  ' + d['error'] if 'error' in d else ''}")
-    print(f"{seen}/{len(urls)} known to Bing")
+    print(f"{seen}/{len(urls)} known to Bing (incl. the homepage control)")
     return 0
 
 
