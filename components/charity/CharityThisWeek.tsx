@@ -26,7 +26,7 @@ export function CharityThisWeek({ region, now = new Date() }: { region: string; 
   if (!deadlines.length && !pot) return null;
   const slug = CHARITY_PROVINCES.find((p) => p.region === region)?.slug;
   return (
-    <div className="card home-charity" style={{ padding: "20px 24px", marginTop: 4 }}>
+    <div className="card home-charity">
       <div className="section-eyebrow">Charity lotteries this week</div>
       <ul className="home-skip-list">
         {deadlines.slice(0, 4).map(({ l, d }) => (

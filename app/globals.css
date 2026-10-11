@@ -1953,3 +1953,130 @@ html[data-home-prov="NU"] .buy-elsewhere[data-prov~="NU"] { display: none; }
 .follow-email-form { display: flex; gap: 8px; flex-wrap: wrap; }
 .follow-email-form input { flex: 1 1 220px; min-width: 0; }
 .wn-table td.num { font-variant-numeric: tabular-nums; }
+
+/* ============ HOMEPAGE (visual pass 2026-10-11) ============ */
+/* One scale: the hero H1 is the only big serif title; every section title
+   is .home-h2. One vertical rhythm: each section 28px top and bottom, so
+   56px between any two. Small grey text darkened to ≥4.5:1 on cream. */
+.home { --ink-3: #736d63; --home-gap: 28px; }
+.home .hero { padding: 44px 0 var(--home-gap); }
+.home .hero-grid { gap: 48px; align-items: start; }
+.home .hero-headline { font-size: clamp(40px, 4.8vw, 66px); margin-top: 16px; }
+.home .hero-deck { margin-top: 18px; font-size: clamp(16.5px, 1.3vw, 19px); }
+.home .hero-cta-row { margin-top: 24px; }
+.home .hero-meta { margin-top: 14px; }
+.home .section { padding: var(--home-gap) 0; }
+.home > .container:has(> :not(:empty)) { padding-top: var(--home-gap); padding-bottom: var(--home-gap); }
+.home .section-head-row { align-items: center; gap: 12px 24px; margin-bottom: 16px; }
+.home .section-head-row .btn { padding: 8px 14px; font-size: 14px; }
+.home-h2 { font-size: clamp(24px, 2.4vw, 30px); line-height: 1.15; margin: 0; max-width: none; }
+.home .field-hint { font-size: 13px; }
+.home .card { margin: 0; }
+.home-week-block + .home-week-block { margin-top: 40px; }
+/* Right column: skip list and charity deadlines stacked; the last card
+   stretches so both columns end level. */
+.home-stack { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.home-stack > :last-child { flex: 1; }
+.home-stack:empty { display: none; }
+.home .home-grid:has(> .home-stack:empty) > * { grid-column: 1 / -1; }
+.home .home-charity { padding: 22px 24px; }
+
+/* Grids: one 16px gap, cards in a row share a height. */
+.home .home-grid { gap: 16px; margin-bottom: 0; align-items: stretch; }
+.home .home-grid > :only-child { grid-column: 1 / -1; }
+.home .home-results-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 0; }
+.home .home-news-grid { gap: 16px; margin-top: 0; }
+.home .home-results-grid .game-card,
+.home .home-news-grid .game-card { display: flex; flex-direction: column; padding: 20px 22px; }
+.home .home-results-grid .game-card-jackpot { margin-top: auto; }
+.home .home-results-grid .game-card-date { margin-bottom: 12px; }
+.home .home-results-grid .balls-fit { margin-bottom: 16px; }
+@media (max-width: 900px) { .home .home-results-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) { .home .home-results-grid { grid-template-columns: 1fr; } }
+
+/* Next-draw dates and jackpots: body text; the numbers are the focus. */
+.home .game-card-jackpot .amt {
+  font-family: var(--font-sans), sans-serif; font-size: 15px; font-weight: 600; letter-spacing: 0;
+}
+.home .game-card-name { font-size: 19px; }
+
+/* Hero card: latest numbers, then the next draws. */
+.home .hero-region-card { padding: 24px 26px; }
+.hero-next-head { margin-top: 16px; padding: 10px 0 6px; }
+.hero-next-head .k { font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink-3); }
+.home .hero-region-card .data-row:not(.hero-next-head) { padding: 9px 0; }
+.home .hero-region-card .data-row .k,
+.home .hero-region-card .data-row .v { font-size: 14px; }
+
+/* Balls that must stay on one line: sized to the container's width. */
+.balls-fit { container-type: inline-size; width: 100%; }
+.balls-fit .balls { flex-wrap: nowrap; gap: 6px; }
+.balls-fit .ball {
+  --max: 42px;
+  --b: min(var(--max), calc((100cqi - (var(--n) - 1) * 6px - var(--plus) * 18px) / var(--n)));
+  width: var(--b); height: var(--b); flex: none; font-size: calc(var(--b) * 0.4);
+}
+.balls-fit .ball.sm { --max: 34px; }
+.balls-fit .ball.lg { --max: 50px; }
+.balls-fit .ball-plus { margin: 0; flex: none; }
+
+/* Merged scratch card: the pick, then the rest of the top five. */
+.home .home-pick { padding: 22px 24px; display: flex; flex-direction: column; }
+.home .home-pick-title { font-size: 24px; margin: 6px 0 8px; }
+.home-pick-kicker {
+  display: block; font-family: var(--font-sans), sans-serif; font-size: 12px; font-weight: 700;
+  letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 4px;
+}
+.home .home-pick-reason { font-size: 15px; }
+.home-top-list { list-style: decimal inside; margin: 4px 0 0; padding: 0; }
+.home-top-list li { padding: 7px 0; border-top: 1px solid var(--border); font-size: 14.5px; display: list-item; }
+.home-top-list li::marker { color: var(--ink-3); font-family: var(--font-mono), monospace; font-size: 13px; }
+.home-top-list a { color: var(--ink); text-decoration: none; }
+.home-top-list a:hover { color: var(--brand-deep); }
+.home-top-v { float: right; font-family: var(--font-mono), monospace; font-size: 13px; color: var(--ink-2); }
+.home-card-foot { display: flex; flex-wrap: wrap; gap: 6px 20px; margin-top: auto; padding-top: 14px; font-size: 14px; font-weight: 600; }
+.home-card-foot a { color: var(--brand-deep); text-decoration: none; }
+.home .home-skip { padding: 22px 24px; }
+
+/* One compact email banner. */
+.home-signup { display: flex; align-items: center; justify-content: space-between; gap: 16px 32px; flex-wrap: wrap; padding: 20px 24px; }
+.home-signup-text { flex: 1 1 320px; font-size: 15.5px; color: var(--ink-2); margin: 0; }
+.home-signup-text strong { color: var(--ink); }
+.home-signup .inline-form-compact { flex: 1 1 360px; }
+.inline-form-compact { flex-wrap: nowrap; align-items: stretch; }
+.inline-form-compact .field { min-width: 0; }
+.inline-form-compact .btn { white-space: nowrap; }
+
+/* Nav: Tools groups statistics and the number generator. */
+.nav-menu { position: relative; }
+.nav-menu-list {
+  display: none; position: absolute; top: 100%; left: -14px; z-index: 60; min-width: 190px;
+  padding: 8px; margin-top: 8px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); box-shadow: var(--shadow-card);
+}
+.nav-menu-list::before { content: ""; position: absolute; top: -10px; left: 0; right: 0; height: 10px; }
+.nav-menu:hover .nav-menu-list, .nav-menu:focus-within .nav-menu-list { display: grid; }
+.nav-menu-list a { padding: 8px 10px; border-radius: 6px; }
+.nav-menu-list a:hover { background: var(--bg); }
+
+@media (max-width: 560px) {
+  .home { --home-gap: 22px; }
+  .home .hero { padding-top: 28px; }
+  .home .hero-grid { gap: 28px; }
+  .home .data-card, .home .home-pick, .home .home-skip, .home .hero-region-card { padding: 18px; }
+  .home .home-results-grid .game-card, .home .home-news-grid .game-card { padding: 18px; }
+  .home-top-v { float: none; display: block; }
+  .inline-form-compact { flex-wrap: wrap; }
+  .inline-form-compact .btn { width: 100%; justify-content: center; }
+}
+
+/* Phone nav: logo, region and My Lottizen fit on one row without side scroll. */
+@media (max-width: 560px) {
+  .nav-inner { height: 60px; gap: 8px; }
+  .logo { font-size: 19px; gap: 8px; }
+  .logo-mark { width: 30px; height: 30px; font-size: 18px; border-radius: 8px; }
+  .nav-right { gap: 8px; min-width: 0; }
+  .region-select-compact { margin-left: 0; min-width: 0; }
+  .region-select-compact select { max-width: 96px; }
+  .nav-cta { padding: 8px 11px; font-size: 13px; white-space: nowrap; }
+}

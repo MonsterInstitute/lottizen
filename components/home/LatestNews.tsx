@@ -47,11 +47,8 @@ export function LatestNews({ count = 3 }: { count?: number }) {
   return (
     <section className="section" data-country-scope="CA" data-regions={covered.join(" ")}>
       <div className="container">
-        <div className="section-eyebrow">News from the data</div>
         <div className="section-head-row">
-          <h2 className="section-headline">
-            Latest <em>news.</em>
-          </h2>
+          <h2 className="section-headline home-h2">Latest news</h2>
           <Link href="/news" className="btn btn-secondary">
             All news →
           </Link>

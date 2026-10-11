@@ -8,6 +8,7 @@ import { RegionSelect } from "@/components/home/RegionSelect";
  * visitor's country is known (RegionScript). With no known region every
  * entry shows, and the per-country results links read "Canada / USA /
  * Europe" instead of "Results". The region dropdown on the right switches.
+ * Six entries for a Canadian visitor; Guides and News live in the footer.
  */
 export function Header() {
   const results = (code: string, href: string, name: string) => (
@@ -31,15 +32,17 @@ export function Header() {
             Scratch
           </Link>
           <Link href="/charity" data-country-scope="CA">
-            Charity lotteries
+            Charity
           </Link>
-          <Link href="/statistics">Statistics</Link>
-          <Link href="/generator">Tools</Link>
-          <Link href="/guides">Guides</Link>
-          <Link href="/news" data-country-scope="CA">
-            News
-          </Link>
-          <Link href="/dashboard#tickets">My tickets</Link>
+          <div className="nav-menu">
+            <Link href="/statistics" aria-haspopup="true">
+              Tools
+            </Link>
+            <div className="nav-menu-list">
+              <Link href="/statistics">Statistics</Link>
+              <Link href="/generator">Number generator</Link>
+            </div>
+          </div>
         </nav>
         <div className="nav-right">
           <RegionSelect compact />

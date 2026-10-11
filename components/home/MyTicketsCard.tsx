@@ -45,6 +45,8 @@ export function MyTicketsCard({ onlySignedIn = false }: { onlySignedIn?: boolean
   const pending = state.tickets.filter((t) => t.status === "pending").length;
   const open = state.claims.filter((c) => !c.claimed_at && (!c.claim_deadline || c.claim_deadline >= today));
   const next = open.map((c) => c.claim_deadline).filter((d): d is string => Boolean(d)).sort()[0];
+  // The homepage shows it only when there's something in it, never "0 / 0".
+  if (onlySignedIn && !state.tickets.length && !open.length) return null;
   const days = next
     ? Math.round((Date.parse(`${next}T00:00:00Z`) - Date.parse(`${today}T00:00:00Z`)) / 86_400_000)
     : null;

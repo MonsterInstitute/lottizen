@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useId, useState, type FormEvent } from "react";
 import { PREF_PROVINCES, type PrefCountry } from "@/lib/subscribe";
 
 interface SubscribeFormProps {
@@ -11,9 +11,12 @@ interface SubscribeFormProps {
   title?: string;
   description?: string;
   buttonLabel?: string;
+  /** Email field and button on one line, no province choice (homepage banner). */
+  compact?: boolean;
 }
 
-export function SubscribeForm({ defaultCountry, title, description, buttonLabel = "Subscribe" }: SubscribeFormProps) {
+export function SubscribeForm({ defaultCountry, title, description, buttonLabel = "Subscribe", compact = false }: SubscribeFormProps) {
+  const uid = useId();
   const [email, setEmail] = useState("");
   const [province, setProvince] = useState("");
   const [state, setState] = useState<"idle" | "submitting" | "sent" | "already" | "error">("idle");
@@ -58,27 +61,28 @@ export function SubscribeForm({ defaultCountry, title, description, buttonLabel 
   }
 
   return (
-    <form onSubmit={onSubmit} className="inline-form">
+    <form onSubmit={onSubmit} className={compact ? "inline-form inline-form-compact" : "inline-form"}>
       <div className="field">
-        {title ? <label htmlFor="subscribe-email">{title}</label> : null}
+        {title ? <label htmlFor={`${uid}-email`}>{title}</label> : null}
         <input
-          id="subscribe-email"
+          id={`${uid}-email`}
           type="email"
           required
           placeholder="you@example.com"
+          aria-label={title ? undefined : "Email address"}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           disabled={state === "submitting"}
         />
         {description ? <span className="field-hint">{description}</span> : null}
       </div>
-      {defaultCountry === undefined || defaultCountry === "CA" ? (
+      {!compact && (defaultCountry === undefined || defaultCountry === "CA") ? (
         <div className="field">
-          <label htmlFor="subscribe-province" className="field-hint">
+          <label htmlFor={`${uid}-province`} className="field-hint">
             Province (optional): adds this week&rsquo;s scratch pick for it to the weekly email
           </label>
           <select
-            id="subscribe-province"
+            id={`${uid}-province`}
             value={province}
             onChange={(e) => setProvince(e.target.value)}
             disabled={state === "submitting"}

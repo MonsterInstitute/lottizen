@@ -2,6 +2,8 @@ import Link from "next/link";
 import { BAND_LABEL, PICK_NOTE, type PickGame, type ProvincePicks } from "@/lib/picks";
 import { drawDate, money } from "@/lib/format";
 import { isAnnuityLabel } from "@/components/home/text";
+import { scratchTopPrize } from "@/components/home/ScratchRegionCard";
+import type { Game } from "@/lib/types";
 
 function topPrize(g: PickGame): string {
   if (g.top_label && isAnnuityLabel(g.top_label)) return g.top_label.replace(/\s+/g, " ");
@@ -39,7 +41,8 @@ const href = (g: PickGame) => `/scratch/${g.province}/${g.slug}`; // g.province 
 /** Every card below renders only when it has something to show — no empty
  *  boxes explaining why (data limits live on /methodology). `full` is the
  *  /picks version: every band, the whole skip list, all new tickets. */
-export function PickCard({ p, full = false }: { p: ProvincePicks; full?: boolean }) {
+export function PickCard({ p, full = false, top = [] }: { p: ProvincePicks; full?: boolean; top?: Game[] }) {
+  if (!full) return <ScratchCard p={p} top={top} />;
   const pick = p.picks.overall ?? null;
   if (!pick) return null;
   const bands = (["1-5", "10", "20+"] as const).filter((b) => p.picks[b]);
@@ -63,13 +66,13 @@ export function PickCard({ p, full = false }: { p: ProvincePicks; full?: boolean
                 <Link href={href(g)}>
                   {g.name} <span className="home-price">{money(g.price)}</span>
                 </Link>
-                {full && <span className="field-hint"> · {pickReason(g)}</span>}
+                <span className="field-hint"> · {pickReason(g)}</span>
               </li>
             );
           })}
         </ul>
       )}
-      {full && p.month && p.month.top.length > 0 && (
+      {p.month && p.month.top.length > 0 && (
         <>
           <h4 className="home-sub">This month</h4>
           <p className="field-hint" style={{ margin: "0 0 6px" }}>
@@ -85,27 +88,65 @@ export function PickCard({ p, full = false }: { p: ProvincePicks; full?: boolean
           </ol>
         </>
       )}
-      {!full && p.month && p.month.top.length > 0 && (
-        <p className="field-hint" style={{ marginTop: 10 }}>
-          Steadiest over the last {p.month.days} days:{" "}
-          {p.month.top.slice(0, 3).map((g, i) => (
-            <span key={g.game_number}>
-              {i > 0 ? ", " : ""}
-              <Link href={href(g)}>{g.name}</Link> ({money(g.price)})
-            </span>
-          ))}
-          .
-        </p>
+      <Replacements p={p} />
+    </div>
+  );
+}
+
+function Replacements({ p }: { p: ProvincePicks }) {
+  if (!p.replacements.length) return null;
+  return (
+    <p className="field-hint">
+      {p.replacements.map((r) => (
+        <span key={`${r.band}-${r.on}`}>
+          Changed {drawDate(r.on)}: {r.old.name} was replaced ({r.reason}).{" "}
+        </span>
+      ))}
+    </p>
+  );
+}
+
+/** The homepage's one scratch card: this week's pick, then the rest of the
+ *  region's top five by prize money left (scratchTop), the full rankings and
+ *  the price comparison. Ranks describe prize money left, never odds. */
+function ScratchCard({ p, top }: { p: ProvincePicks; top: Game[] }) {
+  const pick = p.picks.overall ?? null;
+  const rest = top.filter((g) => g.slug !== pick?.slug).slice(0, pick ? 4 : 5);
+  if (!pick && !rest.length) return null;
+  return (
+    <div className="card home-pick">
+      <div className="section-eyebrow">Scratch tickets · {p.label}</div>
+      {pick && (
+        <>
+          <h3 className="home-pick-title">
+            <span className="home-pick-kicker">This week&rsquo;s pick</span>
+            <Link href={href(pick)}>{pick.name}</Link> <span className="home-price">{money(pick.price)}</span>
+          </h3>
+          <p className="home-pick-reason">
+            {whyFirst(p)} {pickReason(pick)}
+          </p>
+          <p className="home-pick-note">{PICK_NOTE}</p>
+        </>
       )}
-      {p.replacements.length > 0 && (
-        <p className="field-hint">
-          {p.replacements.map((r) => (
-            <span key={`${r.band}-${r.on}`}>
-              Changed {drawDate(r.on)}: {r.old.name} was replaced ({r.reason}).{" "}
-            </span>
+      {rest.length > 0 && (
+        <ol className="home-top-list" start={pick ? 2 : 1}>
+          {rest.map((g) => (
+            <li key={g.slug}>
+              <Link href={`/scratch/${p.scratchSlug}/${g.slug}`}>{g.name}</Link>{" "}
+              <span className="home-price">{money(g.price)}</span>
+              <span className="home-top-v">
+                {g.topPrizesTotal > 0 ? `${g.topPrizesRemaining} of ${g.topPrizesTotal}` : g.topPrizesRemaining} ×{" "}
+                {scratchTopPrize(g)}
+              </span>
+            </li>
           ))}
-        </p>
+        </ol>
       )}
+      <Replacements p={p} />
+      <div className="home-card-foot">
+        <Link href={`/scratch/${p.scratchSlug}`}>Full rankings →</Link>
+        <Link href={`/scratch/${p.scratchSlug}/prices`}>Compare by price →</Link>
+      </div>
     </div>
   );
 }
@@ -135,9 +176,6 @@ export function SkipCard({ p, full = false }: { p: ProvincePicks; full?: boolean
           <Link href={`/picks#${p.province}`}>See all {p.skip.length} →</Link>
         </p>
       )}
-      <p className="field-hint" style={{ marginTop: 8 }}>
-        <Link href={`/scratch/${p.scratchSlug}/prices`}>$20 ticket, four $5 tickets or Lotto Max? Compare by price →</Link>
-      </p>
     </div>
   );
 }
@@ -173,8 +211,8 @@ export function NewTicketsCard({ p, full = false }: { p: ProvincePicks; full?: b
   );
 }
 
-export function hasWeek(p: ProvincePicks): boolean {
-  return !!p.picks.overall || p.skip.length > 0;
+export function hasWeek(p: ProvincePicks, top: Game[] = []): boolean {
+  return !!p.picks.overall || p.skip.length > 0 || top.length > 0;
 }
 
 export function hasNew(p: ProvincePicks): boolean {

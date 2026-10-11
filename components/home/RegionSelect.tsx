@@ -18,7 +18,7 @@ function provinceFor(region: string): string | null {
 }
 const RESULTS_PAGE = (r: string) => (r === "usa" ? "/usa" : r === "europe" ? "/europe" : "/canada");
 
-/** Region chooser (hero, nav, /picks). Every instance does the same thing:
+/** Region chooser (nav, /picks). Every instance does the same thing:
  *  applies the choice at once to <html data-home-region / data-home-country>,
  *  which the whole page's CSS keys on, remembers it (localStorage + the
  *  lottizen_region cookie, both read by RegionScript), and tells the other

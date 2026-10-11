@@ -71,9 +71,6 @@ export function Footer() {
               <li>
                 <Link href="/news/did-anyone-win-lotto-max">Did anyone win?</Link>
               </li>
-              <li>
-                <Link href="/dashboard#tickets">My tickets</Link>
-              </li>
             </ul>
           </div>
           <div className="footer-col">
