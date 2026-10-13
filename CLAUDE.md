@@ -44,6 +44,20 @@ say so explicitly rather than approximating.
 Marketing examples must use real, current, verifiable data from the live
 dataset. If the story you want to tell isn't true today, tell a different one.
 
+### The newest official source wins
+
+When an agency's own news release or announcement is newer than its list
+and more specific (where a ticket was bought, a prize's status), the newer
+official source is what the site states, cited with its title, date and
+link; the older list's wording may stay beside it to explain the
+difference. The site sells reliable data: it must never be contradicted by
+its own stale copy of an older source. Every list or source shows the date
+of the version actually read (the version's "updated" date first, not an
+older date inside it), and a list older than the agency's stated update
+cycle is flagged in the run log. For unclaimed prizes this is automated:
+`scripts/unclaimed.py` reads OLG's news feed (`outreach_common.NOTICE_SOURCES`)
+and stores matching releases on `unclaimed_prizes.notice_*`.
+
 ## Email
 
 Every bulk email must carry RFC 8058 one-click unsubscribe headers

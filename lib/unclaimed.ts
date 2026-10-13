@@ -7,6 +7,11 @@
  * shown next to it, because a prize can be claimed after the list was last
  * updated; a prize that drops off a list is "no longer listed", never
  * "claimed" — the agencies don't say why a prize leaves their list.
+ *
+ * Newer official source wins: when the agency's own news release about a
+ * listed prize is newer than the list and more specific (where it was
+ * bought), `notice` carries it and the pages show its location, with its
+ * title, date and link, and keep the list's wording beside it.
  */
 import data from "@/data/unclaimed/canada.json";
 
@@ -23,6 +28,8 @@ export interface UnclaimedPrize {
    *  is unclaimed ("7/7, 1 of 3 shares") — the amount is that share. */
   detail?: string | null;
   firstSeen: string;
+  /** The agency's newer news release about this prize, when there is one. */
+  notice?: { location: string; date: string; title: string; url: string } | null;
   removedOn?: string;
   removedBeforeDeadline?: boolean;
 }
@@ -35,6 +42,11 @@ export interface UnclaimedData {
   notCovered: { agency: string; name: string; reason: string }[];
   prizes: UnclaimedPrize[];
   noLongerListed: UnclaimedPrize[];
+}
+
+/** Where the ticket was sold, by the newest official source. */
+export function whereSold(p: UnclaimedPrize): string | null {
+  return p.notice?.location ?? p.location;
 }
 
 export function getUnclaimed(): UnclaimedData {

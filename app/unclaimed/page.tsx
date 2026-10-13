@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getUnclaimed, type UnclaimedPrize } from "@/lib/unclaimed";
+import { getUnclaimed, whereSold, type UnclaimedPrize } from "@/lib/unclaimed";
 import { daysBetween, drawDate, longDate, money } from "@/lib/format";
 import { SITE, absUrl } from "@/lib/site";
 import { JsonLd } from "@/components/site/JsonLd";
@@ -44,6 +44,20 @@ function agencyLabel(p: UnclaimedPrize) {
   return p.agency === "QUEBEC" ? "Loto-Québec" : p.agency;
 }
 
+/** The newer release's location leads; the list's wording stays beside it. */
+function Where({ p }: { p: UnclaimedPrize }) {
+  if (!p.notice) return <>{p.location ?? "—"}</>;
+  return (
+    <>
+      {p.notice.location}
+      <div className="field-hint">
+        per <a href={p.notice.url} rel="noopener noreferrer">{agencyLabel(p)}&rsquo;s {longDate(p.notice.date)} release</a>
+        {p.location ? <>; its list says {p.location}</> : null}
+      </div>
+    </>
+  );
+}
+
 export default function UnclaimedPage() {
   const { d, total, millionPlus, soonest, largest } = summary();
   const asOf = longDate(d.asOfDate);
@@ -82,8 +96,10 @@ export default function UnclaimedPage() {
           </h1>
           <p className="section-lede">
             Every prize of {money(d.minAmount)} or more that a Canadian lottery agency lists as won but not yet
-            claimed, sorted by claim deadline. Copied from each agency&rsquo;s official list every morning; the
+            claimed, sorted by claim deadline. Read from each agency&rsquo;s official list every morning; the
             date of each list is shown below, because a prize can be claimed after the list was last updated.
+            Where the agency has since said more in a news release (where a ticket was bought), the newer
+            release is used and cited with its date.
           </p>
         </div>
       </div>
@@ -102,7 +118,14 @@ export default function UnclaimedPage() {
             {soonest && (
               <li>
                 The next to expire is a <strong>{exact(soonest.amount)}</strong> {soonest.game} prize{soonest.detail ? ` (${soonest.detail})` : ""} from the{" "}
-                {longDate(soonest.drawDate)} draw, sold in {soonest.location} ({agencyLabel(soonest)}). Its claim
+                {longDate(soonest.drawDate)} draw, sold in {whereSold(soonest)} ({agencyLabel(soonest)}
+                {soonest.notice ? (
+                  <>
+                    , per its <a href={soonest.notice.url} rel="noopener noreferrer">{longDate(soonest.notice.date)} news release</a>
+                    {soonest.location ? <>; its unclaimed list files it under {soonest.location}</> : null}
+                  </>
+                ) : null}
+                ). Its claim
                 deadline is <strong>{longDate(soonest.expires)}</strong>,{" "}
                 {daysBetween(d.asOfDate, soonest.expires)} days after {asOf}.
               </li>
@@ -118,7 +141,7 @@ export default function UnclaimedPage() {
               Sources: {covered.map((a, i) => (
                 <span key={a.agency}>
                   {i > 0 ? "; " : ""}
-                  <a href={a.url} rel="noopener noreferrer">{a.name}</a>, list dated {a.listAsOf ?? "(no date given)"}
+                  <a href={a.url} rel="noopener noreferrer">{a.name}</a>, list updated {a.listAsOf ?? "(no date given)"}
                 </span>
               ))}.
             </li>
@@ -153,7 +176,9 @@ export default function UnclaimedPage() {
                       {p.detail ? <div className="field-hint">{p.detail}</div> : null}
                     </td>
                     <td>{drawDate(p.drawDate)}</td>
-                    <td>{p.location ?? "—"}</td>
+                    <td>
+                      <Where p={p} />
+                    </td>
                     <td>
                       <a href={p.sourceUrl} rel="noopener noreferrer">
                         {agencyLabel(p)}
@@ -198,7 +223,7 @@ export default function UnclaimedPage() {
                         <td>{p.game}</td>
                         <td>{drawDate(p.drawDate)}</td>
                         <td>
-                          {p.location ?? "—"} ({agencyLabel(p)})
+                          {whereSold(p) ?? "—"} ({agencyLabel(p)})
                         </td>
                         <td>
                           {drawDate(p.expires)}
@@ -219,7 +244,7 @@ export default function UnclaimedPage() {
                 <strong>{a.name}</strong>:{" "}
                 {a.ok ? (
                   <>
-                    included, from its <a href={a.url} rel="noopener noreferrer">official list</a> (dated{" "}
+                    included, from its <a href={a.url} rel="noopener noreferrer">official list</a> (updated{" "}
                     {a.listAsOf ?? "no date given"}).
                   </>
                 ) : (

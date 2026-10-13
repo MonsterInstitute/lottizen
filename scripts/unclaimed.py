@@ -17,6 +17,16 @@ isn't any more gets removed_on = today — but only when that agency's list
 was read successfully today, so a broken scrape can't make every prize look
 removed. The page says a prize is "no longer listed"; it never says it was
 claimed, because the agency doesn't say why a prize leaves its list.
+
+Newer official source wins (CLAUDE.md): when an agency's own news release
+about a listed prize is newer than the list version read and says something
+more specific (where it was bought), the page shows the release's wording
+with its title, date and link, and keeps the list's wording beside it. The
+releases are read from each agency's feed (outreach_common.NOTICE_SOURCES)
+and stored on the prize row (notice_*), so they outlive the feed.
+
+Each list's own "updated" date is checked against how often the agency says
+it updates; a list older than that is flagged in the run log.
 """
 from __future__ import annotations
 
@@ -47,7 +57,7 @@ def scrape_lotoquebec_unclaimed() -> list[dict]:
     of Québec, not a store."""
     import html as htmllib
     import re
-    page = oc.http_get(LQ_UNCLAIMED_URL, browser=True)
+    page = oc.http_get(LQ_UNCLAIMED_URL, browser=True, headers=oc.NO_CACHE)
     text = re.sub(r"\s+", " ", htmllib.unescape(re.sub(r"<[^>]+>", " ", page)).replace("\xa0", " "))
     m = re.search(r"Unclaimed prizes of \$100,000 or more.*?Updated ([A-Za-z]+ \d{1,2}, \d{4})", text)
     as_of = m.group(1) if m else "date not stated"
@@ -83,6 +93,10 @@ NOT_COVERED: dict[str, str] = {
     "ALC": "Atlantic Lottery doesn't publish a list of unclaimed prizes.",
 }
 
+# Days after a list's own "updated" date before the run flags it as stale.
+# OLG: "This page is updated approximately every eight weeks."
+MAX_LIST_AGE = {"OLG": 70, "WCLC": 45, "QUEBEC": 45}
+
 AGENCY_NAMES = {"OLG": "OLG (Ontario)", "WCLC": "Western Canada Lottery Corporation (Alberta, Saskatchewan, Manitoba)",
                 "BCLC": "BCLC (British Columbia)", "ALC": "Atlantic Lottery", "QUEBEC": "Loto-Québec"}
 
@@ -106,7 +120,13 @@ def read_lists() -> tuple[list[dict], dict[str, dict]]:
             status[agency] = {"ok": False, "count": 0, "url": url, "error": "list parsed to zero rows"}
             print(f"::warning::unclaimed: {agency} list parsed to zero rows", file=sys.stderr)
             continue
-        status[agency] = {"ok": True, "count": len(rows), "url": url, "list_as_of": rows[0].get("list_as_of")}
+        as_of = rows[0].get("list_as_of")
+        status[agency] = {"ok": True, "count": len(rows), "url": url, "list_as_of": as_of}
+        updated = oc.list_updated(as_of)
+        age = (datetime.now(TZ).date() - updated).days if updated else None
+        if age is None or age > MAX_LIST_AGE.get(agency, 45):
+            print(f"::warning::unclaimed: {agency} list is dated {as_of!r} ({age} days old) — check {url} "
+                  f"for a newer version", file=sys.stderr)
         prizes += rows
     return prizes, status
 
@@ -133,9 +153,29 @@ def sync_table(prizes: list[dict], status: dict[str, dict], today: date) -> None
         print(f"  removed from {r['agency']} list today: {k}")
 
 
+def sync_notices(today: date) -> None:
+    """Store each agency notice that applies to a listed prize (the rule in
+    the module docstring). Never cleared here: a release stays true after
+    it scrolls out of the agency's feed."""
+    notices = oc.prize_notices()
+    if not notices:
+        return
+    client = db.get_client()
+    for r in db.fetch_all("unclaimed_prizes", "id,agency,game,draw_date,amount,location,list_as_of,removed_on,"
+                                              "notice_location,notice_date"):
+        n = next((n for n in notices if oc.notice_applies(n, r)), None)
+        if not n or (r["notice_location"] == n["location"] and r["notice_date"] == n["date"]):
+            continue
+        client.table("unclaimed_prizes").update({"notice_location": n["location"], "notice_date": n["date"],
+                                                 "notice_title": n["title"], "notice_url": n["url"]}).eq("id", r["id"]).execute()
+        print(f"  notice applied: {r['agency']} {r['game']} {r['draw_date']} — list says {r['location']!r}, "
+              f"{n['date']} release says {n['location']!r}")
+
+
 def build_json(status: dict[str, dict], today: date) -> dict:
     rows = db.fetch_all("unclaimed_prizes", "id,agency,game,draw_date,amount,location,expires,source_url,"
-                                            "list_as_of,detail,first_seen,last_seen,removed_on")
+                                            "list_as_of,detail,first_seen,last_seen,removed_on,"
+                                            "notice_location,notice_date,notice_title,notice_url")
     t = today.isoformat()
     live = sorted((r for r in rows if not r["removed_on"] and r["expires"] >= t and float(r["amount"]) >= PAGE_MIN),
                   key=lambda r: (r["expires"], -float(r["amount"])))
@@ -147,6 +187,9 @@ def build_json(status: dict[str, dict], today: date) -> dict:
         return {"agency": r["agency"], "game": r["game"], "drawDate": r["draw_date"], "amount": float(r["amount"]),
                 "location": r["location"], "expires": r["expires"], "sourceUrl": r["source_url"],
                 "listAsOf": r["list_as_of"], "detail": r["detail"], "firstSeen": r["first_seen"],
+                # The newer official source: shown instead of the list's location, with the list's beside it.
+                "notice": ({"location": r["notice_location"], "date": r["notice_date"], "title": r["notice_title"],
+                            "url": r["notice_url"]} if r.get("notice_location") else None),
                 **({"removedOn": r["removed_on"], "removedBeforeDeadline": r["removed_on"] < r["expires"]}
                    if r["removed_on"] else {})}
 
@@ -181,6 +224,7 @@ def main() -> int:
         print("✗ no agency list could be read — leaving the table and the published file untouched")
         return 1
     sync_table(prizes, status, today)
+    sync_notices(today)
     data = build_json(status, today)
     OUT.parent.mkdir(parents=True, exist_ok=True)
     OUT.write_text(json.dumps(data, indent=1))

@@ -165,7 +165,10 @@ def unclaimed_package(e: dict) -> tuple[str, str, str]:
 
     why = [
         f"{e['agency']}'s unclaimed list shows a <b>{amount} {html.escape(e['game'])}</b> prize from the "
-        f"{drawn:%B %-d, %Y} draw, sold in the area {e['agency']} lists as <b>{html.escape(e['location'])}</b>.",
+        f"{drawn:%B %-d, %Y} draw, sold in <b>{html.escape(e['location'])}</b>"
+        + (f" according to {e['agency']}'s <a href='{e['notice']['url']}'>{e['notice']['date']} news release</a> "
+           f"(its list says {html.escape(e['list_location'])})" if e.get("notice") else f" (the area {e['agency']} lists)")
+        + ".",
         f"Draw-game prizes must be claimed within one year of the draw, so the window closes around "
         f"<b>{expires:%B %-d, %Y}</b>: <b>{e['days_left']} days</b> from today.",
         f"List date: {html.escape(e['list_as_of'])}. The ticket may have been claimed since; {e['agency']} is the "
@@ -197,7 +200,7 @@ def unclaimed_package(e: dict) -> tuple[str, str, str]:
     pitch = (
         f"Hi [first name],\n\n"
         f"{e['agency']}'s unclaimed-prize list still shows the {amount} {e['game']} prize from the {drawn:%B %-d, %Y} "
-        f"draw, sold in the area {e['agency']} calls {e['location']}. Draw prizes have to be claimed within a year, so "
+        f"draw, sold in {e['location']}. Draw prizes have to be claimed within a year, so "
         f"the window closes around {expires:%B %-d}, {e['days_left']} days from now. (The list is dated "
         f"{e['list_as_of']}; {e['agency']} can confirm it's still unclaimed.)\n\n"
         f"If you cover it, a few figures you're welcome to use:\n"

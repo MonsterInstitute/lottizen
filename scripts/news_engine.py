@@ -729,7 +729,8 @@ def unclaimed_deadlines(today: date) -> list[Item]:
     """$1M+ listed prizes, one story each, written at 60, 30 and 7 days left
     and updated again if the prize leaves its list."""
     rows = db.fetch_all("unclaimed_prizes", "id,prize_key,agency,game,draw_date,amount,location,expires,source_url,"
-                                           "list_as_of,detail,removed_on")
+                                           "list_as_of,detail,removed_on,notice_location,notice_date,"
+                                           "notice_title,notice_url")
     items = []
     t = today.isoformat()
     for r in rows:
@@ -748,7 +749,14 @@ def unclaimed_deadlines(today: date) -> list[Item]:
         slug = slugify(f"unclaimed {r['game']} {r['draw_date']} {int(amount)} {r['agency']}")
         it = Item(f"unclaimed:{r['prize_key']}", slug, "unclaimed_deadline", "unclaimed", r["game"], t, f)
         prize = f"{f.money(amount)} {f.raw(r['game'])}"
-        where = f.raw(r["location"]) if r["location"] else "an undisclosed location"
+        # Newer official source wins: the agency's own release names the place
+        # more precisely than its list (scripts/unclaimed.py, sync_notices).
+        loc = r.get("notice_location") or r["location"]
+        where = f.raw(loc) if loc else "an undisclosed location"
+        notice = (f"{name}'s {f.date(r['notice_date'])} news release says the ticket was bought in "
+                  f"{f.raw(r['notice_location'])}" + (f"; its unclaimed-prize list files it under "
+                                                       f"{f.raw(r['location'])}" if r["location"] else "") + "."
+                  ) if r.get("notice_location") else None
         if r["removed_on"]:
             it.headline = f"{prize} prize from {f.date(r['draw_date'])} no longer on {name}'s unclaimed list"
             it.dek = (f"It was listed as unclaimed until {f.date(r['removed_on'])}; its claim deadline "
@@ -758,13 +766,15 @@ def unclaimed_deadlines(today: date) -> list[Item]:
         else:
             it.headline = f"{prize} prize expires in {f.n(days)} day{'s' if days != 1 else ''}"
             it.dek = (f"The prize from the {f.date(r['draw_date'])} draw, sold in {where}, must be claimed by "
-                      f"{f.date(r['expires'])}, according to {name}'s unclaimed-prize list.")
-            status = (f"{name}'s list is dated {f.raw(r['list_as_of'] or 'without a date')}; a prize can be claimed "
+                      f"{f.date(r['expires'])}, according to {name}"
+                      + (f"'s {f.date(r['notice_date'])} news release." if notice else "'s unclaimed-prize list."))
+            status = (f"{name}'s list was last updated {f.raw(r['list_as_of'] or 'without a date')}; a prize can be claimed "
                       f"after a list is updated.")
         it.body = [
             f"{name} lists a {prize} prize from the {f.date(r['draw_date'])} draw as unclaimed"
-            + (f" ({f.raw(r['detail'])})" if r["detail"] else "") + f", sold in {where}. "
+            + (f" ({f.raw(r['detail'])})" if r["detail"] else "") + ("." if notice else f", sold in {where}.") + " "
             f"Its claim deadline is {f.date(r['expires'])}.",
+            *([notice] if notice else []),
             status,
             "Anyone who bought a ticket for that draw there can check it at a retailer or with the agency before the "
             "deadline. Every claim is decided by the agency's own records.",
@@ -772,6 +782,9 @@ def unclaimed_deadlines(today: date) -> list[Item]:
         it.fact("Prize", f.money(amount), f"{name} unclaimed-prize list", r["source_url"])
         it.fact("Draw date", f.date(r["draw_date"]), f"{name} unclaimed-prize list", r["source_url"])
         it.fact("Claim deadline", f.date(r["expires"]), f"{name} claim period", r["source_url"])
+        if notice:
+            it.fact("Where the ticket was bought", r["notice_location"],
+                    f"{name} news release, {f.date(r['notice_date'])}", r["notice_url"])
         it.fact("All listed unclaimed prizes", "lottizen.com/unclaimed", "Lottizen", f"{SITE}/unclaimed")
         items.append(it)
     return items

@@ -254,10 +254,17 @@ def _cells(row_html: str) -> list[str]:
     return [strip_tags(c) for c in re.findall(r"<t[dh][^>]*>(.*?)</t[dh]>", row_html, flags=re.S)]
 
 
+# Lists are read fresh every day: no intermediary cache may serve yesterday's page.
+NO_CACHE = {"Cache-Control": "no-cache", "Pragma": "no-cache"}
+
+
 def scrape_olg_unclaimed() -> list[dict]:
-    page = http_get(OLG_UNCLAIMED_URL, browser=True)
+    page = http_get(OLG_UNCLAIMED_URL, browser=True, headers=NO_CACHE)
     m = re.search(r"Last Update:\s*([A-Za-z]+ \d{1,2}, \d{4})\.\s*Unclaimed tickets as of ([A-Za-z]+ \d{1,2}, \d{4})", strip_tags(page))
-    as_of = (f"{m.group(2)} (page updated {m.group(1)})" if m else "date not stated")
+    # The page date leads: it's the version being read. OLG's list inside it
+    # can be older ("Last Update: September 11, 2026. Unclaimed tickets as of
+    # July 17, 2026"), which is said too.
+    as_of = (f"{m.group(1)} (tickets unclaimed as of {m.group(2)})" if m else "date not stated")
     out = []
     for row in re.findall(r"<tr[^>]*>(.*?)</tr>", page, flags=re.S):
         c = _cells(row)
@@ -275,7 +282,7 @@ def scrape_olg_unclaimed() -> list[dict]:
 
 
 def scrape_wclc_unclaimed() -> list[dict]:
-    page = http_get(WCLC_UNCLAIMED_URL, browser=True)
+    page = http_get(WCLC_UNCLAIMED_URL, browser=True, headers=NO_CACHE)
     m = re.search(r"Last updated on ([A-Za-z]+ \d{1,2}, \d{4})", strip_tags(page))
     as_of = m.group(1) if m else "date not stated"
     out = []
@@ -293,6 +300,83 @@ def scrape_wclc_unclaimed() -> list[dict]:
                         "expires": _one_year_after(drawn).isoformat(), "list_as_of": as_of,
                         "source_url": WCLC_UNCLAIMED_URL})
     return out
+
+
+# ------------------------------------------------------------------ agency notices
+
+OLG_NEWS_FEED = "https://about.olg.ca/feed/"
+
+
+def _long_date(s: str) -> date | None:
+    try:
+        return datetime.strptime(re.sub(r"\s+", " ", s.strip()), "%B %d, %Y").date()
+    except ValueError:
+        return None
+
+
+def list_updated(list_as_of: str | None) -> date | None:
+    """The first date in a list's "as of" wording: the version that was read."""
+    m = re.search(r"[A-Z][a-z]+ \d{1,2}, \d{4}", list_as_of or "")
+    return _long_date(m.group(0)) if m else None
+
+
+def scrape_olg_notices() -> list[dict]:
+    """OLG's own news releases about a specific unclaimed prize ("CHECK YOUR
+    LOTTO MAX TICKETS: $40 MILLION PRIZE YET TO BE CLAIMED"). They can be
+    newer and more specific than the unclaimed list: the 2026-10-05 release
+    says the $40M prize of 2025-10-28 was bought in Grey County, which the
+    list files under "Rural Toronto West". Only what the release states
+    verbatim is kept: game, draw date, amount, where bought, release date."""
+    feed = http_get(OLG_NEWS_FEED, browser=True, headers=NO_CACHE)
+    out = []
+    for item in re.findall(r"<item>(.*?)</item>", feed, flags=re.S):
+        tag = lambda n: (re.search(fr"<{n}>(.*?)</{n}>", item, flags=re.S) or [None, ""])[1]  # noqa: E731
+        title = strip_tags(html.unescape(tag("title").replace("<![CDATA[", "").replace("]]>", "")))
+        if not re.search(r"(?i)\bun ?claimed|yet to be claimed", title):
+            continue
+        body = strip_tags(html.unescape(tag("content:encoded").replace("<![CDATA[", "").replace("]]>", "")))
+        d = re.search(r"from the (?:[A-Z][a-z]+day, )?([A-Z][a-z]+ \d{1,2}, \d{4}) ([A-Z][A-Z0-9/ ]+?) draw", body)
+        a = re.search(r"\$(\d[\d,]*(?:\.\d+)?)( million)?", body)
+        w = re.search(r"purchased (?:at an authori[sz]ed lottery retailer )?in ([A-Z][^.]{2,80}?)\.", body)
+        try:
+            pub = datetime.strptime(tag("pubDate").strip(), "%a, %d %b %Y %H:%M:%S %z").astimezone(TORONTO).date()
+        except ValueError:
+            continue
+        drawn = _long_date(d.group(1)) if d else None
+        if not (d and a and w and drawn):
+            continue
+        amount = float(a.group(1).replace(",", "")) * (1_000_000 if a.group(2) else 1)
+        out.append({"agency": "OLG", "game": d.group(2).strip().title(), "draw_date": drawn.isoformat(),
+                    "amount": amount, "location": re.sub(r",\s*Ontario$", "", w.group(1).strip()),
+                    "date": pub.isoformat(), "title": title, "url": strip_tags(tag("link"))})
+    return out
+
+
+NOTICE_SOURCES = {"OLG": scrape_olg_notices}
+
+
+def prize_notices() -> list[dict]:
+    """Every agency notice we can read today. A feed that fails contributes
+    nothing (notices already stored on unclaimed_prizes are kept)."""
+    out = []
+    for name, fn in NOTICE_SOURCES.items():
+        try:
+            out += fn()
+        except Exception as e:  # noqa: BLE001
+            print(f"::warning::unclaimed: {name} news feed could not be read: {type(e).__name__}: {e}", file=sys.stderr)
+    return out
+
+
+def notice_matches(n: dict, p: dict) -> bool:
+    return (n["agency"] == p["agency"] and n["draw_date"] == str(p["draw_date"])[:10]
+            and abs(n["amount"] - float(p["amount"])) < 1 and n["game"].lower() == str(p["game"]).lower())
+
+
+def notice_applies(n: dict, p: dict) -> bool:
+    """The rule: a notice wins when it's about this prize and is newer than
+    the list version that was read (or the list gives no date)."""
+    updated = list_updated(p.get("list_as_of"))
+    return notice_matches(n, p) and (updated is None or n["date"] >= updated.isoformat())
 
 
 _UNCLAIMED_CACHE: list[dict] | None = None
@@ -316,6 +400,21 @@ def unclaimed_prizes(sources=("OLG", "WCLC", "manual")) -> list[dict]:
                          "draw_date": m["draw_date"], "amount": float(m["amount"]), "expires": m["expires"],
                          "list_as_of": "added by hand from " + m.get("source_url", "a news report"),
                          "source_url": m.get("source_url", ""), "manual": True})
+        notices = prize_notices()
+        try:  # notices stored by unclaimed.py outlive the agency's feed
+            import db
+            notices += [{"agency": r["agency"], "game": r["game"], "draw_date": r["draw_date"],
+                         "amount": float(r["amount"]), "location": r["notice_location"], "date": r["notice_date"],
+                         "title": r["notice_title"], "url": r["notice_url"]}
+                        for r in db.fetch_all("unclaimed_prizes", "agency,game,draw_date,amount,notice_location,"
+                                                                  "notice_date,notice_title,notice_url")
+                        if r.get("notice_location")]
+        except Exception as e:  # noqa: BLE001
+            print(f"  [warn] unclaimed: stored notices unavailable: {type(e).__name__}: {e}")
+        for r in rows:
+            n = next((n for n in notices if notice_applies(n, r)), None)
+            if n:  # the newer official source wins; the list's wording is kept
+                r["list_location"], r["location"], r["notice"] = r["location"], n["location"], n
         _UNCLAIMED_CACHE = rows
     return [r for r in _UNCLAIMED_CACHE if (r.get("manual") and "manual" in sources) or r["agency"] in sources]
 
